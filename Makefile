@@ -9,7 +9,7 @@ BOOT_DIR       := $(ISO_DIR)/boot
 GRUB_DIR       := $(BOOT_DIR)/grub
 
 KERNEL_BIN     := $(ROOT_DIR)/kernel.bin
-ISO_FILE       := $(ROOT_DIR)/AurorOS.iso
+ISO_FILE       := $(ROOT_DIR)/Utopia.iso
 LINKER_SCRIPT  := $(SRC_DIR)/build/linker.ld
 GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
 
@@ -51,7 +51,7 @@ clean:
 	@rm -rf $(BIN_DIR) $(ISO_DIR) $(KERNEL_BIN) $(ISO_FILE)
 
 run: all
-	qemu-system-x86_64 -cdrom AurorOS.iso -serial stdio
+	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio
 
 run_dbg: all
 	@chmod +x scripts/run_debug_mode.sh
