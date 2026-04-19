@@ -51,7 +51,7 @@ clean:
 	@rm -rf $(BIN_DIR) $(ISO_DIR) $(KERNEL_BIN) $(ISO_FILE)
 
 run: all
-	qemu-system-x86_64 -cdrom AurorOS.iso
+	qemu-system-x86_64 -cdrom AurorOS.iso -serial stdio
 
 run_dbg: all
 	@chmod +x scripts/run_debug_mode.sh

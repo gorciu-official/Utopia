@@ -6,8 +6,30 @@
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 25
 
+#define COM1 0x3F8
+
 static uint16_t *video_memory = (uint16_t *)VIDEO_MEMORY;
 static uint16_t cursor_pos = 0;
+static bool serial_used = false;
+
+static int init_serial() {
+    outb(COM1 + 1, 0x00);
+    outb(COM1 + 3, 0x80);  
+    outb(COM1 + 0, 0x03);   
+    outb(COM1 + 1, 0x00); 
+    outb(COM1 + 3, 0x03);  
+    outb(COM1 + 2, 0xC7);  
+    outb(COM1 + 4, 0x0B);  
+    
+    outb(COM1 + 4, 0x1E); 
+    outb(COM1, 0xAE);
+    if (inb(COM1) != 0xAE) return 1; 
+    
+    outb(COM1 + 4, 0x0F);
+
+    serial_used = true;
+    return 0;
+}
 
 void vga_update_cursor() {
     uint16_t pos = cursor_pos;
@@ -32,6 +54,12 @@ void vga_scroll() {
 }
 
 void vga_printchar(char c, uint8_t color) {
+    if (!serial_used) init_serial();
+    if (serial_used) {
+        while ((inb(COM1 + 5) & 0x20) == 0);
+        outb(COM1, c);
+    }
+
     if (c == '\n') {
         cursor_pos += SCREEN_WIDTH - (cursor_pos % SCREEN_WIDTH);
     } else {

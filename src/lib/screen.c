@@ -5,7 +5,7 @@
 #define VGA_COLOR(fg, bg) (uint8_t)((bg << 4) | (fg))
 
 static int current_fg = 7;
-static int current_bg = 0; 
+static int current_bg = 0;
 
 static uint8_t ansi_to_vga(int code) {
     if (code >= 30 && code <= 37) return code - 30;
