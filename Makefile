@@ -10,8 +10,8 @@ GRUB_DIR       := $(BOOT_DIR)/grub
 
 KERNEL_BIN     := $(ROOT_DIR)/kernel.bin
 ISO_FILE       := $(ROOT_DIR)/AurorOS.iso
-LINKER_SCRIPT  := $(ARCH_DIR)/build/linker.ld
-GRUB_CONFIG    := $(ARCH_DIR)/build/grub.cfg
+LINKER_SCRIPT  := $(SRC_DIR)/build/linker.ld
+GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
 
 C_SOURCES      := $(shell find $(SRC_DIR) -type f -name '*.c' ! -name '*.excluded.c')
 ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm')

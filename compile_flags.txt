@@ -1,0 +1,13 @@
+-g 
+-Wall 
+-Wextra 
+-m64 
+-mno-sse 
+-mno-sse2 
+-mno-sse3 
+-mno-mmx 
+-ffreestanding 
+-nostartfiles 
+-Iinclude 
+-nostdlib 
+-fno-stack-protector

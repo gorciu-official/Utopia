@@ -1,5 +1,5 @@
 OUTPUT_FORMAT(elf64-x86-64)
-ENTRY(arch_x86_64_start)
+ENTRY(_start)
 SECTIONS
 {
     . = 0x100000;
@@ -7,4 +7,11 @@ SECTIONS
     .text : { *(.text) }
     .data : { *(.data) }
     .bss  : { *(.bss)  }
+    .stack :
+    {
+        . = ALIGN(16);
+        _kernel_stack_start = .;
+        . = . + 0x8000;
+        _kernel_stack_end = .;
+    }
 }
