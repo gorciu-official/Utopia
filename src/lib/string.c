@@ -11,3 +11,13 @@ char* strcpy(char* dest, const char* src) {
     while ((*dest++ = *src++) != '\0');
     return orig;
 }
+
+void str_reverse(char *str, int len) {
+    int i = 0, j = len - 1;
+    while (i < j) {
+        char tmp = str[i];
+        str[i] = str[j];
+        str[j] = tmp;
+        i++; j--;
+    }
+}

@@ -1,18 +1,11 @@
 #include <drivers/vga.h>
-
-typedef __builtin_va_list va_list;
-#define va_start(ap, last) __builtin_va_start(ap, last)
-#define va_arg(ap, type)   __builtin_va_arg(ap, type)
-#define va_end(ap)         __builtin_va_end(ap)
+#include <arguments.h>
+#include <numbers.h>
 
 #define VGA_COLOR(fg, bg) (uint8_t)((bg << 4) | (fg))
 
 static int current_fg = 7;
 static int current_bg = 0; 
-
-static int is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
 
 static uint8_t ansi_to_vga(int code) {
     if (code >= 30 && code <= 37) return code - 30;
@@ -30,8 +23,8 @@ static void parse_ansi(const char **str) {
 
     while (*s && *s != 'm') {
         int val = 0;
-        if (is_digit(*s)) {
-            while (is_digit(*s)) {
+        if (is_char_digit(*s)) {
+            while (is_char_digit(*s)) {
                 val = val * 10 + (*s - '0');
                 s++;
             }
@@ -66,31 +59,6 @@ static void print_string_internal(const char *str) {
             str++;
         }
     }
-}
-
-static void reverse(char *str, int len) {
-    int i = 0, j = len - 1;
-    while (i < j) {
-        char tmp = str[i];
-        str[i] = str[j];
-        str[j] = tmp;
-        i++; j--;
-    }
-}
-
-static int itoa(int value, char *str, int base) {
-    int i = 0, neg = 0;
-    if (value == 0) { str[i++] = '0'; str[i] = '\0'; return 1; }
-    if (value < 0 && base == 10) { neg = 1; value = -value; }
-    while (value) {
-        int r = value % base;
-        str[i++] = (r < 10) ? '0' + r : 'a' + (r - 10);
-        value /= base;
-    }
-    if (neg) str[i++] = '-';
-    str[i] = '\0';
-    reverse(str, i);
-    return i;
 }
 
 void printf(const char *fmt, ...) {
