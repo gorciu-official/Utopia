@@ -61,9 +61,7 @@ static void print_string_internal(const char *str) {
     }
 }
 
-void printf(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
+static void vprintf(const char *fmt, va_list args) {
     char buffer[64];
 
     while (*fmt) {
@@ -99,5 +97,30 @@ void printf(const char *fmt, ...) {
         }
         fmt++;
     }
+}
+
+void printf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
     va_end(args);
+}
+
+void printk(const char *module, const char *fmt, ...) {
+    const char *time_str = "0.000";
+
+    print_string_internal("\x1b[90m[");
+    print_string_internal(time_str);
+    print_string_internal("] \x1b[0m");
+
+    print_string_internal("\x1b[33m");
+    print_string_internal(module);
+    print_string_internal("\x1b[0m: ");
+
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+
+    vga_printchar('\n', current_fg);
 }
