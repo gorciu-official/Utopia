@@ -1,5 +1,6 @@
 #include <types.h>
 #include <drivers/screen.h>
+#include <drivers/cpu.h>
 
 void* memcpy(void* dest, const void* src, size_t n) {
     uint8_t* d = (uint8_t*)dest;
@@ -57,18 +58,11 @@ void boot_ap(uint8_t target_apic_id) {
     }
 }
 
-#define __cpuid(level, a, b, c, d) \
-    __asm__ volatile ("cpuid" \
-        : "=a" (a), "=b" (b), "=c" (c), "=d" (d) \
-        : "0" (level))
 
 void boot_all_aps(uint8_t total_cores) {
-    uint32_t bsp_apic_id;
-    uint32_t eax, ebx, ecx, edx;
-    __cpuid(1, eax, ebx, ecx, edx);
-    bsp_apic_id = ebx >> 24;
+    uint32_t bsp_apic_id = current_processor_id();
 
-    printk("CPU manager", "Starting all application processors (total: %d)", total_cores);
+    printk("CPU manager", "Starting all application processors (total: %d)", total_cores - 1);
 
     for (uint8_t id = 0; id < total_cores; id++) {
         if (id == bsp_apic_id) {

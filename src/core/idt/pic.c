@@ -1,3 +1,4 @@
+#include "drivers/cpu.h"
 #include <types.h>
 #include <drivers/internals/ports.h>
 #include <drivers/screen.h>
@@ -12,7 +13,7 @@ static inline void io_wait(void) {
 }
 
 void pic_remap(int offset1, int offset2) {
-    printk("PIC", "Remapping PIC (Programmable Interrupt Controller) interrupts");
+    printk("PIC", "Remapping PIC interrupts for CPU %d", current_processor_id());
 
     uint8_t a1 = 0;
     uint8_t a2 = 0;

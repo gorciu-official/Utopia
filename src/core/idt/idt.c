@@ -1,4 +1,5 @@
 #include <types.h>
+#include "drivers/cpu.h"
 #include "idt_structs.h"
 #include "pic.h"
 #include <drivers/screen.h>
@@ -22,7 +23,7 @@ void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
 }
 
 void idt_init() {
-    printk("IDT", "Initializing Interrupt Descriptor Table");
+    printk("IDT", "Initializing Interrupt Descriptor Table for CPU %d", current_processor_id());
 
     pic_remap(0x20, 0x28);
 
@@ -43,8 +44,8 @@ void idt_init() {
 
     idt_load((uint64_t)&idt_ptr);
     
-    printk("IDT", "Interrupt Descriptor Table initialized successfully.");
+    printk("IDT", "Interrupt Descriptor Table for CPU %d has been initialized.", current_processor_id());
 
     asm volatile("sti");
-    printk("IDT", "Interrupts enabled");
+    printk("IDT", "Interrupts enabled for CPU %d", current_processor_id());
 }
