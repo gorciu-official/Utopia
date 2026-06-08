@@ -6,63 +6,88 @@ global ap_start
 ap_start:
     cli
     
-    mov ax, cs
-    mov ds, ax
-    
-    lgdt [cs:gdt_ptr_off]
+    lgdt [cs:gdt32_ptr - ap_start]
     
     mov eax, cr0
     or al, 1
-    mov cr0, eax  
+    mov cr0, eax
     
-    jmp short pm_entry
-pm_entry:
+    db 0x66, 0xEA
+    dd (0x70000 + (pm_entry - ap_start))
+    dw 0x08
 
-    mov ax, 0x08   
-    mov fs, ax   
+bits 32
+pm_entry:
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    
+    mov esp, 0x70000
+    
+    mov eax, cr4
+    or eax, 1 << 5
+    mov cr4, eax
+    
+    mov eax, [0x70000 + (ap_cr3_ptr - ap_start)]
+    mov cr3, eax
+    
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, 1 << 8
+    wrmsr
     
     mov eax, cr0
-    and al, 0xFE
+    or eax, 1 << 31
     mov cr0, eax
+    
+    mov eax, [0x70000 + (ap_gdt_ptr - ap_start)]
+    lgdt [eax]
+    
+    push 0x08
+    push (0x70000 + (long_mode_entry - ap_start))
+    retf
 
-    db 0xEA
-    dw rm_entry_off
-    dw 0x7000
-
-rm_entry:
-    mov ax, cs
+bits 64
+long_mode_entry:
+    mov ax, 0
     mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
     
-    mov eax, 1
-    cpuid
-    shr ebx, 24 
+    mov rax, 0x70000 + (ap_stack_ptr_trampoline - ap_start)
+    mov rsp, [rax]
     
-    mov si, ap_alive_table_ptr_off
-    mov edi, dword [si]     
+    mov rax, 0x70000 + (ap_main_ptr - ap_start)
+    mov rax, [rax]
+    call rax
     
-    mov byte [fs:edi + ebx], 1
-
-halt_loop:
+.halt:
     hlt
-    jmp halt_loop
+    jmp .halt
 
 align 8
-gdt:
-    dq 0 
-    dq 0x00cf92000000ffff   
-gdt_off equ (gdt - ap_start)
+gdt32:
+    dq 0
+    dq 0x00cf9a000000ffff
+    dq 0x00cf92000000ffff
+gdt32_ptr:
+    dw $ - gdt32 - 1
+    dd 0x70000 + (gdt32 - ap_start)
 
-gdt_ptr:
-    dw $ - gdt - 1
-    dd 0x70000 + gdt_off 
-gdt_ptr_off equ (gdt_ptr - ap_start)
+global ap_cr3_ptr
+ap_cr3_ptr: dd 0
 
-global ap_alive_table_ptr
-ap_alive_table_ptr: 
-    dd 0  
-ap_alive_table_ptr_off equ (ap_alive_table_ptr - ap_start)
+global ap_gdt_ptr
+ap_gdt_ptr: dd 0
 
-rm_entry_off equ (rm_entry - ap_start)
+global ap_main_ptr
+ap_main_ptr: dq 0
+
+global ap_stack_ptr_trampoline
+ap_stack_ptr_trampoline: dq 0
 
 global ap_end
 ap_end:

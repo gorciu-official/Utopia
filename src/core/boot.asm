@@ -1,4 +1,3 @@
-default rel
 
 global _start
 extern kmain 
@@ -46,7 +45,7 @@ _start:
 	call setup_page_tables
 	call enable_paging
 
-	lgdt [gdt64.pointer]
+	lgdt [gdt64_pointer]
 	jmp gdt64.code_segment:_long_mode_entry
 
 	hlt
@@ -153,13 +152,14 @@ error:
 
 section .bss
 align 4096
+global page_table_l4
 page_table_l4:
     resb 4096
 page_table_l3:
     resb 4096
-page_table_l2: 
+page_table_l2:
     resb 4096
-page_table_l2_apic: 
+page_table_l2_apic:
     resb 4096
 stack_bottom:
     resb 4096 * 4
@@ -167,14 +167,18 @@ align 16
 stack_top:
 
 section .bss
+global multiboot_ptr
 multiboot_ptr:
     resq 1
 
 section .rodata
+global gdt64
 gdt64:
 	dq 0
 .code_segment: equ $ - gdt64
-	dq (1 << 43) | (1 << 44) | (1 << 47) | (1 << 53) 
+	dq (1 << 43) | (1 << 44) | (1 << 47) | (1 << 53)
+global gdt64_pointer
+gdt64_pointer:
 .pointer:
-	dw $ - gdt64 - 1 
-	dq gdt64 
+	dw $ - gdt64 - 1
+	dq gdt64

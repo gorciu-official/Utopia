@@ -19,9 +19,12 @@ void delay(uint64_t count) {
 
 extern uint8_t ap_start[];
 extern uint8_t ap_end[];
-extern uint32_t ap_alive_table_ptr;
 
 volatile uint8_t ap_alive_table[256] = {0}; 
+uint8_t ap_stacks[256][4096] __attribute__((aligned(16)));
+volatile uint64_t ap_stack_ptr = 0;
+
+extern void ap_main();
 
 void boot_ap(uint8_t target_apic_id) {
     uint8_t* trampoline_dest = (uint8_t*)0x70000;
@@ -29,9 +32,22 @@ void boot_ap(uint8_t target_apic_id) {
 
     memcpy(trampoline_dest, ap_start, trampoline_size);
 
-    uintptr_t patch_offset = (uintptr_t)&ap_alive_table_ptr - (uintptr_t)ap_start;
-    uint32_t* table_ptr_in_trampoline = (uint32_t*)(trampoline_dest + patch_offset);
-    *table_ptr_in_trampoline = (uint32_t)(uintptr_t)&ap_alive_table;
+    extern uint32_t ap_cr3_ptr;
+    extern uint32_t ap_gdt_ptr;
+    extern uint32_t ap_main_ptr;
+    extern uint32_t ap_stack_ptr_trampoline;
+    extern uint32_t page_table_l4;
+    extern void* gdt64_pointer;
+
+    uintptr_t cr3_off = (uintptr_t)&ap_cr3_ptr - (uintptr_t)ap_start;
+    uintptr_t gdt_off = (uintptr_t)&ap_gdt_ptr - (uintptr_t)ap_start;
+    uintptr_t main_off = (uintptr_t)&ap_main_ptr - (uintptr_t)ap_start;
+    uintptr_t stack_off = (uintptr_t)&ap_stack_ptr_trampoline - (uintptr_t)ap_start;
+
+    *(uint32_t*)(trampoline_dest + cr3_off) = (uint32_t)(uintptr_t)&page_table_l4;
+    *(uint32_t*)(trampoline_dest + gdt_off) = (uint32_t)(uintptr_t)&gdt64_pointer;
+    *(uint64_t*)(trampoline_dest + main_off) = (uint64_t)(uintptr_t)ap_main;
+    *(uint64_t*)(trampoline_dest + stack_off) = (uint64_t)(uintptr_t)&ap_stacks[target_apic_id][4096];
 
     ap_alive_table[target_apic_id] = 0;
 
