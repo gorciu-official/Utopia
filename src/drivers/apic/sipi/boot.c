@@ -64,6 +64,8 @@ void boot_all_aps(uint8_t total_cores) {
 
     printk("CPU manager", "Starting all application processors (total: %d)", total_cores - 1);
 
+    uint32_t failed_to_boot = 0;
+
     for (uint8_t id = 0; id < total_cores; id++) {
         if (id == bsp_apic_id) {
             continue;
@@ -76,8 +78,9 @@ void boot_all_aps(uint8_t total_cores) {
             printk("CPU manager", "CPU %d is up", id);
         } else {
             printk("CPU manager", "CPU %d failed to start/register!", id);
+            failed_to_boot++;
         }
     }
 
-    printk("CPU manager", "Finished - %d CPUs are up", total_cores);
+    printk("CPU manager", "Finished - %d CPUs are up", total_cores - failed_to_boot);
 }
