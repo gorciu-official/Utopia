@@ -1,5 +1,6 @@
 #include <types.h>
 #include <drivers/screen.h>
+#include <drivers/memory.h>
 
 #define ACPI_MADT_SIGNATURE 0x43495041 
 #define RSDP_SIGNATURE "RSD PTR "
@@ -56,10 +57,6 @@ typedef struct {
 static MADT* madt = NULL;
 static RSDP* rsdp = NULL;
 
-void* phys_to_virt(uint64_t phys) {
-    return (void*)phys; // very tuff
-}
-
 static int acpi_checksum(void* table, size_t length) {
     uint8_t sum = 0;
     uint8_t* bytes = (uint8_t*)table;
@@ -69,22 +66,12 @@ static int acpi_checksum(void* table, size_t length) {
 
     return sum == 0;
 }
-
-static int memcmp_simple(const void* a, const void* b, size_t n) {
-    const uint8_t* x = a;
-    const uint8_t* y = b;
-
-    for (size_t i = 0; i < n; i++)
-        if (x[i] != y[i]) return 1;
-
-    return 0;
-}
-
+ 
 static RSDP* scan_region(uintptr_t start, uintptr_t end) {
     for (uintptr_t addr = start; addr < end; addr += 16) {
         RSDP* rsdp = (RSDP*)phys_to_virt(addr);
 
-        if (!memcmp_simple(rsdp->signature, RSDP_SIGNATURE, 8)) {
+        if (!memcmp(rsdp->signature, RSDP_SIGNATURE, 8)) {
             if (!acpi_checksum(rsdp, 20))
                 continue;
 

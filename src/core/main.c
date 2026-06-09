@@ -34,7 +34,7 @@ void kmain() {
     acpi_init();
 
     int cpu_count = acpi_count_cpus();
-    if (cpu_count == 0) printk("Core", "Could not start application processors: ACPI returned invalid number of CPUs: %d", cpu_count);
+    if (cpu_count == 0) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
     else boot_all_aps(cpu_count);
 
     cpu_main();
