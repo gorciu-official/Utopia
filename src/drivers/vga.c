@@ -1,6 +1,8 @@
 #include <types.h>
 #include <string.h>
 #include <drivers/internals/ports.h>
+#include <spinlock.h>
+#include <drivers/cpu.h>
 
 #define VIDEO_MEMORY 0xB8000
 #define SCREEN_WIDTH 80
@@ -11,6 +13,16 @@
 static uint16_t *video_memory = (uint16_t *)VIDEO_MEMORY;
 static uint16_t cursor_pos = 0;
 static bool serial_used = false;
+
+static spinlock_t vga_spinlock = {0};
+
+void vga_lock() {
+    spinlock_acquire(&vga_spinlock);
+}
+
+void vga_unlock() {
+    spinlock_release(&vga_spinlock);
+}
 
 static int init_serial() {
     outb(COM1 + 1, 0x00);
@@ -53,7 +65,7 @@ void vga_scroll() {
     cursor_pos = (SCREEN_HEIGHT - 1) * SCREEN_WIDTH;
 }
 
-void vga_printchar(char c, uint8_t color) {
+void vga_printchar_nolock(char c, uint8_t color) {
     if (!serial_used) init_serial();
     if (serial_used) {
         while ((inb(COM1 + 5) & 0x20) == 0);
@@ -73,13 +85,22 @@ void vga_printchar(char c, uint8_t color) {
     vga_update_cursor();
 }
 
+void vga_printchar(char c, uint8_t color) {
+    vga_lock();
+    vga_printchar_nolock(c, color);
+    vga_unlock();
+}
+
 void vga_printstr(const char *str, uint8_t color) {
+    vga_lock();
     while (*str) {
-        vga_printchar(*str++, color);
+        vga_printchar_nolock(*str++, color);
     }
+    vga_unlock();
 }
 
 void vga_delchar() {
+    vga_lock();
     if (cursor_pos > 0) {
         cursor_pos--;
         video_memory[cursor_pos] = ' ' | (0x07 << 8);
@@ -87,22 +108,27 @@ void vga_delchar() {
     } else {
         video_memory[cursor_pos] = ' ' | (0x07 << 8);
     }
+    vga_unlock();
 }
 
 void vga_clearscreen() {
+    vga_lock();
     for (uint16_t i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i++) {
         video_memory[i] = ' ' | (0x07 << 8);
     }
     cursor_pos = 0;
     vga_update_cursor();
+    vga_unlock();
 }
 
 void vga_paintscreen(uint8_t color) {
+    vga_lock();
     for (uint16_t i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i++) {
         video_memory[i] = ' ' | (color << 8);
     }
     cursor_pos = 0;
     vga_update_cursor();
+    vga_unlock();
 }
 
 
@@ -111,6 +137,7 @@ void vga_clearline(uint16_t line) {
         return;
     }
 
+    vga_lock();
     for (uint16_t col = 0; col < SCREEN_WIDTH; col++) {
         video_memory[line * SCREEN_WIDTH + col] = ' ' | (0x07 << 8);
     }
@@ -119,6 +146,7 @@ void vga_clearline(uint16_t line) {
         cursor_pos = line * SCREEN_WIDTH;
         vga_update_cursor();
     }
+    vga_unlock();
 }
 
 void vga_paintline(uint16_t line, uint8_t color) {
@@ -126,6 +154,7 @@ void vga_paintline(uint16_t line, uint8_t color) {
         return;
     }
 
+    vga_lock();
     for (uint16_t col = 0; col < SCREEN_WIDTH; col++) {
         video_memory[line * SCREEN_WIDTH + col] = ' ' | (color << 8);
     }
@@ -134,6 +163,7 @@ void vga_paintline(uint16_t line, uint8_t color) {
         cursor_pos = line * SCREEN_WIDTH;
         vga_update_cursor();
     }
+    vga_unlock();
 }
 
 void vga_printct(const char *str, uint8_t color) {
@@ -142,6 +172,7 @@ void vga_printct(const char *str, uint8_t color) {
         length = SCREEN_WIDTH;
     }
 
+    vga_lock();
     int col = (SCREEN_WIDTH - length) / 2;
 
     uint16_t row = cursor_pos / SCREEN_WIDTH;
@@ -155,5 +186,6 @@ void vga_printct(const char *str, uint8_t color) {
     }
 
     vga_update_cursor();
+    vga_unlock();
 }
 

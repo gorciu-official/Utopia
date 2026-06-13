@@ -15,4 +15,6 @@ SECTIONS
         . = . + 0x8000;
         _kernel_stack_end = .;
     }
+
+    _end = .;
 }

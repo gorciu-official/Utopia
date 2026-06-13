@@ -14,3 +14,4 @@ static inline uint32_t current_processor_id(void) {
 }
 
 extern void boot_all_aps(uint8_t total_cores);
+void gdt_init();

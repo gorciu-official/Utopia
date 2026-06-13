@@ -55,7 +55,7 @@ static void print_string_internal(const char *str) {
         if (str[0] == '\x1b' && str[1] == '[') {
             parse_ansi(&str);
         } else {
-            vga_printchar(*str, VGA_COLOR(current_fg, current_bg));
+            vga_printchar_nolock(*str, VGA_COLOR(current_fg, current_bg));
             str++;
         }
     }
@@ -67,6 +67,12 @@ static void vprintf(const char *fmt, va_list args) {
     while (*fmt) {
         if (*fmt == '%') {
             fmt++;
+            bool is_long = false;
+            if (*fmt == 'l') {
+                is_long = true;
+                fmt++;
+            }
+
             switch (*fmt) {
                 case 's': {
                     char *s = va_arg(args, char*);
@@ -74,39 +80,56 @@ static void vprintf(const char *fmt, va_list args) {
                     break;
                 }
                 case 'd': {
-                    itoa(va_arg(args, int), buffer, 10);
+                    if (is_long) ltoa(va_arg(args, int64_t), buffer, 10);
+                    else ltoa(va_arg(args, int32_t), buffer, 10);
+                    print_string_internal(buffer);
+                    break;
+                }
+                case 'u': {
+                    if (is_long) ultoa(va_arg(args, uint64_t), buffer, 10);
+                    else ultoa(va_arg(args, uint32_t), buffer, 10);
                     print_string_internal(buffer);
                     break;
                 }
                 case 'x': {
-                    itoa(va_arg(args, int), buffer, 16);
+                    if (is_long) ultoa(va_arg(args, uint64_t), buffer, 16);
+                    else ultoa(va_arg(args, uint32_t), buffer, 16);
+                    print_string_internal(buffer);
+                    break;
+                }
+                case 'p': {
+                    print_string_internal("0x");
+                    ultoa(va_arg(args, uint64_t), buffer, 16);
                     print_string_internal(buffer);
                     break;
                 }
                 case 'c': {
-                    vga_printchar((char)va_arg(args, int), VGA_COLOR(current_fg, current_bg));
+                    vga_printchar_nolock((char)va_arg(args, int), VGA_COLOR(current_fg, current_bg));
                     break;
                 }
-                case '%': vga_printchar('%', VGA_COLOR(current_fg, current_bg)); break;
+                case '%': vga_printchar_nolock('%', VGA_COLOR(current_fg, current_bg)); break;
             }
         } else if (*fmt == '\x1b') {
             parse_ansi(&fmt);
             continue; 
         } else {
-            vga_printchar(*fmt, VGA_COLOR(current_fg, current_bg));
+            vga_printchar_nolock(*fmt, VGA_COLOR(current_fg, current_bg));
         }
         fmt++;
     }
 }
 
 void printf(const char *fmt, ...) {
+    vga_lock();
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
+    vga_unlock();
 }
 
 void printk(const char *module, const char *fmt, ...) {
+    vga_lock();
     const char *time_str = "0.000";
 
     print_string_internal("\x1b[90m[");
@@ -122,5 +145,6 @@ void printk(const char *module, const char *fmt, ...) {
     vprintf(fmt, args);
     va_end(args);
 
-    vga_printchar('\n', current_fg);
+    vga_printchar_nolock('\n', VGA_COLOR(current_fg, current_bg));
+    vga_unlock();
 }

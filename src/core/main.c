@@ -4,6 +4,9 @@
 #include <drivers/acpi.h>
 #include <drivers/cpu.h>
 #include <drivers/idt.h>
+#include <drivers/memory.h>
+
+#include <multiboot.h>
 
 #define UTOPIA_VERSION_MAJOR "1"
 #define UTOPIA_VERSION_MINOR "0"
@@ -24,10 +27,13 @@ void cpu_main() {
     while (true) continue;
 }
 
-void kmain() {
+void kmain(multiboot_info_t* mbd) {
     vga_clearscreen();
     printk("Core", "%s", UTOPIA_VERSION);
     
+    gdt_init();
+    memory_init(mbd);
+
     pic_remap(0x20, 0x28);
     idt_init();
     acpi_init();

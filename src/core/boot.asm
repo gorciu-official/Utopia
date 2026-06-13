@@ -24,9 +24,7 @@ _long_mode_entry:
     mov fs, ax
     mov gs, ax
 
-    ;mov rdi, [multiboot_ptr]
-    ;call multiboot_set
-
+    mov rdi, [multiboot_ptr]
     call kmain 
 
     hlt
@@ -37,7 +35,7 @@ bits 32
 _start:
     mov esp, stack_top
 
-    ;mov [multiboot_ptr], eax
+    mov [multiboot_ptr], ebx
 
 	call check_cpuid
 	call check_long_mode
