@@ -26,10 +26,12 @@ void cpu_main() {
     while (true) continue;
 }
 
-void kmain(multiboot_info_t* mbd) {
-    framebuffer_init(mbd);
+// void kmain(multiboot_info_t* mbd) {
+void kmain() {
+    // framebuffer_init(mbd);
     printk("Core", "%s", UTOPIA_VERSION);
     
+    /*
     // cpu init
     gdt_init();
     pic_remap(0x20, 0x28);
@@ -45,6 +47,11 @@ void kmain(multiboot_info_t* mbd) {
     else boot_all_aps(cpu_count);
 
     cpu_main();
+    */
+    
+    for (;;) {
+        asm ("hlt");
+    }
 }
 
 extern uint8_t ap_alive_table[256];

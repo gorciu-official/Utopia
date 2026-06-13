@@ -1,20 +1,54 @@
 OUTPUT_FORMAT(elf64-x86-64)
-ENTRY(_start)
+ENTRY(kmain)
+
+PHDRS
+{
+    limine_requests PT_LOAD;
+    text PT_LOAD;
+    rodata PT_LOAD;
+    data PT_LOAD;
+}
+
 SECTIONS
 {
-    . = 0x100000;
-    .multiboot : { *(.multiboot) }
-    .text : { *(.text) }
-    .data : { *(.data) }
-    .bss  : { *(.bss)  }
-    .trampoline  : { *(.trampoline)  }
-    .stack :
-    {
-        . = ALIGN(16);
-        _kernel_stack_start = .;
-        . = . + 0x8000;
-        _kernel_stack_end = .;
-    }
+    . = 0xffffffff80000000;
 
-    _end = .;
+    .limine_requests : {
+        KEEP(*(.limine_requests_start))
+        KEEP(*(.limine_requests))
+        KEEP(*(.limine_requests_end))
+    } :limine_requests
+
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    .text : {
+        *(.text .text.*)
+    } :text
+
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    .rodata : {
+        *(.rodata .rodata.*)
+    } :rodata
+
+    .note.gnu.build-id : {
+        *(.note.gnu.build-id)
+    } :rodata
+
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    .data : {
+        *(.data .data.*)
+    } :data
+
+    .bss : {
+        *(.bss .bss.*)
+        *(COMMON)
+    } :data
+
+    /DISCARD/ : {
+        *(.eh_frame*)
+        *(.note .note.*)
+    }
 }
+
