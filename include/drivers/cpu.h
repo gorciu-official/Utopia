@@ -12,3 +12,5 @@ static inline uint32_t current_processor_id(void) {
     __cpuid(1, eax, ebx, ecx, edx);
     return (ebx >> 24);
 }
+
+extern void boot_all_aps(uint8_t total_cores);

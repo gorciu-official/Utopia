@@ -1,7 +1,6 @@
 #include <types.h>
 #include "drivers/cpu.h"
 #include "idt_structs.h"
-#include "pic.h"
 #include <drivers/screen.h>
 
 static idt_entry_t idt_entries[256];
@@ -24,8 +23,6 @@ void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
 
 void idt_init() {
     printk("IDT", "Initializing Interrupt Descriptor Table for CPU %d", current_processor_id());
-
-    pic_remap(0x20, 0x28);
 
     idt_ptr.limit = (sizeof(idt_entry_t) * 256) - 1;
     idt_ptr.base = (uint64_t)&idt_entries;

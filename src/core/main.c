@@ -1,11 +1,9 @@
-#include "drivers/cpu.h"
 #include <types.h> 
 #include <drivers/vga.h>
 #include <drivers/screen.h>
 #include <drivers/acpi.h>
-
-extern void idt_init();
-extern void boot_all_aps(uint8_t total_cores);
+#include <drivers/cpu.h>
+#include <drivers/idt.h>
 
 #define UTOPIA_VERSION_MAJOR "1"
 #define UTOPIA_VERSION_MINOR "0"
@@ -29,7 +27,8 @@ void cpu_main() {
 void kmain() {
     vga_clearscreen();
     printk("Core", "%s", UTOPIA_VERSION);
-
+    
+    pic_remap(0x20, 0x28);
     idt_init();
     acpi_init();
 
