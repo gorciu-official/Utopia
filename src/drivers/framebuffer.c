@@ -3,6 +3,7 @@
 #include <drivers/internals/font-8x8.h>
 #include <drivers/internals/ports.h>
 #include <string.h>
+#include <limine.h>
 
 #define COM1 0x3F8
 
@@ -40,22 +41,16 @@ static int init_serial() {
     return 0;
 }
 
-void framebuffer_init(multiboot_info_t* mbd) {
-    if (!(mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER)) {
-        printk("FB", "Framebuffer not available in Multiboot info");
+void framebuffer_init(struct limine_framebuffer* framebuffer) {
+    if (framebuffer == NULL) {
         return;
     }
 
-    if (mbd->framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-        printk("FB", "Framebuffer is not RGB mode (type: %d)", mbd->framebuffer_type);
-        return;
-    }
-
-    fb_addr = (uint32_t*)(uintptr_t)mbd->framebuffer_addr;
-    fb_width = mbd->framebuffer_width;
-    fb_height = mbd->framebuffer_height;
-    fb_pitch = mbd->framebuffer_pitch;
-    fb_bpp = mbd->framebuffer_bpp;
+    fb_addr = (uint32_t*)framebuffer->address;
+    fb_width = framebuffer->width;
+    fb_height = framebuffer->height;
+    fb_pitch = framebuffer->pitch;
+    fb_bpp = framebuffer->bpp;
 }
 
 void framebuffer_putpixel(uint32_t x, uint32_t y, uint32_t color) {
