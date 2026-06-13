@@ -23,7 +23,6 @@
 #endif
 
 void cpu_main() {
-    // do something ...
     while (true) continue;
 }
 
@@ -32,10 +31,10 @@ void kmain(multiboot_info_t* mbd) {
     printk("Core", "%s", UTOPIA_VERSION);
     
     gdt_init();
-    memory_init(mbd);
-
     pic_remap(0x20, 0x28);
     idt_init();
+
+    memory_init(mbd);
     acpi_init();
 
     int cpu_count = acpi_count_cpus();

@@ -21,6 +21,18 @@ ASM_OBJECTS    := $(patsubst $(SRC_DIR)/%.asm,$(BIN_DIR)/%.o,$(ASM_SOURCES))
 
 OBJECTS        := $(C_OBJECTS) $(ASM_OBJECTS)
 
+SMP_ENABLED    ?= true
+USE_HOST_CPU   ?= true
+SMP_CORES      ?= 4
+
+QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m 1G
+ifeq ($(SMP_ENABLED),true)
+QEMU_FLAGS += -smp $(SMP_CORES)
+endif
+ifeq ($(USE_HOST_CPU),true)
+QEMU_FLAGS += -enable-kvm -cpu host
+endif
+
 all: build_kernel build_iso
 	@echo -e "\033[32mSuccess!\033[0m"
 
@@ -51,10 +63,10 @@ clean:
 	@rm -rf $(BIN_DIR) $(ISO_DIR) $(KERNEL_BIN) $(ISO_FILE)
 
 run: all
-	qemu-system-x86_64 -cdrom $(ISO_FILE) -smp 4 -serial stdio
+	qemu-system-x86_64 $(QEMU_FLAGS)
 
 run_dbg: all
-	@chmod +x scripts/run_debug_mode.sh
+	@chmod +x scripts/run_debug_mode.sh $(QEMU_FLAGS)
 	./scripts/run_debug_mode.sh 
 
 recompile: clean all
