@@ -1,7 +1,7 @@
 #pragma once
 
 #include <types.h>
-#include <multiboot.h>
+#include <limine.h>
 
 extern void framebuffer_init(struct limine_framebuffer* framebuffer);
 extern void framebuffer_putchar(char c, uint32_t fg, uint32_t bg);

@@ -5,8 +5,8 @@
 #include <drivers/cpu.h>
 #include <drivers/idt.h>
 #include <drivers/memory.h>
-#include <multiboot.h>
 #include <drivers/framebuffer.h>
+#include <limine.h>
 
 #define UTOPIA_VERSION_MAJOR "1"
 #define UTOPIA_VERSION_MINOR "0"
@@ -51,7 +51,7 @@ void kmain() {
         hcf();
     }
 
-    struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
+    struct limine_framebuffer* framebuffer = framebuffer_request.response->framebuffers[0];
 
     framebuffer_init(framebuffer);
 
