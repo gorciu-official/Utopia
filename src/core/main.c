@@ -30,12 +30,16 @@ void kmain(multiboot_info_t* mbd) {
     framebuffer_init(mbd);
     printk("Core", "%s", UTOPIA_VERSION);
     
+    // cpu init
     gdt_init();
     pic_remap(0x20, 0x28);
     idt_init();
+
+    // misc init 
     memory_init(mbd);
     acpi_init();
 
+    // ap bootstrap
     int cpu_count = acpi_count_cpus();
     if (cpu_count == 0) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
     else boot_all_aps(cpu_count);
