@@ -12,7 +12,12 @@
 #define MULTIBOOT_FLAG_CONFIG  0x080
 #define MULTIBOOT_FLAG_LOADER  0x100
 #define MULTIBOOT_FLAG_APM     0x200
-#define MULTIBOOT_FLAG_VBE     0x400
+#define MULTIBOOT_FLAG_VBE         0x400
+#define MULTIBOOT_FLAG_FRAMEBUFFER 0x1000
+
+#define MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED 0
+#define MULTIBOOT_FRAMEBUFFER_TYPE_RGB     1
+#define MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT	2
 
 struct multiboot_mmap_entry {
     uint32_t size;
@@ -48,6 +53,28 @@ struct multiboot_info {
     uint16_t vbe_interface_seg;
     uint16_t vbe_interface_off;
     uint16_t vbe_interface_len;
+
+    uint64_t framebuffer_addr;
+    uint32_t framebuffer_pitch;
+    uint32_t framebuffer_width;
+    uint32_t framebuffer_height;
+    uint8_t framebuffer_bpp;
+
+    uint8_t framebuffer_type;
+    union {
+        struct {
+            uint32_t framebuffer_palette_addr;
+            uint16_t framebuffer_palette_num_colors;
+        };
+        struct {
+            uint8_t framebuffer_red_field_position;
+            uint8_t framebuffer_red_mask_size;
+            uint8_t framebuffer_green_field_position;
+            uint8_t framebuffer_green_mask_size;
+            uint8_t framebuffer_blue_field_position;
+            uint8_t framebuffer_blue_mask_size;
+        };
+    };
 } __attribute__((packed));
 
 typedef struct multiboot_info multiboot_info_t;
