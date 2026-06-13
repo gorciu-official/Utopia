@@ -1,19 +1,12 @@
-#include <drivers/vga.h>
+#include <spinlock.h>
+#include <drivers/framebuffer.h>
 #include <arguments.h>
 #include <numbers.h>
 
-#define VGA_COLOR(fg, bg) (uint8_t)((bg << 4) | (fg))
-
-static int current_fg = 7;
-static int current_bg = 0;
-
-static uint8_t ansi_to_vga(int code) {
-    if (code >= 30 && code <= 37) return code - 30;
-    if (code >= 40 && code <= 47) return code - 40;
-    if (code >= 90 && code <= 97) return (code - 90) + 8;
-    if (code >= 100 && code <= 107) return (code - 100) + 8;
-    return 0;
-}
+static uint32_t current_fg = 0xFFFFFF;
+static uint32_t current_bg = 0x000000;
+static spinlock_t fb_spinlock = {0};
+static bool spinlock_initialized = false;
 
 static void parse_ansi(const char **str) {
     const char *s = *str;
@@ -29,18 +22,10 @@ static void parse_ansi(const char **str) {
                 s++;
             }
         }
-
+        
         if (val == 0) {
-            current_fg = 7;
-            current_bg = 0;
-        } else if (val >= 30 && val <= 37) {
-            current_fg = ansi_to_vga(val);
-        } else if (val >= 40 && val <= 47) {
-            current_bg = ansi_to_vga(val);
-        } else if (val >= 90 && val <= 97) {
-            current_fg = ansi_to_vga(val);
-        } else if (val >= 100 && val <= 107) {
-            current_bg = ansi_to_vga(val);
+            current_fg = 0xFFFFFF;
+            current_bg = 0x000000;
         }
 
         if (*s == ';') s++;
@@ -55,14 +40,14 @@ static void print_string_internal(const char *str) {
         if (str[0] == '\x1b' && str[1] == '[') {
             parse_ansi(&str);
         } else {
-            vga_printchar_nolock(*str, VGA_COLOR(current_fg, current_bg));
+            framebuffer_putchar(*str, current_fg, current_bg);
             str++;
         }
     }
 }
 
 static void vprintf(const char *fmt, va_list args) {
-    char buffer[64];
+    char buffer[64]; 
 
     while (*fmt) {
         if (*fmt == '%') {
@@ -104,47 +89,53 @@ static void vprintf(const char *fmt, va_list args) {
                     break;
                 }
                 case 'c': {
-                    vga_printchar_nolock((char)va_arg(args, int), VGA_COLOR(current_fg, current_bg));
+                    framebuffer_putchar((char)va_arg(args, int), current_fg, current_bg);
                     break;
                 }
-                case '%': vga_printchar_nolock('%', VGA_COLOR(current_fg, current_bg)); break;
+                case '%': framebuffer_putchar('%', current_fg, current_bg); break;
             }
         } else if (*fmt == '\x1b') {
             parse_ansi(&fmt);
             continue; 
         } else {
-            vga_printchar_nolock(*fmt, VGA_COLOR(current_fg, current_bg));
+            framebuffer_putchar(*fmt, current_fg, current_bg);
         }
         fmt++;
     }
 }
 
 void printf(const char *fmt, ...) {
-    vga_lock();
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
-    vga_unlock();
 }
 
 void printk(const char *module, const char *fmt, ...) {
-    vga_lock();
+    // that should be pretty safe because
+    // the first log comes from bootstrap processor
+    // and there is no need to use locks anyways 
+    if (!spinlock_initialized) {
+        spinlock_init(&fb_spinlock);
+        spinlock_initialized = true;
+    }
+    spinlock_acquire(&fb_spinlock);
+
     const char *time_str = "0.000";
 
-    print_string_internal("\x1b[90m[");
+    print_string_internal("[");
     print_string_internal(time_str);
-    print_string_internal("] \x1b[0m");
+    print_string_internal("] ");
 
-    print_string_internal("\x1b[33m");
     print_string_internal(module);
-    print_string_internal("\x1b[0m: ");
+    print_string_internal(": ");
 
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
 
-    vga_printchar_nolock('\n', VGA_COLOR(current_fg, current_bg));
-    vga_unlock();
+    framebuffer_putchar('\n', current_fg, current_bg);
+
+    spinlock_release(&fb_spinlock);
 }
