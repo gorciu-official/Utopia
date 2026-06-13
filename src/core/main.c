@@ -41,7 +41,6 @@ static void hcf() {
     }
 }
 
-// void kmain(multiboot_info_t* mbd) {
 void kmain() {
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();
@@ -54,17 +53,11 @@ void kmain() {
 
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
-    volatile uint32_t *fb_ptr = framebuffer->address;
-    for (size_t y = 0; y < framebuffer->height; y++) {
-        for (size_t x = 0; x < framebuffer->width; x++) {
-            uint32_t nX = x * 255 / framebuffer->width;
-            uint32_t nY = y * 255 / framebuffer->height;
-            fb_ptr[y * (framebuffer->pitch / 4) + x] = (nY << 8) | nX;
-        }
-    }
+    framebuffer_init(framebuffer);
 
-    // framebuffer_init(mbd);
     printk("Core", "%s", UTOPIA_VERSION);
+
+    framebuffer_putchar('U', 0xFFFFFF, 0x000000);
     
     /*
     // cpu init

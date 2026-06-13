@@ -3,7 +3,7 @@
 #include <types.h>
 #include <multiboot.h>
 
-extern void framebuffer_init(multiboot_info_t* mbd);
+extern void framebuffer_init(struct limine_framebuffer* framebuffer);
 extern void framebuffer_putchar(char c, uint32_t fg, uint32_t bg);
 extern void framebuffer_putpixel(uint32_t x, uint32_t y, uint32_t color);
 extern void framebuffer_printstr(char* str, uint32_t fg, uint32_t bg);
