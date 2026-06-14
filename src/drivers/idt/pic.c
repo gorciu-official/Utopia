@@ -39,8 +39,8 @@ void pic_remap(int offset1, int offset2) {
     outb(PIC1_DATA, a1);
     outb(PIC2_DATA, a2);
 
-    outb(PIC1_DATA, 0xFF);
-    outb(PIC2_DATA, 0xFF);
+    // Unmask IRQ 0 (timer)
+    outb(PIC1_DATA, 0xFE);
 }
 
 void pic_send_eoi(uint32_t vector) {

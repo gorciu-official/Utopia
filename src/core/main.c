@@ -7,6 +7,7 @@
 #include <drivers/memory.h>
 #include <multiboot.h>
 #include <drivers/framebuffer.h>
+#include <drivers/timer.h>
 
 #define UTOPIA_VERSION_MAJOR "1"
 #define UTOPIA_VERSION_MINOR "0"
@@ -34,6 +35,7 @@ void kmain(multiboot_info_t* mbd) {
     gdt_init();
     pic_remap(0x20, 0x28);
     idt_init();
+    timer_init(100);
 
     // misc init 
     memory_init(mbd);

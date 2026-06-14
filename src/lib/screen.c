@@ -2,6 +2,7 @@
 #include <drivers/framebuffer.h>
 #include <arguments.h>
 #include <numbers.h>
+#include <drivers/timer.h>
 
 static uint32_t current_fg = 0xFFFFFF;
 static uint32_t current_bg = 0x000000;
@@ -121,7 +122,30 @@ void printk(const char *module, const char *fmt, ...) {
     }
     spinlock_acquire(&fb_spinlock);
 
-    const char *time_str = "0.000";
+    uint64_t ticks = timer_get_ticks();
+    uint64_t seconds = ticks / 100;
+    uint64_t milliseconds = (ticks % 100) * 10;
+    char time_str[32];
+    
+    ultoa(seconds, time_str, 10);
+    int len = 0;
+    while(time_str[len]) len++;
+    time_str[len++] = '.';
+    
+    char ms_str[16];
+    ultoa(milliseconds, ms_str, 10);
+    
+    if (milliseconds < 10) {
+        time_str[len++] = '0';                
+        time_str[len++] = '0';
+    } else if (milliseconds < 100) {
+        time_str[len++] = '0';
+    }
+    
+    for(int i = 0; ms_str[i]; i++) {
+        time_str[len++] = ms_str[i];
+    }
+    time_str[len] = '\0';
 
     print_string_internal("[");
     print_string_internal(time_str);

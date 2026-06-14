@@ -2,6 +2,7 @@
 #include <types.h>
 #include <drivers/screen.h>
 #include <drivers/internals/ports.h>
+#include <drivers/timer.h>
 
 static const char* cpu_exception_name(uintptr_t int_no) {
     static const char* exceptions[] = {
@@ -47,8 +48,6 @@ static const char* cpu_exception_name(uintptr_t int_no) {
 }
 
 void isr_handler(registers_t* regs) {
-    printk("ISR interrupt handler", "Interrupt handler invoked for interrupt %d", regs->int_no);
-
     // -- cpu exceptions
     if (regs->int_no < 32) {
         printk("ISR interrupt handler", "CPU exception: %s", cpu_exception_name(regs->int_no));
@@ -59,6 +58,10 @@ void isr_handler(registers_t* regs) {
     }  
 
     // -- hardware interrupts 
+    if (regs->int_no == 32) {
+        timer_handler();
+    }
+
     // --- end of interrupt 
     if (regs->int_no >= 32 && regs->int_no <= 47) {
         if (regs->int_no >= 40) {
