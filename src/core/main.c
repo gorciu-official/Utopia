@@ -40,6 +40,7 @@ void kmain(multiboot_info_t* mbd) {
 
     // misc init 
     memory_init(mbd);
+    framebuffer_enable_backbuffer();
     acpi_init();
 
     // scheduler init

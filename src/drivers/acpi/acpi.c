@@ -169,6 +169,8 @@ int acpi_count_cpus() {
         ptr += e->length;
     }
 
+    printk("ACPI", "Found %d available CPUs.", cpu_count);
+
     return cpu_count;
 }
 

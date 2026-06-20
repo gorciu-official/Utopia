@@ -11,3 +11,4 @@ extern uint32_t* framebuffer_get_addr();
 extern uint32_t framebuffer_get_pitch();
 extern uint32_t framebuffer_get_width();
 extern uint32_t framebuffer_get_height();
+extern void framebuffer_enable_backbuffer();
