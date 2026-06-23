@@ -66,7 +66,7 @@ run: all
 	qemu-system-x86_64 $(QEMU_FLAGS)
 
 run_dbg: all
-	@chmod +x scripts/run_debug_mode.sh $(QEMU_FLAGS)
-	./scripts/run_debug_mode.sh 
+	@chmod +x scripts/run_debug_mode.sh 
+	./scripts/run_debug_mode.sh $(QEMU_FLAGS)
 
 recompile: clean all

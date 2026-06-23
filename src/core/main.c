@@ -34,17 +34,16 @@ void kmain(multiboot_info_t* mbd) {
 
     framebuffer_init(mbd);
     printk("Core", "%s", UTOPIA_VERSION);
+    printk("Core", "Source code: https://github.com/gorciu-official/Utopia");
+    printk("Core", "Licensed under GPL-v3.0");
     printk("Core", "Kernel command line: %s", cmdline_is_empty ? "<EMPTY>" : cmdline);
     
     // cpu init
     gdt_init();
     pic_remap(0x20, 0x28);
     idt_init();
-    printk("Core", "Debug: before timer");
     timer_init(100);
-    printk("Core", "Debug: after timer");
     enable_umip();
-    printk("Core", "Debug: after UMIP");
 
     // misc init 
     memory_init(mbd);
