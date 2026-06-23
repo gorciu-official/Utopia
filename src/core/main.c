@@ -29,13 +29,15 @@ static inline void cpu_main() {
 }
 
 void kmain(multiboot_info_t* mbd) {
+    framebuffer_init(mbd);
+    printk("Core", "%s", UTOPIA_VERSION);
+    printk("Core", "  Source code: https://github.com/gorciu-official/Utopia");
+    printk("Core", "  Licensed under GPL-v3.0");
+    printk("Core", "---");
+
     char* cmdline = (char*) (uintptr_t) mbd->cmdline;
     bool cmdline_is_empty = strlen(cmdline) == 0;
 
-    framebuffer_init(mbd);
-    printk("Core", "%s", UTOPIA_VERSION);
-    printk("Core", "Source code: https://github.com/gorciu-official/Utopia");
-    printk("Core", "Licensed under GPL-v3.0");
     printk("Core", "Kernel command line: %s", cmdline_is_empty ? "<EMPTY>" : cmdline);
     
     // cpu init
@@ -56,6 +58,7 @@ void kmain(multiboot_info_t* mbd) {
     // ap bootstrap
     int cpu_count = acpi_count_cpus();
     if (cpu_count == 0) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
+    else if (cpu_count == 1) printk("Core", "One CPU detected, skipping SMP initialization.");
     else boot_all_aps(cpu_count);
 
     cpu_main();
