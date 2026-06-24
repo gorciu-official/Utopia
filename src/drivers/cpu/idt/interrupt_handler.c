@@ -1,4 +1,5 @@
-#include "registers.h"
+#include <drivers/cpu.h>
+#include <registers.h>
 #include <types.h>
 #include <drivers/screen.h>
 #include <drivers/internals/ports.h>
@@ -52,6 +53,10 @@ registers_t* isr_handler(registers_t* regs) {
     // -- cpu exceptions
     if (regs->int_no < 32) {
         printk("ISR interrupt handler", "CPU exception: %s", cpu_exception_name(regs->int_no));
+        printk("ISR interrupt handler", "Basic information: interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
+        printk("ISR interrupt handler", "Registers:  rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
+        printk("ISR interrupt handler", "Registers:  rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
+
         // it is recommended to stop the system if cpu exception occurs in kernel mode 
         // we will do a loop instead
         asm volatile ("cli");
