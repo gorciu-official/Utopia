@@ -52,7 +52,7 @@ static const char* cpu_exception_name(uintptr_t int_no) {
 registers_t* isr_handler(registers_t* regs) {
     // -- cpu exceptions
     if (regs->int_no < 32) {
-        printk("ISR interrupt handler", "CPU exception: %s", cpu_exception_name(regs->int_no));
+        printk("ISR interrupt handler", "CPU exception: \x1b[31m%s\x1b[0m", cpu_exception_name(regs->int_no));
         printk("ISR interrupt handler", "Basic information: interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
         printk("ISR interrupt handler", "Registers:  rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
         printk("ISR interrupt handler", "Registers:  rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);

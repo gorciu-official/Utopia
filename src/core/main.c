@@ -41,9 +41,9 @@ void kmain(multiboot_info_t* mbd) {
     printk("Core", "Kernel command line: %s", cmdline_is_empty ? "<EMPTY>" : cmdline);
     
     // cpu init
-    gdt_init();
     pic_remap(0x20, 0x28);
     idt_init();
+    gdt_init();
     timer_init(100);
     enable_umip();
 
