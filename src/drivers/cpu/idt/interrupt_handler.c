@@ -86,3 +86,7 @@ registers_t* isr_handler(registers_t* regs) {
 
     return regs;
 }
+
+void syscall_handler() {
+    printk("lets goo", "syscall called");
+}

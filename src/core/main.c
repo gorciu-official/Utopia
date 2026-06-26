@@ -28,7 +28,31 @@ static inline void cpu_main() {
     while (true) continue;
 }
 
-extern void set_page_executable(uint64_t virt, bool executable);
+static inline uint64_t read_msr(uint32_t msr) {
+    uint32_t low, high;
+
+    __asm__ volatile (
+        "rdmsr"
+        : "=a"(low), "=d"(high)
+        : "c"(msr)
+    );
+
+    return ((uint64_t)high << 32) | low;
+}
+
+extern void syscall_entry();
+
+void init_syscall() {
+    uint64_t efer = read_msr(0xC0000080);
+    efer |= 1; 
+    write_msr(0xC0000080, efer);
+    
+    uint64_t star =
+        ((uint64_t)0x08 << 32) |
+        ((uint64_t)(0x20 - 16) << 48);
+    
+    write_msr(0xC0000081, star);write_msr(0xC0000082, (uint64_t)syscall_entry);write_msr(0xC0000084, (1 << 9)); // IF = off during syscall
+}
 
 void kmain(multiboot_info_t* mbd) {
     framebuffer_init(mbd);
@@ -48,6 +72,7 @@ void kmain(multiboot_info_t* mbd) {
     gdt_init();
     timer_init(100);
     enable_umip();
+    init_syscall();
 
     // misc init 
     memory_init(mbd);
@@ -85,6 +110,7 @@ void ap_main() {
     gdt_init();
     timer_init(100);
     enable_umip();
+    init_syscall();
 
     printk("Core", "CPU APIC ID %d fully ready, handing control to the scheduler.", id);
     
