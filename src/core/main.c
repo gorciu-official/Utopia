@@ -64,7 +64,7 @@ void kmain(multiboot_info_t* mbd) {
     cpu_main();
 }
 
-extern uint8_t ap_alive_table[256];
+extern uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
 
 void ap_main() {
     uint32_t id = current_processor_id();

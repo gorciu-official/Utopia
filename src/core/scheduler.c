@@ -6,8 +6,8 @@
 #include <spinlock.h>
 
 static spinlock_t scheduler_lock;
-static thread_t* current_threads[256] = {NULL};
-static thread_t* idle_threads[256] = {NULL};
+static thread_t* current_threads[CPU_ARCH_MAX_CPUS] = {NULL};
+static thread_t* idle_threads[CPU_ARCH_MAX_CPUS] = {NULL};
 static thread_t* ready_queue_head = NULL;
 static thread_t* ready_queue_tail = NULL;
 static thread_t* garbage_list = NULL;

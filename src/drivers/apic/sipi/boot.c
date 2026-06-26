@@ -12,8 +12,8 @@ void delay(uint64_t count) {
 extern uint8_t ap_start[];
 extern uint8_t ap_end[];
 
-volatile uint8_t ap_alive_table[256] = {0}; 
-uint8_t ap_stacks[256][16384] __attribute__((aligned(16)));
+volatile uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS] = {0}; 
+uint8_t ap_stacks[CPU_ARCH_MAX_CPUS][16384] __attribute__((aligned(16)));
 volatile uint64_t ap_stack_ptr = 0;
 
 extern void ap_main();

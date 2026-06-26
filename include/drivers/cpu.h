@@ -2,12 +2,14 @@
 
 #include <types.h>
 
+#define CPU_ARCH_MAX_CPUS 256
+
 #define __cpuid(level, a, b, c, d) \
     __asm__ volatile ("cpuid" \
         : "=a" (a), "=b" (b), "=c" (c), "=d" (d) \
         : "0" (level))
 
-// copied from somehwere lmfao
+// copied from somewhere lmfao
 static inline void __cpuid_count(unsigned int level, unsigned int count,
                                  unsigned int *a, unsigned int *b,
                                  unsigned int *c, unsigned int *d)
