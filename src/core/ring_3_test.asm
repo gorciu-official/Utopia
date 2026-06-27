@@ -12,9 +12,10 @@ ring_3_program_start:
 
 ring_3_program:
     syscall
+    syscall
     ; for simplicity i wont add another interrupt to idt just to test whether the program works 
     ; if it doesnt work it should throw a page fault or a general protection fault anyways
-.loop
+.loop:
     jmp .loop 
 
 ring_3_program_end:

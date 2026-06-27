@@ -84,10 +84,20 @@ isr_common:
     push rbx
     push rax
 
+    test qword [rsp + 144], 3
+    jz .no_swapgs_entry
+    swapgs
+.no_swapgs_entry:
+
     mov rdi, rsp
     sub rsp, 8
     call isr_handler
     mov rsp, rax
+
+    test qword [rsp + 144], 3
+    jz .no_swapgs_exit
+    swapgs
+.no_swapgs_exit:
 
     pop rax
     pop rbx

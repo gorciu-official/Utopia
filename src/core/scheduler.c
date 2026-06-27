@@ -123,9 +123,9 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
 
     regs->rip = (uint64_t)entry_point;
     regs->rdi = (uint64_t)arg;
-    regs->cs = ring == 0 ? 0x08 : (0x18 | 3); 
+    regs->cs = ring == 0 ? 0x08 : (0x28 | 3); 
     regs->ss = ring == 0 ? 0x10 : (0x20 | 3);   
-    regs->rflags = 0x202; // Enabled interrupts
+    regs->rflags = 0x202; 
     regs->rsp = (uint64_t)stack_bottom;
 
     t->stack_ptr = regs;

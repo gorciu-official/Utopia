@@ -13,7 +13,7 @@ extern uint8_t ap_start[];
 extern uint8_t ap_end[];
 
 volatile uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS] = {0}; 
-uint8_t ap_stacks[CPU_ARCH_MAX_CPUS][16384] __attribute__((aligned(16)));
+extern uint8_t kernel_stacks[CPU_ARCH_MAX_CPUS][16384];
 volatile uint64_t ap_stack_ptr = 0;
 
 extern void ap_main();
@@ -39,7 +39,7 @@ void boot_ap(uint8_t target_apic_id) {
     *(uint32_t*)(trampoline_dest + cr3_off) = (uint32_t)(uintptr_t)&page_table_l4;
     *(uint32_t*)(trampoline_dest + gdt_off) = (uint32_t)(uintptr_t)&gdt64_pointer;
     *(uint64_t*)(trampoline_dest + main_off) = (uint64_t)(uintptr_t)ap_main;
-    *(uint64_t*)(trampoline_dest + stack_off) = (uint64_t)(uintptr_t)&ap_stacks[target_apic_id][16384];
+    *(uint64_t*)(trampoline_dest + stack_off) = (uint64_t)(uintptr_t)&kernel_stacks[target_apic_id][16384];
 
     ap_alive_table[target_apic_id] = 0;
 
