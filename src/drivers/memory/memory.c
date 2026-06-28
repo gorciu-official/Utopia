@@ -314,3 +314,19 @@ void set_page_executable(uint64_t virt, bool executable) {
 
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
 }
+
+uint64_t* clone_page_table(void) {
+    uint64_t* new_l4 = pt_pool_alloc();
+    if (!new_l4) return NULL;
+
+    for (int i = 0; i < 512; i++) {
+        new_l4[i] = page_table_l4[i];
+    }
+
+    return new_l4;
+}
+
+void free_page_table(uint64_t* l4) {
+    if (!l4 || l4 == page_table_l4) return;
+    memset(l4, 0, 4096);
+}

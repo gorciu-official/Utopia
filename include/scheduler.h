@@ -3,6 +3,8 @@
 #include <types.h>
 #include <registers.h>
 
+struct process; // smth like this works lol
+
 typedef enum {
     THREAD_STATE_READY,
     THREAD_STATE_RUNNING,
@@ -19,6 +21,7 @@ typedef struct thread {
     size_t stack_size;
     struct thread* next;
     int ring;
+    struct process* process; 
 } thread_t;
 
 void scheduler_init(void);

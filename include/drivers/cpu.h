@@ -54,6 +54,16 @@ static inline void write_cr4(unsigned long val) {
     asm volatile ("mov %0, %%cr4" :: "r"(val) : "memory");
 }
 
+static inline uint64_t read_cr3(void) {
+    uint64_t val;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(val));
+    return val;
+}
+
+static inline void write_cr3(uint64_t val) {
+    __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
+}
+
 static inline void write_msr(uint32_t msr, uint64_t value) {
     uint32_t low  = (uint32_t)(value & 0xFFFFFFFF);
     uint32_t high = (uint32_t)(value >> 32);

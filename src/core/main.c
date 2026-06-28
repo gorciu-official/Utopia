@@ -9,6 +9,7 @@
 #include <drivers/framebuffer.h>
 #include <drivers/timer.h>
 #include <scheduler.h>
+#include <process.h>
 
 #define UTOPIA_VERSION_MAJOR "1"
 #define UTOPIA_VERSION_MINOR "0"
@@ -82,6 +83,7 @@ void kmain(multiboot_info_t* mbd) {
 
     // scheduler init
     scheduler_init();
+    process_init();
 
     // ap bootstrap
     int cpu_count = acpi_count_cpus();
@@ -97,7 +99,7 @@ void kmain(multiboot_info_t* mbd) {
     memcpy(ring_3_allocated_mem, ring_3_program, ring_3_program_size);
     set_page_permissions((uintptr_t)ring_3_allocated_mem, PAGE_PRESENT | PAGE_RW | PAGE_USER);
     set_page_executable((uintptr_t)ring_3_allocated_mem, true);
-    thread_create("task3", ring_3_allocated_mem, NULL, 3);
+    process_create("task3", ring_3_allocated_mem, NULL, 3);
 
     cpu_main();
 }

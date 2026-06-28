@@ -1,4 +1,5 @@
 #include <scheduler.h>
+#include <process.h>
 #include <drivers/memory.h>
 #include <drivers/cpu.h>
 #include <drivers/screen.h>
@@ -58,6 +59,7 @@ void scheduler_init(void) {
     main_thread->stack_base = NULL;
     main_thread->stack_ptr = NULL;
     main_thread->next = NULL;
+    main_thread->process = NULL;
 
     current_threads[cpu_id] = main_thread;
     idle_threads[cpu_id] = main_thread;
@@ -83,6 +85,7 @@ void scheduler_ap_init(void) {
     ap_thread->stack_base = NULL;
     ap_thread->stack_ptr = NULL;
     ap_thread->next = NULL;
+    ap_thread->process = NULL;
 
     current_threads[cpu_id] = ap_thread;
     idle_threads[cpu_id] = ap_thread;
@@ -110,6 +113,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     t->stack_base = stack_base;
     t->stack_size = stack_size;
     t->next = NULL;
+    t->process = NULL;
 
     uint64_t stack_bottom = (uint64_t)stack_base + stack_size;
     stack_bottom = stack_bottom & ~15ULL;
@@ -189,6 +193,11 @@ void thread_exit(void) {
     thread_t* curr = current_threads[cpu_id];
 
     if (curr && curr != idle_threads[cpu_id]) {
+        if (curr->process != NULL) {
+            process_terminate(curr->process);
+            curr->process = NULL;
+        }
+
         curr->state = THREAD_STATE_TERMINATED;
 
         spinlock_acquire(&scheduler_lock);
