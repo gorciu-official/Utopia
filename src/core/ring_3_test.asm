@@ -13,10 +13,10 @@ ring_3_program:
     mov rdi, 1
     mov rsi, msg 
     mov rdx, msg_len
-    
     syscall
-.loop:
-    jmp .loop 
+
+    mov rax, 60
+    syscall
 
 msg db "it works lets goooooooo" 
 msg_len equ $ - msg

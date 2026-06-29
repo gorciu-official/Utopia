@@ -134,8 +134,6 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
 
     t->stack_ptr = regs;
 
-    printk("Scheduler", "Thread '%s' (ID %d) created, stack_ptr: %p", t->name, t->id, t->stack_ptr);
-
     scheduler_enqueue(t);
 
     return t;
