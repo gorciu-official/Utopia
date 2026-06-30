@@ -29,8 +29,6 @@ static inline void cpu_main() {
     while (true) continue;
 }
 
-
-
 void kmain(multiboot_info_t* mbd) {
     framebuffer_init(mbd);
     printk("Core", "%s", UTOPIA_VERSION);
@@ -65,6 +63,10 @@ void kmain(multiboot_info_t* mbd) {
     if (cpu_count < 1) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
     else if (cpu_count == 1) printk("Core", "One CPU detected, skipping SMP initialization.");
     else boot_all_aps(cpu_count);
+
+    // init pci 
+    extern void pci_scan_bus();
+    pci_scan_bus();
 
     // run base tasks
     extern char ring_3_program_end[];

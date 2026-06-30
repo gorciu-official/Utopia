@@ -25,6 +25,7 @@ SMP_ENABLED    ?= true
 USE_HOST_CPU   ?= true
 SMP_CORES      ?= 4
 
+EXTRA_QEMU_FLAGS ?=
 QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m 16G
 ifeq ($(SMP_ENABLED),true)
 QEMU_FLAGS += -smp $(SMP_CORES)
@@ -32,6 +33,7 @@ endif
 ifeq ($(USE_HOST_CPU),true)
 QEMU_FLAGS += -enable-kvm -cpu host
 endif
+QEMU_FLAGS += $(EXTRA_QEMU_FLAGS)
 
 all: build_kernel build_iso
 	@echo -e "\033[32mSuccess!\033[0m"
