@@ -8,6 +8,7 @@
 #include <multiboot.h>
 #include <drivers/framebuffer.h>
 #include <drivers/timer.h>
+#include <drivers/pci.h>
 #include <scheduler.h>
 #include <process.h>
 
@@ -65,8 +66,20 @@ void kmain(multiboot_info_t* mbd) {
     else boot_all_aps(cpu_count);
 
     // init pci 
-    extern void pci_scan_bus();
     pci_scan_bus();
+    
+#ifdef WE_YALL_LOVE_C
+    #define MAKE_THIS_AN_3D_ARRAY_BROTHER [26][256][20000000]
+    #define DECLARE_VOLATILE_INTEGER volatile int
+    #define DECLARE_THAT_VOID const void *
+    #define DECLARE_THAT_SLOP(___s) DECLARE_VOLATILE_INTEGER (*(* const * const (* const ___s)MAKE_THIS_AN_3D_ARRAY_BROTHER)(DECLARE_THAT_VOID))[3]
+    #define SEMAJKOLON ;
+    #define ZNAK_ROWNOSCI_LEWICOWY_TAKI_FAJNY =
+    #define WCALE_NIE_SLOP {0}
+    #define KURWA(___s) DECLARE_THAT_SLOP(___s) ZNAK_ROWNOSCI_LEWICOWY_TAKI_FAJNY WCALE_NIE_SLOP SEMAJKOLON
+    #define KURWA_MAC KURWA(JA_PIERDOLE) KURWA(KOCHAM_C)
+    KURWA_MAC
+#endif
 
     // run base tasks
     extern char ring_3_program_end[];
