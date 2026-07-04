@@ -18,7 +18,7 @@ ring_3_program:
     mov rax, 60
     syscall
 
-msg db "it works lets goooooooo" 
+msg db "works" 
 msg_len equ $ - msg
 
 ring_3_program_end:
