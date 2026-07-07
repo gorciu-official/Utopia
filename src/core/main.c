@@ -105,6 +105,9 @@ void kmain(multiboot_info_t* mbd) {
     set_page_executable((uintptr_t)ring_3_allocated_mem, true);
     process_create("task3", ring_3_allocated_mem, NULL, 3);
 
+    // suspend console output 
+    printk_suspend_console();
+
     cpu_main();
 }
 

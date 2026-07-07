@@ -3,7 +3,11 @@
 #include <types.h>
 
 typedef struct registers {
-    uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp, r8, r9, r10, r11, r12, r13, r14, r15;
+    union {
+        uint64_t rax;
+        int64_t rax_i;
+    };
+    uint64_t rbx, rcx, rdx, rsi, rdi, rbp, r8, r9, r10, r11, r12, r13, r14, r15;
     uint64_t int_no;
     uint64_t err_code;
 

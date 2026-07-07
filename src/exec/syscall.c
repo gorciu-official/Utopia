@@ -3,16 +3,23 @@
 #include <registers.h>
 
 void syscall_handler(registers_t* regs) {
-    printk("Syscall handler", "Syscall instruction was called (rax: 0x%x)", regs->rax);
     switch (regs->rax) {
-        case 1:
-            printk("Ring 3 program message", "%s", (char*)regs->rsi);
+    case 1:
+        switch (regs->rdi) {
+        case 1: case 2:
+            user_print((char*)regs->rsi, regs->rdx);
+            regs->rax_i = regs->rdx;
             break;
-        case 60:
-            thread_exit();
+        default:
+            regs->rax_i = -1;
             break;
-        default: 
-            break;
+        }
+        break;
+    case 60:
+        thread_exit();
+        break;
+    default:
+        regs->rax_i = -1;
+        break;
     }
 }
-

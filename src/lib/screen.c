@@ -29,8 +29,8 @@ static uint32_t ansi_colors[] = {
 static spinlock_t fb_spinlock = {0};
 static bool spinlock_initialized = false;
 
-static void parse_ansi(const char **str) {
-    const char *s = *str;
+static void parse_ansi(const char* *str) {
+    const char* s = *str;
 
     if (*s == '\x1b') s++;
     if (*s == '[') s++;
@@ -108,7 +108,7 @@ static void parse_ansi(const char **str) {
     *str = s;
 }
 
-static void print_string_internal(const char *str) {
+static void print_string_internal(const char* str) {
     while (*str) {
         if (str[0] == '\x1b' && str[1] == '[') {
             parse_ansi(&str);
@@ -119,7 +119,20 @@ static void print_string_internal(const char *str) {
     }
 }
 
-static void vprintf(const char *fmt, va_list args) {
+static void print_string_internal_limit(const char* str, uint64_t size) {
+    const char* end = str + size;
+
+    while (str < end) {
+        if (str + 1 < end && str[0] == '\x1b' && str[1] == '[') {
+            parse_ansi(&str);
+        } else {
+            framebuffer_putchar(*str, current_fg, current_bg);
+            str++;
+        }
+    }
+}
+
+static void vprintf(const char* fmt, va_list args) {
     char buffer[64]; 
 
     while (*fmt) {
@@ -177,14 +190,24 @@ static void vprintf(const char *fmt, va_list args) {
     }
 }
 
-void printf(const char *fmt, ...) {
+void printf(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
 }
 
-void printk(const char *module, const char *fmt, ...) {
+void user_print(char* fmt, uint64_t size) {
+    spinlock_acquire(&fb_spinlock);
+    print_string_internal_limit(fmt, size);
+    spinlock_release(&fb_spinlock);
+}
+
+static bool console_suspended = false;
+
+void printk(const char* module, const char *fmt, ...) {
+    if (console_suspended) return;
+
     uint64_t flags = save_interrupts();
 
     // that should be pretty safe because
@@ -235,4 +258,9 @@ void printk(const char *module, const char *fmt, ...) {
     spinlock_release(&fb_spinlock);
 
     restore_interrupts(flags);
+}
+
+void printk_suspend_console() {
+    printk("Framebuffer", "Suspending kernel console output");
+    console_suspended = true;
 }

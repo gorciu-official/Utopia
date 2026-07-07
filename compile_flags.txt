@@ -1,6 +1,7 @@
 -g 
 -Wall 
--Wextra 
+-Wextra
+-Wimplicit-fallthrough
 -m64 
 -mno-sse 
 -mno-sse2 
