@@ -16,7 +16,7 @@ Utopia is a (probably good) x86_64 operating system kernel.
 
 Have a working x86_64 machine (kinda).
 
-Jokes aside but should work everywhere if you have an x86_64 processor. Tested on my machine or in QEMU and everything mostly behaves as it should. GRUB will probably be the bottleneck when trying to t est the limits of the kernel, to be honest. Introducing Limine mostly breaks things, see the `dev-limine` branch for reference (but note that it is unmaintained now).
+Jokes aside but should work everywhere if you have an x86_64 processor. Tested on my machine or in QEMU and everything mostly behaves as it should. GRUB will probably be the bottleneck when trying to t est the limits of the kernel, to be honest. Limine was introduced somewhat recently, but due to it crashing at multi-core systems its support is experimental until this is fixed fully.
 
 ## Building and testing
 

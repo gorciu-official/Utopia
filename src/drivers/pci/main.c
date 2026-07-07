@@ -45,23 +45,24 @@ int pci_is_multifunction(uint8_t bus, uint8_t slot) {
 }
 
 void pci_scan_bus() {
+    printk("PCI", "test 1");
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t slot = 0; slot < 32; slot++) {
             uint32_t id = pci_get_device_id(bus, slot, 0);
 
             if ((id & 0xFFFF) == 0xFFFF) continue;
 
-            pci_device_info_t* pci_fd_info = {0};
-            pci_read_device_info(bus, slot, 0, pci_fd_info);
-            pci_print_device(bus, slot, 0, pci_fd_info);
+            pci_device_info_t pci_fd_info;
+            pci_read_device_info(bus, slot, 0, &pci_fd_info);
+            pci_print_device(bus, slot, 0, &pci_fd_info);
             
             // if multifunction theoretically it should have 8 funcs?
             if (pci_is_multifunction(bus, slot)) {
                 for (uint8_t func = 1; func < 8; func++) {
                     uint32_t id2 = pci_get_device_id(bus, slot, func);
-                    pci_device_info_t* device_data = {0};
-                    pci_read_device_info(bus, slot, func, device_data);
-                    if ((id2 & 0xFFFF) != 0xFFFF) pci_print_device(bus, slot, func, device_data);
+                    pci_device_info_t device_data;
+                    pci_read_device_info(bus, slot, func, &device_data);
+                    if ((id2 & 0xFFFF) != 0xFFFF) pci_print_device(bus, slot, func, &device_data);
                 }
             }
         }

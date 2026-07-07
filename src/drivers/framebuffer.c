@@ -1,3 +1,4 @@
+#include <boot/limine.h>
 #include <drivers/framebuffer.h>
 #include <drivers/screen.h>
 #include <drivers/memory.h>
@@ -42,6 +43,7 @@ static int init_serial() {
     return 0;
 }
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
 void framebuffer_init(multiboot_info_t* mbd) {
     if (!(mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER)) {
         printk("Framebuffer", "Framebuffer not available in Multiboot info");
@@ -58,6 +60,19 @@ void framebuffer_init(multiboot_info_t* mbd) {
     fb_height = mbd->framebuffer_height;
     fb_pitch = mbd->framebuffer_pitch;
     fb_bpp = mbd->framebuffer_bpp;
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+void framebuffer_init(struct limine_framebuffer* framebuffer) {
+    if (framebuffer == NULL) {
+        printk("Framebuffer", "Framebuffer request not available");
+        return;
+    }
+
+    fb_addr = (uint32_t*)framebuffer->address;
+    fb_width = framebuffer->width;
+    fb_height = framebuffer->height;
+    fb_pitch = framebuffer->pitch;
+    fb_bpp = framebuffer->bpp;
+#endif
 }
 
 void framebuffer_flush(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {

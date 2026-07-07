@@ -23,4 +23,3 @@ SECTIONS
 
     _end = .;
 }
-

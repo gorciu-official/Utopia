@@ -1,14 +1,19 @@
 #pragma once 
 
 #include <types.h>
-#include <multiboot.h>
+#include <constants.h>
 
 extern void* memcpy(void* dest, const void* src, size_t n);
 extern int memcmp(const void* a, const void* b, size_t n);
 extern void* memset(void* dest, int val, size_t n);
 extern void* phys_to_virt(uint64_t phys);
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+#include <multiboot.h>
 extern void memory_init(multiboot_info_t* mbd);
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+extern void memory_init(void);
+#endif
 extern void* malloc(size_t size);
 extern void free(void* ptr);
 

@@ -1,4 +1,5 @@
 #include <types.h>
+#include <constants.h>
 #include <drivers/screen.h>
 #include <drivers/cpu.h>
 #include <drivers/memory.h>
@@ -28,16 +29,21 @@ void boot_ap(uint8_t target_apic_id) {
     extern uint32_t ap_gdt_ptr;
     extern uint32_t ap_main_ptr;
     extern uint32_t ap_stack_ptr_trampoline;
-    extern uint32_t page_table_l4;
-    extern void* gdt64_pointer;
 
     uintptr_t cr3_off = (uintptr_t)&ap_cr3_ptr - (uintptr_t)ap_start;
     uintptr_t gdt_off = (uintptr_t)&ap_gdt_ptr - (uintptr_t)ap_start;
     uintptr_t main_off = (uintptr_t)&ap_main_ptr - (uintptr_t)ap_start;
     uintptr_t stack_off = (uintptr_t)&ap_stack_ptr_trampoline - (uintptr_t)ap_start;
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+    extern uint32_t page_table_l4;
+    extern void* gdt64_pointer;
     *(uint32_t*)(trampoline_dest + cr3_off) = (uint32_t)(uintptr_t)&page_table_l4;
     *(uint32_t*)(trampoline_dest + gdt_off) = (uint32_t)(uintptr_t)&gdt64_pointer;
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+    *(uint32_t*)(trampoline_dest + cr3_off) = 0;
+    *(uint32_t*)(trampoline_dest + gdt_off) = 0;
+#endif
     *(uint64_t*)(trampoline_dest + main_off) = (uint64_t)(uintptr_t)ap_main;
     *(uint64_t*)(trampoline_dest + stack_off) = (uint64_t)(uintptr_t)&kernel_stacks[target_apic_id][16384];
 

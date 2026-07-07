@@ -5,43 +5,52 @@
 #include <drivers/cpu.h>
 #include <drivers/idt.h>
 #include <drivers/memory.h>
-#include <multiboot.h>
 #include <drivers/framebuffer.h>
+#include <drivers/filesystem.h>
 #include <drivers/timer.h>
 #include <drivers/pci.h>
 #include <scheduler.h>
 #include <process.h>
-#include <drivers/filesystem.h>
+#include <constants.h>
 
-#define UTOPIA_VERSION_MAJOR "1"
-#define UTOPIA_VERSION_MINOR "0"
-#define UTOPIA_VERSION_PATCH "0"
-#define UTOPIA_BETA_STATE 1
-#if UTOPIA_BETA_STATE == 1
-    #define UTOPIA_VERSION \
-        "Utopia beta@" \
-        UTOPIA_VERSION_MAJOR "." UTOPIA_VERSION_MINOR "." UTOPIA_VERSION_PATCH
-#else 
-    #define UTOPIA_VERSION \
-        "Utopia v" \
-        UTOPIA_VERSION_MAJOR "." UTOPIA_VERSION_MINOR "." UTOPIA_VERSION_PATCH
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+#include <multiboot.h>
+#endif
+
+#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
+#include <boot/limine.h>
 #endif
 
 static inline void cpu_main() {
     while (true) continue;
 }
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
 void kmain(multiboot_info_t* mbd) {
     framebuffer_init(mbd);
+#endif 
+#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_framebuffer_request framebuffer_request = {
+    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
+    .revision = 0
+};
+
+void kmain() {
+    struct limine_framebuffer* framebuffer = framebuffer_request.response->framebuffers[0];
+    framebuffer_init(framebuffer);
+#endif
+
     printk("Core", "%s", UTOPIA_VERSION);
     printk("Core", "  Source code: https://github.com/gorciu-official/Utopia");
     printk("Core", "  Licensed under GPL-v3.0");
     printk("Core", "---");
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
     char* cmdline = (char*) (uintptr_t) mbd->cmdline;
     bool cmdline_is_empty = strlen(cmdline) == 0;
-
     printk("Core", "Kernel command line: %s", cmdline_is_empty ? "<EMPTY>" : cmdline);
+#endif
     
     // cpu init
     pic_remap(0x20, 0x28);
@@ -52,7 +61,11 @@ void kmain(multiboot_info_t* mbd) {
     init_syscall();
 
     // misc init 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
     memory_init(mbd);
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+    memory_init();
+#endif
     framebuffer_enable_backbuffer();
     acpi_init();
 
@@ -66,7 +79,7 @@ void kmain(multiboot_info_t* mbd) {
     else if (cpu_count == 1) printk("Core", "One CPU detected, skipping SMP initialization.");
     else boot_all_aps(cpu_count);
 
-    // init pci 
+    // init pci
     pci_scan_bus();
     
 #ifdef WE_YALL_LOVE_C

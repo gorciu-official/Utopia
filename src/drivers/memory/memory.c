@@ -1,9 +1,45 @@
 #include <types.h>
+#include <constants.h>
 #include <drivers/memory.h>
 #include <drivers/screen.h>
 #include <drivers/cpu.h>
 
+#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
+#include <boot/limine.h>
+#endif
+
 extern uint8_t _end;
+
+#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_memmap_request memmap_request = {
+    .id = LIMINE_MEMMAP_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_executable_address_request exec_addr_request = {
+    .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST_ID,
+    .revision = 0
+};
+
+static uintptr_t kernel_virt_to_phys(void* addr) {
+    if (exec_addr_request.response) {
+        return (uintptr_t)addr - exec_addr_request.response->virtual_base + exec_addr_request.response->physical_base;
+    }
+    return (uintptr_t)addr - 0xffffffff80000000ULL + 0x100000ULL;
+}
+#else
+static inline uintptr_t kernel_virt_to_phys(void* addr) {
+    return (uintptr_t)addr;
+}
+#endif
 
 typedef struct heap_block {
     size_t size;
@@ -17,10 +53,17 @@ typedef struct {
     uint32_t type;
 } memory_map_entry_t;
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+extern uint64_t page_table_l4[];
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+uint64_t* page_table_l4 = NULL;
+#endif
+
 static heap_block_t* head = NULL;
 static memory_map_entry_t kernel_memory_map[64];
 static uint32_t memory_map_count = 0;
 
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
 void memory_init(multiboot_info_t* mbd) {
     if (!(mbd->flags & MULTIBOOT_FLAG_MMAP)) {
         head = (heap_block_t*)(((uintptr_t)&_end + 4095) & ~4095);
@@ -57,6 +100,60 @@ void memory_init(multiboot_info_t* mbd) {
             }
         }
     }
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+void memory_init(void) {
+    uint64_t cr3_phys;
+    asm volatile("mov %%cr3, %0" : "=r"(cr3_phys));
+    page_table_l4 = (uint64_t*)phys_to_virt(cr3_phys & ~0xFFFULL);
+
+    struct limine_memmap_response* response = memmap_request.response;
+    if (response == NULL) {
+        head = (heap_block_t*)(((uintptr_t)&_end + 4095) & ~4095);
+        head->size = (128 * 1024 * 1024) - sizeof(heap_block_t);
+        head->next = NULL;
+        head->free = true;
+
+        kernel_memory_map[0].addr = (uintptr_t)head;
+        kernel_memory_map[0].len = head->size;
+        kernel_memory_map[0].type = 1;
+        memory_map_count = 1;
+        return;
+    }
+
+    uint64_t largest_free_base = 0;
+    uint64_t largest_free_size = 0;
+
+    memory_map_count = 0;
+    for (uint64_t i = 0; i < response->entry_count; i++) {
+        struct limine_memmap_entry* entry = response->entries[i];
+        if (memory_map_count < 64) {
+            kernel_memory_map[memory_map_count].addr = entry->base;
+            kernel_memory_map[memory_map_count].len = entry->length;
+
+            uint32_t type = 2; // default to reserved lol
+            if (entry->type == LIMINE_MEMMAP_USABLE) {
+                type = 1;
+            } else if (entry->type == LIMINE_MEMMAP_RESERVED) {
+                type = 2;
+            } else if (entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE) {
+                type = 3;
+            } else if (entry->type == LIMINE_MEMMAP_ACPI_NVS) {
+                type = 4;
+            } else if (entry->type == LIMINE_MEMMAP_BAD_MEMORY) {
+                type = 5;
+            }
+            kernel_memory_map[memory_map_count].type = type;
+            memory_map_count++;
+        }
+
+        if (entry->type == LIMINE_MEMMAP_USABLE) {
+            if (entry->length > largest_free_size) {
+                largest_free_base = entry->base;
+                largest_free_size = entry->length;
+            }
+        }
+    }
+#endif
 
     for (uint32_t i = 0; i < memory_map_count; i++) {
         if (kernel_memory_map[i].type != 1) continue;
@@ -76,13 +173,14 @@ void memory_init(multiboot_info_t* mbd) {
     }
 
     uintptr_t kernel_end = ((uintptr_t)&_end + 4095) & ~4095;
+    uintptr_t kernel_end_phys = kernel_virt_to_phys((void*)kernel_end);
 
-    if (largest_free_base < kernel_end && largest_free_base + largest_free_size > kernel_end) {
-        largest_free_size -= (kernel_end - largest_free_base);
-        largest_free_base = kernel_end;
+    if (largest_free_base < kernel_end_phys && largest_free_base + largest_free_size > kernel_end_phys) {
+        largest_free_size -= (kernel_end_phys - largest_free_base);
+        largest_free_base = kernel_end_phys;
     }
 
-    head = (heap_block_t*)largest_free_base;
+    head = (heap_block_t*)phys_to_virt(largest_free_base);
     head->size = largest_free_size - sizeof(heap_block_t);
     head->next = NULL;
     head->free = true;
@@ -158,8 +256,6 @@ void free(void* ptr) {
     restore_interrupts(flags);
 }
 
-extern uint64_t page_table_l4[];
-
 #define PT_POOL_PAGES 64
 static uint8_t pt_pool[PT_POOL_PAGES][4096] __attribute__((aligned(4096)));
 static uint32_t pt_pool_next = 0;
@@ -182,18 +278,18 @@ int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags) {
         if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) {
             uint64_t* new_l3 = pt_pool_alloc();
             if (!new_l3) return -1;
-            page_table_l4[l4_idx] = (uint64_t)(uintptr_t)new_l3 | PAGE_PRESENT | PAGE_RW;
+            page_table_l4[l4_idx] = (uint64_t)kernel_virt_to_phys(new_l3) | PAGE_PRESENT | PAGE_RW;
         }
 
-        uint64_t* l3 = (uint64_t*)(uintptr_t)(page_table_l4[l4_idx] & ~0xFFFULL);
+        uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
 
         if (!(l3[l3_idx] & PAGE_PRESENT)) {
             uint64_t* new_l2 = pt_pool_alloc();
             if (!new_l2) return -1;
-            l3[l3_idx] = (uint64_t)(uintptr_t)new_l2 | PAGE_PRESENT | PAGE_RW;
+            l3[l3_idx] = (uint64_t)kernel_virt_to_phys(new_l2) | PAGE_PRESENT | PAGE_RW;
         }
 
-        uint64_t* l2 = (uint64_t*)(uintptr_t)(l3[l3_idx] & ~0xFFFULL);
+        uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
 
         l2[l2_idx] = (addr & ~0x1FFFFFULL) | flags | PAGE_PRESENT | PAGE_RW | PAGE_HUGE;
     }
@@ -208,18 +304,18 @@ void set_page_permissions(uint64_t virt, uint64_t flags) {
 
     if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) return;
     page_table_l4[l4_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l3 = (uint64_t*)(uintptr_t)(page_table_l4[l4_idx] & ~0xFFFULL);
+    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
 
     if (!(l3[l3_idx] & PAGE_PRESENT)) return;
     l3[l3_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l2 = (uint64_t*)(uintptr_t)(l3[l3_idx] & ~0xFFFULL);
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
 
     if (l2[l2_idx] & PAGE_HUGE) {
         l2[l2_idx] = (l2[l2_idx] & ~0xFFFULL) | flags | PAGE_HUGE;
     } else if (l2[l2_idx] & PAGE_PRESENT) {
         l2[l2_idx] |= (flags & (PAGE_USER | PAGE_RW));
         uint64_t l1_idx = (virt >> 12) & 0x1FF;
-        uint64_t* l1 = (uint64_t*)(uintptr_t)(l2[l2_idx] & ~0xFFFULL);
+        uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & ~0xFFFULL);
         l1[l1_idx] = (l1[l1_idx] & ~0xFFFULL) | flags;
     }
 
@@ -252,7 +348,14 @@ int memcmp(const void* a, const void* b, size_t n) {
 }
 
 void* phys_to_virt(uint64_t phys) {
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
     return (void*)phys;
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+    if (hhdm_request.response) {
+        return (void*)(hhdm_request.response->offset + phys);
+    }
+    return (void*)phys;
+#endif
 }
 
 void* memset(void* dest, int val, size_t n) {
@@ -281,12 +384,12 @@ void set_page_executable(uint64_t virt, bool executable) {
     if (!(page_table_l4[l4_idx] & PAGE_PRESENT))
         return;
 
-    uint64_t* l3 = (uint64_t*)(uintptr_t)(page_table_l4[l4_idx] & ~0xFFFULL);
+    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
 
     if (!(l3[l3_idx] & PAGE_PRESENT))
         return;
 
-    uint64_t* l2 = (uint64_t*)(uintptr_t)(l3[l3_idx] & ~0xFFFULL);
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
 
     if (l2[l2_idx] & PAGE_HUGE) {
 
@@ -301,7 +404,7 @@ void set_page_executable(uint64_t virt, bool executable) {
     }
 
     uint64_t l1_idx = (virt >> 12) & 0x1FF;
-    uint64_t* l1 = (uint64_t*)(uintptr_t)(l2[l2_idx] & ~0xFFFULL);
+    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & ~0xFFFULL);
 
     if (!(l2[l2_idx] & PAGE_PRESENT))
         return;
