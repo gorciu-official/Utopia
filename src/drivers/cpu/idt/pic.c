@@ -8,6 +8,7 @@
 #define PIC2_DATA 0xA1
 
 static inline void io_wait(void) {
+    // TODO: figure a better way to do it
     __asm__ volatile("outb %%al, $0x80" :: "a"(0));
 }
 
@@ -39,8 +40,9 @@ void pic_remap(int offset1, int offset2) {
     outb(PIC1_DATA, a1);
     outb(PIC2_DATA, a2);
 
-    // Unmask IRQ 0 (timer)
-    outb(PIC1_DATA, 0xFE);
+    // Unmask: IRQ 0 and IRQ 1
+    outb(PIC1_DATA, inb(PIC1_DATA) & ~(1 << 0));
+    outb(PIC1_DATA, inb(PIC1_DATA) & ~(1 << 1));
 }
 
 void pic_send_eoi(uint32_t vector) {

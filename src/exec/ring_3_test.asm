@@ -18,7 +18,7 @@ ring_3_program:
     mov rax, 60
     syscall
 
-msg db 0x1b, "[31mPOLSKA GUROM", 10 
+msg db 0x1b, "[31mPOLSKA GUROM", 0x1b, "[0m", 10 
 msg_len equ $ - msg
 
 ring_3_program_end:
