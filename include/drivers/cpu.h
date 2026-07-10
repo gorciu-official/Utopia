@@ -25,7 +25,7 @@ static inline uint32_t current_processor_id(void) {
     return (ebx >> 24);
 }
 
-extern void boot_all_aps(uint8_t total_cores);
+extern void boot_all_aps(uint8_t* core_apic_ids, int count);
 extern void gdt_init();
 extern void enable_umip(void);
 extern void init_syscall();

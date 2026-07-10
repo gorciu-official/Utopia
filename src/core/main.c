@@ -74,10 +74,12 @@ void kmain() {
     process_init();
 
     // ap bootstrap
-    int cpu_count = acpi_count_cpus();
+    uint8_t cpu_apic_id[CPU_ARCH_MAX_CPUS];
+    int cpu_count = acpi_get_cpus(cpu_apic_id, CPU_ARCH_MAX_CPUS);
+
     if (cpu_count < 1) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
     else if (cpu_count == 1) printk("Core", "One CPU detected, skipping SMP initialization.");
-    else boot_all_aps(cpu_count);
+    else boot_all_aps(cpu_apic_id, cpu_count);
 
     // init pci
     pci_scan_bus();

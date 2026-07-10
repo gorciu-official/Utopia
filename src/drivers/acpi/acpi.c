@@ -147,11 +147,11 @@ MADT* acpi_find_madt() {
     return NULL;
 }
 
-int acpi_count_cpus() {
+int acpi_get_cpus(uint8_t* apic_ids, int max_cpus) {
     if (!madt)
         return 0;
 
-    int cpu_count = 0;
+    int count = 0;
 
     uint8_t* ptr = madt->entries;
     uint8_t* end = (uint8_t*)madt + madt->header.length;
@@ -162,16 +162,20 @@ int acpi_count_cpus() {
         if (e->type == 0) {
             MADTLocalAPIC* cpu = (MADTLocalAPIC*)ptr;
 
-            if (cpu->flags & 1)
-                cpu_count++;
+            if (cpu->flags & 1) {
+                if (count < max_cpus) {
+                    apic_ids[count] = cpu->apic_id;
+                    count++;
+                }
+            }
         }
 
         ptr += e->length;
     }
 
-    printk("ACPI", "Found %d available CPUs.", cpu_count);
+    printk("ACPI", "Found %d available CPUs.", count);
 
-    return cpu_count;
+    return count;
 }
 
 void acpi_init() {
