@@ -75,7 +75,7 @@ uint8_t* trampoline_dest = (uint8_t*)0x70000;
 void boot_all_aps(uint8_t* core_apic_ids, int count) {
     uint32_t bsp_apic_id = current_processor_id();
 
-    printk("CPU manager", "Starting all application processors (total: %d)", count - 1);
+    printk("SMP", "Starting all application processors (total: %d)", count - 1);
 
     uint32_t failed_to_boot = 0;
 
@@ -86,16 +86,16 @@ void boot_all_aps(uint8_t* core_apic_ids, int count) {
             continue;
         }
 
-        printk("CPU manager", "Waking up CPU %d...", apic_id);
+        printk("SMP", "Waking up CPU %d...", apic_id);
         boot_ap(apic_id);
 
         if (ap_alive_table[apic_id] == 1) {
-            printk("CPU manager", "CPU %d is up", apic_id);
+            printk("SMP", "CPU %d is online", apic_id);
         } else {
-            printk("CPU manager", "CPU %d failed to start/register!", apic_id);
+            printk("SMP", "CPU %d failed to register in time or is offline!", apic_id);
             failed_to_boot++;
         }
     }
 
-    printk("CPU manager", "Finished - %d CPUs are up", count - failed_to_boot);
+    printk("SMP", "Finished - %d CPUs are up", count - failed_to_boot);
 }

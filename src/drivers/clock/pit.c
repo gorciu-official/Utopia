@@ -14,7 +14,12 @@ void timer_handler() {
 void timer_init(uint32_t frequency) {
     if (increment_tick_cpu == -1) increment_tick_cpu = current_processor_id();
 
-    printk("Timer", "Initializing timer at frequency %u for CPU %d", frequency, current_processor_id());
+    printk(
+        "PIT", "Initializing PIT interrupts at frequency %u for CPU %d (%s)", 
+        frequency, current_processor_id(), increment_tick_cpu == (int32_t)current_processor_id()
+            ? "increments ticks"
+            : "scheduler only"
+    );
 
     uint32_t divisor = 1193180 / frequency;
 

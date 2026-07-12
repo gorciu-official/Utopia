@@ -264,3 +264,8 @@ void printk_suspend_console() {
     printk("Framebuffer", "Suspending kernel console output");
     console_suspended = true;
 }
+
+void printk_remove_console_suspension() {
+    console_suspended = false;
+    printk("Framebuffer", "Ensuring console is not suspended");
+}
