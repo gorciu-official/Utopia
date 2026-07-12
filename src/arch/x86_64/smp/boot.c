@@ -30,12 +30,6 @@ uint8_t* trampoline_dest = (uint8_t*)0x70000;
     volatile uint64_t* ap_main_f = (volatile uint64_t*)0x70F10;
     volatile uint64_t* ap_stack = (volatile uint64_t*)0x70F18;
 
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    extern uint32_t page_table_l4;
-    extern void* gdt64_pointer;
-    *ap_cr3 = (uint32_t)(uintptr_t)&page_table_l4;
-    *ap_gdt = (uint64_t)(uintptr_t)&gdt64_pointer;
-#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
     uint64_t bsp_cr3;
     asm volatile("mov %%cr3, %0" : "=r"(bsp_cr3));
     *ap_cr3 = (uint32_t)bsp_cr3;
@@ -48,7 +42,6 @@ uint8_t* trampoline_dest = (uint8_t*)0x70000;
     ap_gdt_dest->base  = bsp_gdt.base;
 
     *ap_gdt = (uint64_t)(uintptr_t)ap_gdt_dest;
-#endif
 
     *ap_main_f = (uint64_t)(uintptr_t)ap_main;
     
