@@ -1,6 +1,7 @@
 #include <types.h>
 #include <drivers/ps2.h>
 #include <drivers/screen.h>
+#include <drivers/cpu.h>
 #include <drivers/internals/ports.h>
 
 // keymaps copied from https://github.com/Interpuce/AurorOS/blob/main/src/drivers/keyboard/input.c 
@@ -32,7 +33,31 @@ static uint8_t read_scancode() {
     return inb(0x60);
 }
 
+uint64_t   positions[CPU_ARCH_MAX_CPUS] = {0};
+bool        finished[CPU_ARCH_MAX_CPUS] = {0};
+char*        buffers[CPU_ARCH_MAX_CPUS] = {0};
+uint64_t       sizes[CPU_ARCH_MAX_CPUS] = {0};
+
+int ps2_read(char* buffer, uint64_t size) {
+    int processor = current_processor_id();
+
+    finished   [processor] = false;
+    buffers    [processor] = buffer;
+    sizes      [processor] = size;
+    positions  [processor] = 0;
+
+    while (!finished[processor]) 
+        asm volatile ("pause");
+
+    // i think we can leave garbage in arrays, since finished is true and it wont matter anyways 
+    return size;
+}
+
 void ps2_interrupt_handler() {
+    int processor = current_processor_id();
+
+    if (finished[processor]) return;
+
     uint8_t scancode = read_scancode();
     uint8_t SHIFT_RELEASED = scancode & 0x80;
     uint8_t key = scancode & ~0x80;
@@ -58,16 +83,19 @@ void ps2_interrupt_handler() {
     } else if (key == 0x36) {
         SHIFT_RIGHT_PRESSED = 1;
         return;
-    } else if (key == 0x0E) {
-        // Note: most people will not see this because 
-        //       the console is suspended after executing
-        //       built-in test binary, supressing this message,
-        //       you need to spam backspace while booting
-        printk("PS2", "TODO: Implement backspace handling");
     }
 
-    char character = (SHIFT_LEFT_PRESSED || SHIFT_RIGHT_PRESSED) ? shift_keymap[key] : keymap[key];
+    // backspace should be handled by userspace
 
-    // TODO: something better lol
-    user_print(&character, 1);
+    char character = (SHIFT_LEFT_PRESSED || SHIFT_RIGHT_PRESSED) ? shift_keymap[key] : keymap[key];
+   
+    uint64_t pos = positions[processor];
+
+    buffers[processor][pos] = character;
+    positions[processor]++;
+
+    if (positions[processor] == sizes[processor] - 1) {
+        buffers[processor][positions[processor]] = '\0';
+        finished[processor] = true;
+    }
 }
