@@ -1,7 +1,7 @@
 #include <scheduler.h>
-#include <drivers/screen.h>
+#include <lib/screen.h>
 #include <drivers/ps2.h>
-#include <registers.h>
+#include <arch/x86_64/registers.h>
 
 //  ---- syscall convention ----
 //    rax - return value (signed) & first syscall number (unsigned)

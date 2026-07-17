@@ -1,8 +1,8 @@
 #include <types.h>
 #include <constants.h>
-#include <drivers/memory.h>
-#include <drivers/screen.h>
-#include <drivers/cpu.h>
+#include <memory.h>
+#include <lib/screen.h>
+#include <arch/x86_64/common.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
 #include <boot/limine.h>

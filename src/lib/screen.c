@@ -1,9 +1,9 @@
-#include <spinlock.h>
+#include <lib/spinlock.h>
 #include <drivers/framebuffer.h>
 #include <arguments.h>
-#include <numbers.h>
+#include <lib/numbers.h>
 #include <drivers/timer.h>
-#include <drivers/cpu.h>
+#include <arch/x86_64/common.h>
 
 static uint32_t current_fg = 0xFFFFFF;
 static uint32_t current_bg = 0x000000;

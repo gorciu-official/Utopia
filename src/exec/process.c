@@ -1,9 +1,9 @@
 #include <process.h>
-#include <drivers/memory.h>
-#include <drivers/cpu.h>
-#include <drivers/screen.h>
-#include <string.h>
-#include <spinlock.h>
+#include <memory.h>
+#include <arch/x86_64/common.h>
+#include <lib/screen.h>
+#include <lib/string.h>
+#include <lib/spinlock.h>
 
 static spinlock_t process_lock;
 static process_t* process_list_head = NULL;

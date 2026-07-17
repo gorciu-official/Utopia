@@ -1,9 +1,9 @@
-#include <drivers/cpu.h>
-#include <spinlock.h>
-#include <string.h>
+#include <arch/x86_64/common.h>
+#include <lib/spinlock.h>
+#include <lib/string.h>
 #include <types.h>
-#include <drivers/memory.h>
-#include <drivers/screen.h>
+#include <memory.h>
+#include <lib/screen.h>
 
 #define MAX_CPUS          CPU_ARCH_MAX_CPUS
 

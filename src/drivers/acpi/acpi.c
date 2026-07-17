@@ -1,6 +1,6 @@
 #include "definitions.h"
-#include <drivers/screen.h>
-#include <drivers/memory.h>
+#include <lib/screen.h>
+#include <memory.h>
 
 #define ACPI_MADT_SIGNATURE 0x43495041
 #define ACPI_HPET_SIGNATURE 0x54455048

@@ -1,5 +1,5 @@
-#include <string.h>
-#include <numbers.h>
+#include <lib/string.h>
+#include <lib/numbers.h>
 #include <types.h>
 
 int is_char_digit(char c) {

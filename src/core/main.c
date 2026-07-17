@@ -1,10 +1,10 @@
-#include <string.h>
+#include <lib/string.h>
 #include <types.h> 
-#include <drivers/screen.h>
+#include <lib/screen.h>
 #include <drivers/acpi.h>
-#include <drivers/cpu.h>
+#include <arch/x86_64/common.h>
 #include <drivers/idt.h>
-#include <drivers/memory.h>
+#include <memory.h>
 #include <drivers/framebuffer.h>
 #include <drivers/filesystem.h>
 #include <drivers/timer.h>
@@ -14,7 +14,7 @@
 #include <constants.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
-#include <multiboot.h>
+#include <boot/multiboot1.h>
 #endif
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE

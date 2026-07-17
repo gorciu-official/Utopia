@@ -1,8 +1,8 @@
 #include <types.h>
-#include <string.h>
+#include <lib/string.h>
 #include <drivers/filesystem.h>
-#include <drivers/memory.h>
-#include <drivers/screen.h>
+#include <memory.h>
+#include <lib/screen.h>
 
 #define MAX_DRIVERS 16
 #define MAX_MOUNTS 16

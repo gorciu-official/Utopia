@@ -1,6 +1,6 @@
 #include <types.h>
-#include <drivers/internals/ports.h>
-#include <drivers/screen.h>
+#include <arch/x86_64/io.h>
+#include <lib/screen.h>
 #include <drivers/pci.h>
 
 uint32_t pci_read32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {

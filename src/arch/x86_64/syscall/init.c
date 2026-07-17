@@ -1,5 +1,5 @@
 #include <types.h>
-#include <drivers/cpu.h>
+#include <arch/x86_64/common.h>
 
 extern void syscall_entry();
 

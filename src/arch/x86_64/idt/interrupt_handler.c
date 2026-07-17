@@ -1,9 +1,9 @@
 #include <drivers/ps2.h>
-#include <drivers/cpu.h>
-#include <registers.h>
+#include <arch/x86_64/common.h>
+#include <arch/x86_64/registers.h>
 #include <types.h>
-#include <drivers/screen.h>
-#include <drivers/internals/ports.h>
+#include <lib/screen.h>
+#include <arch/x86_64/io.h>
 #include <drivers/timer.h>
 #include <scheduler.h>
 

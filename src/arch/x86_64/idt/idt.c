@@ -1,7 +1,7 @@
 #include <types.h>
-#include "drivers/cpu.h"
+#include <arch/x86_64/common.h>
 #include "idt_structs.h"
-#include <drivers/screen.h>
+#include <lib/screen.h>
 
 static idt_entry_t idt_entries[256];
 static idt_ptr_t idt_ptr;

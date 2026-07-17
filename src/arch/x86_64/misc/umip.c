@@ -1,5 +1,5 @@
-#include <drivers/cpu.h>
-#include <drivers/screen.h>
+#include <arch/x86_64/common.h>
+#include <lib/screen.h>
 
 #define CPUID_7_UMIP (1 << 9)
 

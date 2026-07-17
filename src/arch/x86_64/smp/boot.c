@@ -1,8 +1,8 @@
 #include <types.h>
 #include <constants.h>
-#include <drivers/screen.h>
-#include <drivers/cpu.h>
-#include <drivers/memory.h>
+#include <lib/screen.h>
+#include <arch/x86_64/common.h>
+#include <memory.h>
 
 void delay(uint64_t count) {
     for (volatile uint64_t i = 0; i < count; i++) {

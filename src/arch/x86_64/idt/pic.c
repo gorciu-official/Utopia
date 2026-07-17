@@ -1,6 +1,6 @@
 #include <types.h>
-#include <drivers/internals/ports.h>
-#include <drivers/screen.h>
+#include <arch/x86_64/io.h>
+#include <lib/screen.h>
 
 #define PIC1_CMD 0x20
 #define PIC1_DATA 0x21

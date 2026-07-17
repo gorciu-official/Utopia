@@ -4,7 +4,7 @@
 #include <constants.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
-#include <multiboot.h>
+#include <boot/multiboot1.h>
 extern void framebuffer_init(multiboot_info_t* mbd);
 #endif
 

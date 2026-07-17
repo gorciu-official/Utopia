@@ -1,7 +1,7 @@
-#include <drivers/cpu.h>
+#include <arch/x86_64/common.h>
 #include <types.h>
-#include <drivers/internals/ports.h>
-#include <drivers/screen.h>
+#include <arch/x86_64/io.h>
+#include <lib/screen.h>
 
 static volatile uint64_t tick = 0;
 static volatile int32_t increment_tick_cpu = -1;

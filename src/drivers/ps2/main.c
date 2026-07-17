@@ -1,8 +1,8 @@
 #include <types.h>
 #include <drivers/ps2.h>
-#include <drivers/screen.h>
-#include <drivers/cpu.h>
-#include <drivers/internals/ports.h>
+#include <lib/screen.h>
+#include <arch/x86_64/common.h>
+#include <arch/x86_64/io.h>
 
 // keymaps copied from https://github.com/Interpuce/AurorOS/blob/main/src/drivers/keyboard/input.c 
 // some code was adapted from there as well 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <types.h>
-#include <registers.h>
+#include <arch/x86_64/registers.h>
 
 struct process; // smth like this works lol
 

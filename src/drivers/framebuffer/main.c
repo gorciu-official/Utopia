@@ -1,10 +1,11 @@
 #include <boot/limine.h>
 #include <drivers/framebuffer.h>
-#include <drivers/screen.h>
-#include <drivers/memory.h>
-#include <drivers/internals/font-8x8.h>
-#include <drivers/internals/ports.h>
-#include <string.h>
+#include <lib/screen.h>
+#include <memory.h>
+#include <arch/x86_64/io.h>
+#include <lib/string.h>
+
+#include "font-8x8.h"
 
 #define COM1 0x3F8
 
