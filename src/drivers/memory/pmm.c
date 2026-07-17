@@ -16,29 +16,6 @@ static volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST_ID,
     .revision = 0
 };
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_hhdm_request hhdm_request = {
-    .id = LIMINE_HHDM_REQUEST_ID,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_executable_address_request exec_addr_request = {
-    .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST_ID,
-    .revision = 0
-};
-
-static uintptr_t kernel_virt_to_phys(void* addr) {
-    if (exec_addr_request.response) {
-        return (uintptr_t)addr - exec_addr_request.response->virtual_base + exec_addr_request.response->physical_base;
-    }
-    return (uintptr_t)addr - 0xffffffff80000000ULL + 0x100000ULL;
-}
-#else
-static inline uintptr_t kernel_virt_to_phys(void* addr) {
-    return (uintptr_t)addr;
-}
 #endif
 
 typedef struct heap_block {
@@ -46,18 +23,6 @@ typedef struct heap_block {
     struct heap_block* next;
     bool free;
 } heap_block_t;
-
-typedef struct {
-    uint64_t addr;
-    uint64_t len;
-    uint32_t type;
-} memory_map_entry_t;
-
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-extern uint64_t page_table_l4[];
-#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-uint64_t* page_table_l4 = NULL;
-#endif
 
 static heap_block_t* head = NULL;
 static memory_map_entry_t kernel_memory_map[64];
@@ -102,9 +67,7 @@ void memory_init(multiboot_info_t* mbd) {
     }
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
 void memory_init(void) {
-    uint64_t cr3_phys;
-    asm volatile("mov %%cr3, %0" : "=r"(cr3_phys));
-    page_table_l4 = (uint64_t*)phys_to_virt(cr3_phys & ~0xFFFULL);
+    vmm_init();
 
     struct limine_memmap_response* response = memmap_request.response;
     if (response == NULL) {
@@ -195,8 +158,8 @@ void memory_init(void) {
             case 4: type_str = "NVS"; break;
             case 5: type_str = "Bad"; break;
         }
-        printk("Memory", "e820:  [%p - %p] %s (%lu bytes)", 
-            kernel_memory_map[i].addr, 
+        printk("Memory", "e820:  [%p - %p] %s (%lu bytes)",
+            kernel_memory_map[i].addr,
             kernel_memory_map[i].addr + kernel_memory_map[i].len,
             type_str,
             kernel_memory_map[i].len);
@@ -254,182 +217,4 @@ void free(void* ptr) {
     }
 
     restore_interrupts(flags);
-}
-
-#define PT_POOL_PAGES 64
-static uint8_t pt_pool[PT_POOL_PAGES][4096] __attribute__((aligned(4096)));
-static uint32_t pt_pool_next = 0;
-
-static uint64_t* pt_pool_alloc(void) {
-    if (pt_pool_next >= PT_POOL_PAGES) return NULL;
-    uint64_t* page = (uint64_t*)pt_pool[pt_pool_next++];
-    memset(page, 0, 4096);
-    return page;
-}
-
-int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags) {
-    uint64_t end = phys_start + size;
-    
-    for (uint64_t addr = phys_start; addr < end; addr += 0x200000) {
-        uint64_t l4_idx = (addr >> 39) & 0x1FF;
-        uint64_t l3_idx = (addr >> 30) & 0x1FF;
-        uint64_t l2_idx = (addr >> 21) & 0x1FF;
-
-        if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) {
-            uint64_t* new_l3 = pt_pool_alloc();
-            if (!new_l3) return -1;
-            page_table_l4[l4_idx] = (uint64_t)kernel_virt_to_phys(new_l3) | PAGE_PRESENT | PAGE_RW;
-        }
-
-        uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
-
-        if (!(l3[l3_idx] & PAGE_PRESENT)) {
-            uint64_t* new_l2 = pt_pool_alloc();
-            if (!new_l2) return -1;
-            l3[l3_idx] = (uint64_t)kernel_virt_to_phys(new_l2) | PAGE_PRESENT | PAGE_RW;
-        }
-
-        uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
-
-        l2[l2_idx] = (addr & ~0x1FFFFFULL) | flags | PAGE_PRESENT | PAGE_RW | PAGE_HUGE;
-    }
-
-    return 0;
-}
-
-void set_page_permissions(uint64_t virt, uint64_t flags) {
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-
-    if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) return;
-    page_table_l4[l4_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT)) return;
-    l3[l3_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-        l2[l2_idx] = (l2[l2_idx] & ~0xFFFULL) | flags | PAGE_HUGE;
-    } else if (l2[l2_idx] & PAGE_PRESENT) {
-        l2[l2_idx] |= (flags & (PAGE_USER | PAGE_RW));
-        uint64_t l1_idx = (virt >> 12) & 0x1FF;
-        uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & ~0xFFFULL);
-        l1[l1_idx] = (l1[l1_idx] & ~0xFFFULL) | flags;
-    }
-
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-}
-
-void* memcpy(void* dest, const void* src, size_t n) {
-    uint64_t* d64 = (uint64_t*)dest;
-    const uint64_t* s64 = (const uint64_t*)src;
-    size_t n64 = n / 8;
-    for (size_t i = 0; i < n64; i++) {
-        d64[i] = s64[i];
-    }
-    uint8_t* d = (uint8_t*)dest;
-    const uint8_t* s = (const uint8_t*)src;
-    for (size_t i = n64 * 8; i < n; i++) {
-        d[i] = s[i];
-    }
-    return dest;
-}
-
-int memcmp(const void* a, const void* b, size_t n) {
-    const uint8_t* x = a;
-    const uint8_t* y = b;
-
-    for (size_t i = 0; i < n; i++)
-        if (x[i] != y[i]) return 1;
-
-    return 0;
-}
-
-void* phys_to_virt(uint64_t phys) {
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    return (void*)phys;
-#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-    if (hhdm_request.response) {
-        return (void*)(hhdm_request.response->offset + phys);
-    }
-    return (void*)phys;
-#endif
-}
-
-void* memset(void* dest, int val, size_t n) {
-    uint64_t v64 = (uint8_t)val;
-    v64 |= v64 << 8;
-    v64 |= v64 << 16;
-    v64 |= v64 << 32;
-
-    uint64_t* d64 = (uint64_t*)dest;
-    size_t n64 = n / 8;
-    for (size_t i = 0; i < n64; i++) {
-        d64[i] = v64;
-    }
-    uint8_t* d = (uint8_t*)dest;
-    for (size_t i = n64 * 8; i < n; i++) {
-        d[i] = (uint8_t)val;
-    }
-    return dest;
-}
-
-void set_page_executable(uint64_t virt, bool executable) {
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-
-    if (!(page_table_l4[l4_idx] & PAGE_PRESENT))
-        return;
-
-    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT))
-        return;
-
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-
-        if (executable) {
-            l2[l2_idx] &= ~PAGE_NX;
-        } else {
-            l2[l2_idx] |= PAGE_NX;   
-        }
-
-        __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-        return;
-    }
-
-    uint64_t l1_idx = (virt >> 12) & 0x1FF;
-    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & ~0xFFFULL);
-
-    if (!(l2[l2_idx] & PAGE_PRESENT))
-        return;
-
-    if (executable) {
-        l1[l1_idx] &= ~PAGE_NX; 
-    } else {
-        l1[l1_idx] |= PAGE_NX;
-    }
-
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-}
-
-uint64_t* clone_page_table(void) {
-    uint64_t* new_l4 = pt_pool_alloc();
-    if (!new_l4) return NULL;
-
-    for (int i = 0; i < 512; i++) {
-        new_l4[i] = page_table_l4[i];
-    }
-
-    return new_l4;
-}
-
-void free_page_table(uint64_t* l4) {
-    if (!l4 || l4 == page_table_l4) return;
-    memset(l4, 0, 4096);
 }
