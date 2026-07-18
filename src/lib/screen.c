@@ -219,9 +219,10 @@ void printk(const char* module, const char *fmt, ...) {
     }
     spinlock_acquire(&fb_spinlock);
 
-    uint64_t ticks = timer_get_ticks();
-    uint64_t seconds = ticks / 100;
-    uint64_t milliseconds = (ticks % 100) * 10;
+    uint64_t tsc_get_ns_time();
+    uint64_t ticks = tsc_get_ns_time();
+    uint64_t seconds = ticks / 1000000000;
+    uint64_t milliseconds = (ticks % 1000000000) / 1000000;
     char time_str[32];
     
     ultoa(seconds, time_str, 10);

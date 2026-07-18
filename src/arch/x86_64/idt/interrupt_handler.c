@@ -78,7 +78,6 @@ registers_t* isr_handler(registers_t* regs) {
 
     // -- hardware interrupts 
     if (regs->int_no == 32) { 
-        timer_handler();
         regs = scheduler_schedule(regs);
     } else if (regs->int_no == 33) {
         ps2_interrupt_handler();

@@ -52,7 +52,7 @@ ifeq ($(SMP_ENABLED),true)
 QEMU_FLAGS += -smp $(SMP_CORES)
 endif
 ifeq ($(USE_HOST_CPU),true)
-QEMU_FLAGS += -enable-kvm -cpu host
+QEMU_FLAGS += -enable-kvm -cpu host,invtsc=on
 endif
 QEMU_FLAGS += $(EXTRA_QEMU_FLAGS)
 
