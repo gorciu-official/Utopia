@@ -278,9 +278,6 @@ void pmm_init(void) {
     }
 
     pmm_mark_range_used(kernel_virt_to_phys((void*)head), head->size + sizeof(heap_block_t));
-
-    printk("PMM", "Initialized: %lu total pages, bitmap at %p (%lu bytes)",
-        pmm_total_pages, pmm_bitmap, pmm_bitmap_bytes);
 }
 
 uint64_t pmm_alloc_page(void) {

@@ -246,11 +246,8 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
     uint64_t* proc_l4 = clone_page_table();
     if (!proc_l4) return -1;
 
-    printk("ELF Loader", "Size of ELF: %u", size);
- 
     elf_load_result_t res = elf_load(elf, size, proc_l4);
     if (res.status != ELF_OK) {
-        printk("ELF Loader", "Marker 1 %d", res.status);
         free_page_table(proc_l4);
         return -1;
     }
