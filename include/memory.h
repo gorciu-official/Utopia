@@ -17,6 +17,7 @@ void free_page_table(uint64_t* l4);
 void* memcpy(void* dest, const void* src, size_t n);
 void* memset(void* dest, int val, size_t n);
 int memcmp(const void* a, const void* b, size_t n);
+void* memmove(void *dst, const void *src, size_t n);
 
 typedef struct {
     uint64_t addr;
@@ -25,6 +26,8 @@ typedef struct {
 } memory_map_entry_t;
 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
+#include <boot/multiboot1.h>
+
 void memory_init(multiboot_info_t* mbd);
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
 void memory_init(void);

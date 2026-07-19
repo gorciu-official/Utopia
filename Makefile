@@ -83,6 +83,10 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.asm
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@nasm -f elf64 $< -o $@
 
+build_archive:
+	@mkdir -p $(ROOT_DIR)/initramfs/
+	@tar --format=ustar -cf iso/initramfs.tar -C $(ROOT_DIR)/initramfs .
+
 build_kernel: $(OBJECTS)
 	@echo -e "\033[1;33m[*]\033[0m Linking objects -> kernel binary"
 	@ld -m elf_x86_64 -T $(LINKER_SCRIPT) -o $(KERNEL_BIN) $(OBJECTS)
@@ -102,6 +106,7 @@ build_iso: build_kernel $(LIMINE_DIR)/limine
 	@echo -e "\033[1;33m[*]\033[0m Creating ISO directory structure for Limine"
 	@rm -rf $(ISO_DIR)
 	@mkdir -p $(ISO_DIR)
+	@make build_archive
 	@cp $(KERNEL_BIN) $(ISO_DIR)/
 	@cp $(LIMINE_CONFIG) $(ISO_DIR)/limine.conf
 	@cp $(LIMINE_DIR)/limine-bios.sys $(ISO_DIR)/

@@ -42,3 +42,22 @@ void* memset(void* dest, int val, size_t n) {
     }
     return dest;
 }
+
+void* memmove(void *dst, const void *src, size_t n) {
+    uint8_t* d = dst;
+    const uint8_t* s = src;
+
+    if (d < s) {
+        while (n--)
+            *d++ = *s++;
+    } else if (d > s) {
+        d += n;
+        s += n;
+
+        while (n--) {
+            *--d = *--s;
+        }
+    }
+
+    return dst;
+}
