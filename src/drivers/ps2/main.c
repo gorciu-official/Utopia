@@ -34,7 +34,7 @@ static uint8_t read_scancode() {
 }
 
 uint64_t   positions[CPU_ARCH_MAX_CPUS] = {0};
-bool        finished[CPU_ARCH_MAX_CPUS] = {0};
+bool        finished[CPU_ARCH_MAX_CPUS] = {1};
 char*        buffers[CPU_ARCH_MAX_CPUS] = {0};
 uint64_t       sizes[CPU_ARCH_MAX_CPUS] = {0};
 
@@ -54,6 +54,8 @@ int ps2_read(char* buffer, uint64_t size) {
 }
 
 void ps2_interrupt_handler() {
+    // TODO: PS/2 interrupts fire up on bootstrap processor 
+    //       so for APs this handler will never fire
     int processor = current_processor_id();
 
     if (finished[processor]) return;
