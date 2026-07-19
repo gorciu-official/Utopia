@@ -38,3 +38,6 @@ void free(void* ptr);
 #define PAGE_USER          (1ULL << 2)
 #define PAGE_HUGE          (1ULL << 7)
 #define PAGE_NX            (1ULL << 63)
+
+void pmm_free_page(uint64_t phys_addr);
+uint64_t pmm_alloc_page(void);

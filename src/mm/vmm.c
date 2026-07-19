@@ -33,11 +33,11 @@ void vmm_init(void) {
 #endif
 }
 
-#define PT_POOL_PAGES 64
+#define PT_POOL_PAGES 128
 static uint8_t pt_pool[PT_POOL_PAGES][4096] __attribute__((aligned(4096)));
 static uint32_t pt_pool_next = 0;
 
-static uint64_t* pt_pool_alloc(void) {
+uint64_t* pt_pool_alloc(void) {
     if (pt_pool_next >= PT_POOL_PAGES) return NULL;
     uint64_t* page = (uint64_t*)pt_pool[pt_pool_next++];
     memset(page, 0, 4096);
@@ -163,18 +163,81 @@ void set_page_executable(uint64_t virt, bool executable) {
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
 }
 
+static void free_table_level(uint64_t* table, int level) {
+    if (level > 0) {
+        for (int i = 0; i < 512; i++) {
+            uint64_t entry = table[i];
+            if (!(entry & PAGE_PRESENT)) continue;
+            if (level == 2 && (entry & PAGE_HUGE)) continue; 
+            if (level == 1) continue; 
+            uint64_t* child = (uint64_t*)phys_to_virt(entry & ~0xFFFULL);
+            free_table_level(child, level - 1);
+        }
+    }
+}
+
+void free_page_table(uint64_t* l4_table) {
+    for (int i = 0; i < 256; i++) {
+        if (!(l4_table[i] & PAGE_PRESENT)) continue;
+        uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[i] & ~0xFFFULL);
+        free_table_level(l3, 3);
+    }
+}
+
+static uint64_t* clone_table_level(uint64_t* old_table, int level) {
+    uint64_t* new_table = pt_pool_alloc();
+    if (!new_table) return NULL;
+
+    for (int i = 0; i < 512; i++) {
+        uint64_t entry = old_table[i];
+
+        if (!(entry & PAGE_PRESENT)) {
+            new_table[i] = 0;
+            continue;
+        }
+
+        if ((level == 2 && (entry & PAGE_HUGE)) || level == 1) {
+            new_table[i] = entry;
+            continue;
+        }
+
+        uint64_t* old_child = (uint64_t*)phys_to_virt(entry & ~0xFFFULL);
+        uint64_t* new_child = clone_table_level(old_child, level - 1);
+        if (!new_child) {
+            free_table_level(new_table, level);
+            return NULL;
+        }
+
+        new_table[i] = (uint64_t)kernel_virt_to_phys(new_child) | (entry & 0xFFF);
+    }
+
+    return new_table;
+}
+
 uint64_t* clone_page_table(void) {
     uint64_t* new_l4 = pt_pool_alloc();
     if (!new_l4) return NULL;
 
     for (int i = 0; i < 512; i++) {
-        new_l4[i] = page_table_l4[i];
+        if (i >= 256) {
+            new_l4[i] = page_table_l4[i];
+            continue;
+        }
+
+        if (!(page_table_l4[i] & PAGE_PRESENT)) {
+            new_l4[i] = 0;
+            continue;
+        }
+
+        uint64_t* old_l3 = (uint64_t*)phys_to_virt(page_table_l4[i] & ~0xFFFULL);
+        uint64_t* new_l3 = clone_table_level(old_l3, 3);
+        if (!new_l3) {
+            free_page_table(new_l4);
+            return NULL;
+        }
+
+        new_l4[i] = (uint64_t)kernel_virt_to_phys(new_l3) | (page_table_l4[i] & 0xFFF);
     }
 
     return new_l4;
-}
-
-void free_page_table(uint64_t* l4) {
-    if (!l4 || l4 == page_table_l4) return;
-    memset(l4, 0, 4096);
 }

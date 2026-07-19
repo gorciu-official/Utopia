@@ -165,6 +165,9 @@ void memory_init(void) {
             kernel_memory_map[i].len);
     }
     printk("Memory", "Heap initialized at %p with %lu bytes", head, head->size);
+
+    void pmm_init(); // forward declaration
+    pmm_init();
 }
 
 void* malloc(size_t size) {
@@ -214,6 +217,109 @@ void free(void* ptr) {
         } else {
             curr = curr->next;
         }
+    }
+
+    restore_interrupts(flags);
+}
+
+#define PAGE_SIZE 4096ULL
+
+static uint8_t* pmm_bitmap = NULL;
+static uint64_t pmm_bitmap_bytes = 0;
+static uint64_t pmm_total_pages = 0;
+static uint64_t pmm_search_hint = 0;
+
+static inline void bitmap_set(uint64_t page) {
+    pmm_bitmap[page >> 3] |= (1u << (page & 7));
+}
+static inline void bitmap_clear(uint64_t page) {
+    pmm_bitmap[page >> 3] &= ~(1u << (page & 7));
+}
+static inline bool bitmap_test(uint64_t page) {
+    return pmm_bitmap[page >> 3] & (1u << (page & 7));
+}
+
+static void pmm_mark_range_used(uint64_t phys_start, uint64_t len) {
+    uint64_t start_page = phys_start / PAGE_SIZE;
+    uint64_t end_page = (phys_start + len + PAGE_SIZE - 1) / PAGE_SIZE;
+    for (uint64_t p = start_page; p < end_page && p < pmm_total_pages; p++) {
+        bitmap_set(p);
+    }
+}
+
+static void pmm_mark_range_free(uint64_t phys_start, uint64_t len) {
+    uint64_t start_page = (phys_start + PAGE_SIZE - 1) / PAGE_SIZE;
+    uint64_t end_page = (phys_start + len) / PAGE_SIZE;
+    for (uint64_t p = start_page; p < end_page && p < pmm_total_pages; p++) {
+        bitmap_clear(p);
+    }
+}
+
+void pmm_init(void) {
+    uint64_t highest = 0;
+    for (uint32_t i = 0; i < memory_map_count; i++) {
+        uint64_t end = kernel_memory_map[i].addr + kernel_memory_map[i].len;
+        if (end > highest) highest = end;
+    }
+
+    pmm_total_pages = (highest + PAGE_SIZE - 1) / PAGE_SIZE;
+    pmm_bitmap_bytes = (pmm_total_pages + 7) / 8;
+
+    pmm_bitmap = (uint8_t*)malloc(pmm_bitmap_bytes);
+    if (!pmm_bitmap) {
+        printk("PMM", "Failed to allocate %lu byte bitmap", pmm_bitmap_bytes);
+        return;
+    }
+    memset(pmm_bitmap, 0xFF, pmm_bitmap_bytes);
+
+    for (uint32_t i = 0; i < memory_map_count; i++) {
+        if (kernel_memory_map[i].type != 1) continue; 
+        pmm_mark_range_free(kernel_memory_map[i].addr, kernel_memory_map[i].len);
+    }
+
+    pmm_mark_range_used(kernel_virt_to_phys((void*)head), head->size + sizeof(heap_block_t));
+
+    printk("PMM", "Initialized: %lu total pages, bitmap at %p (%lu bytes)",
+        pmm_total_pages, pmm_bitmap, pmm_bitmap_bytes);
+}
+
+uint64_t pmm_alloc_page(void) {
+    if (!pmm_bitmap) return 0;
+
+    uint64_t flags = save_interrupts();
+
+    uint64_t result = 0;
+    for (uint64_t i = 0; i < pmm_total_pages; i++) {
+        uint64_t page = (pmm_search_hint + i) % pmm_total_pages;
+        if (!bitmap_test(page)) {
+            bitmap_set(page);
+            pmm_search_hint = page + 1;
+            result = page * PAGE_SIZE;
+            break;
+        }
+    }
+
+    restore_interrupts(flags);
+
+    if (!result) {
+        printk("PMM", "Out of physical memory");
+    }
+    return result;
+}
+
+void pmm_free_page(uint64_t phys_addr) {
+    if (!phys_addr || !pmm_bitmap) return;
+
+    uint64_t page = phys_addr / PAGE_SIZE;
+    if (page >= pmm_total_pages) return;
+
+    uint64_t flags = save_interrupts();
+
+    if (!bitmap_test(page)) {
+        printk("PMM", "Warning: double free of page %p", (void*)phys_addr);
+    } else {
+        bitmap_clear(page);
+        if (page < pmm_search_hint) pmm_search_hint = page;
     }
 
     restore_interrupts(flags);
