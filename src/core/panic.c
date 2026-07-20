@@ -82,7 +82,7 @@ void panic(const char* reason, registers_t* regs) {
     //
     //       though, for the time I'm writing this, you can't do multi-thread
     //       userspace yet, so theoretically there is no need to shutdown APs 
-    //       now
+    //       now 
 
     __builtin_unreachable();
 }
