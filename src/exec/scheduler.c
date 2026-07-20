@@ -98,14 +98,23 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
         return NULL;
     }
 
-    size_t stack_size = 8192; 
+    size_t stack_size = 8192;
     void* stack_base = malloc(stack_size);
+
     if (!stack_base) {
         printk("Scheduler", "Failed to allocate stack for new thread '%s'!", name);
         free(t);
         return NULL;
     }
-    if (ring == 3) set_page_permissions((uintptr_t)stack_base, PAGE_RW | PAGE_USER | PAGE_PRESENT);
+
+    if (ring == 3) {
+        for (size_t i = 0; i < stack_size; i += 4096) {
+            set_page_permissions(
+                (uintptr_t)stack_base + i,
+                PAGE_RW | PAGE_USER | PAGE_PRESENT
+            );
+        }
+    }
 
     t->id = next_thread_id++;
     strcpy(t->name, name);
@@ -115,27 +124,59 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     t->next = NULL;
     t->process = NULL;
 
-    uint64_t stack_bottom = (uint64_t)stack_base + stack_size;
-    stack_bottom = stack_bottom & ~15ULL;
+    uint64_t sp = (uint64_t)stack_base + stack_size;
 
-    stack_bottom -= 8;
-    *(uint64_t*)stack_bottom = (uint64_t)thread_exit;
+    sp &= ~15ULL;
 
-    registers_t* regs = (registers_t*)(stack_bottom - sizeof(registers_t));
-    
+    if (ring == 3) {
+        // auxv: AT_NULL
+        sp -= 8;
+        *(uint64_t*)sp = 0;
+        sp -= 8;
+        *(uint64_t*)sp = 0;
+
+        // envp[0] = NULL
+        sp -= 8;
+        *(uint64_t*)sp = 0;
+
+        // argv[1] = NULL
+        sp -= 8;
+        *(uint64_t*)sp = 0;
+
+        // argv[0]
+        sp -= 8;
+        *(uint64_t*)sp = (uint64_t)arg;
+
+        // argc = 1
+        sp -= 8;
+        *(uint64_t*)sp = 1;
+
+        sp &= ~15ULL;
+    }
+
+    registers_t* regs =
+        (registers_t*)(sp - sizeof(registers_t));
+
     memset(regs, 0, sizeof(registers_t));
 
     regs->rip = (uint64_t)entry_point;
-    regs->rdi = (uint64_t)arg;
-    regs->cs = ring == 0 ? 0x08 : (0x28 | 3); 
-    regs->ss = ring == 0 ? 0x10 : (0x20 | 3);   
-    regs->rflags = 0x202; 
-    regs->rsp = (uint64_t)stack_bottom;
 
+    if (ring == 3) {
+        regs->rdi = 0;
+        regs->rsi = 0;
+        regs->rdx = 0;
+    }
+    else {
+        regs->rdi = (uint64_t)arg;
+    }
+
+    regs->cs = ring == 0 ? 0x08 : (0x28 | 3);
+    regs->ss = ring == 0 ? 0x10 : (0x20 | 3);
+    regs->rflags = 0x202;
+    regs->rsp = sp;
     t->stack_ptr = regs;
 
     scheduler_enqueue(t);
-
     return t;
 }
 

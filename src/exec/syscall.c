@@ -14,6 +14,8 @@ void syscall_handler(registers_t* regs) {
     thread_t* current_thread = scheduler_get_current_thread();
     process_t* current_process = current_thread->process;
 
+    printk("Debug", "Syscall %d invoked", regs->rax);
+
     switch (regs->rax) {
     case 0: // read
         switch (regs->rdi) {
@@ -39,7 +41,7 @@ void syscall_handler(registers_t* regs) {
             break;
         }
         break;
-    case 60: { // exit
+    case 60: case 231: { // exit
         if (current_process && current_process->pid == 1) {
             panic("INIT_EXITED", NULL);
         }

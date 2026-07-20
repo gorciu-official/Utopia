@@ -66,6 +66,16 @@ static inline uint64_t read_cr3(void) {
     return val;
 }
 
+static inline void write_cr0(unsigned long val) {
+    asm volatile ("mov %0, %%cr0" :: "r"(val) : "memory");
+}
+
+static inline uint64_t read_cr0(void) {
+    uint64_t val;
+    __asm__ volatile("mov %%cr0, %0" : "=r"(val));
+    return val;
+}
+
 static inline void write_cr3(uint64_t val) {
     __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
 }

@@ -45,6 +45,21 @@ static volatile struct limine_module_request module_request = {
     .revision = 0
 };
 
+void enable_sse(void) {
+    uint64_t cr0 = read_cr0();
+    cr0 |= (1ULL << 1);
+    cr0 &= ~(1ULL << 2);
+    cr0 &= ~(1ULL << 3);
+
+    write_cr0(cr0);
+
+    uint64_t cr4 = read_cr4();
+    cr4 |= (1ULL << 9);
+    cr4 |= (1ULL << 10);
+
+    write_cr4(cr4);
+}
+
 void kmain() {
     struct limine_framebuffer* framebuffer = framebuffer_request.response->framebuffers[0];
     framebuffer_init(framebuffer);
@@ -78,6 +93,7 @@ void kmain() {
 #endif
     
     // cpu init
+    enable_sse();
     gdt_init();
     pic_remap(0x20, 0x28);
     idt_init();
@@ -149,7 +165,7 @@ void kmain() {
     }
 
     // suspend console output 
-    printk_suspend_console();
+    //printk_suspend_console();
 
     cpu_main();
 }
