@@ -128,12 +128,24 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
 
     sp &= ~15ULL;
 
-    if (ring == 3) {
+    if (ring == 3) { 
+        sp -= 16;
+        uint64_t random_addr = sp;
+
+        ((uint8_t*)random_addr)[0] = 0x12;
+        ((uint8_t*)random_addr)[1] = 0x34;
+
         // auxv: AT_NULL
         sp -= 8;
         *(uint64_t*)sp = 0;
         sp -= 8;
         *(uint64_t*)sp = 0;
+
+        // auxv: AT_RANDOM
+        sp -= 8;
+        *(uint64_t*)sp = random_addr; 
+        sp -= 8;
+        *(uint64_t*)sp = 25; 
 
         // envp[0] = NULL
         sp -= 8;

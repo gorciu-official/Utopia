@@ -11,6 +11,66 @@
 //    then:
 //      rdi, rsi, rdx (unsigned)
 
+typedef struct { 
+    void* iov_base; 
+    size_t iov_len; 
+} iovec_t;
+
+#define ARCH_SET_GS 0x1001
+#define ARCH_SET_FS 0x1002
+#define ARCH_GET_FS 0x1003
+#define ARCH_GET_GS 0x1004
+
+// TODO: we already have write_msr though i kinda used AI for some syscalls 
+static inline void write_fs_base(uint64_t value) {
+    uint32_t low = (uint32_t)value;
+    uint32_t high = (uint32_t)(value >> 32);
+
+    uint32_t ecx = 0xC0000100; // IA32_FS_BASE
+    asm volatile(
+        "wrmsr"
+        :
+        : "c"(ecx), "a"(low), "d"(high)
+    );
+}
+
+static inline uint64_t read_fs_base(void) {
+    uint32_t low, high;
+    uint32_t ecx = 0xC0000100;
+
+    asm volatile(
+        "rdmsr"
+        : "=a"(low), "=d"(high)
+        : "c"(ecx)
+    );
+
+    return ((uint64_t)high << 32) | low;
+}
+
+static inline void write_gs_base(uint64_t value) {
+    uint32_t low = (uint32_t)value;
+    uint32_t high = (uint32_t)(value >> 32);
+
+    uint32_t ecx = 0xC0000101; // IA32_GS_BASE
+    asm volatile(
+        "wrmsr"
+        :
+        : "c"(ecx), "a"(low), "d"(high)
+    );
+}
+
+static inline uint64_t read_gs_base(void) {
+    uint32_t low, high;
+    uint32_t ecx = 0xC0000101;
+
+    asm volatile(
+        "rdmsr"
+        : "=a"(low), "=d"(high)
+        : "c"(ecx)
+    );
+
+    return ((uint64_t)high << 32) | low;
+}
 #define USER_HEAP_MAX 0x0000800000000000ULL
 
 static uint64_t page_align_up(uint64_t value) {
@@ -38,6 +98,21 @@ static int grow_process_brk(process_t* process, uint64_t new_break) {
     return 0;
 }
 
+uintptr_t write(void* data, uintptr_t len, uintptr_t fd) {
+    uint64_t result = -1;
+
+    switch (fd) {
+    case 1: case 2:
+        user_print(data, len);
+        result = len;
+        break;
+    default:
+        break;
+    }
+    
+    return result;
+}
+
 void syscall_handler(registers_t* regs) {
     thread_t* current_thread = scheduler_get_current_thread();
     process_t* current_process = current_thread->process;
@@ -59,16 +134,41 @@ void syscall_handler(registers_t* regs) {
         }
         break;
     case 1: // write
-        switch (regs->rdi) {
-        case 1: case 2:
-            user_print((char*)regs->rsi, regs->rdx);
-            regs->rax_i = regs->rdx;
-            break;
-        default:
-            regs->rax_i = -1;
-            break;
-        }
+        regs->rax_i = write((void*)regs->rsi, regs->rdx, regs->rdi);
         break;
+    case 10: {
+        // TODO: implement mprotect syscall
+        break;
+    }
+    case 20: { // writev
+        int fd = regs->rdi;
+        iovec_t* iov = (iovec_t*)regs->rsi;
+        int iovcnt = regs->rdx;
+    
+        size_t total = 0;
+    
+        for (int i = 0; i < iovcnt; i++) {
+            size_t ret = write(
+                iov[i].iov_base,
+                iov[i].iov_len,
+                fd
+            );
+    
+            if (ret < 0) {
+                regs->rax_i = (total > 0) ? total : ret;
+                break;
+            }
+    
+            total += ret;
+    
+            if ((size_t)ret < iov[i].iov_len) {
+                break;
+            }
+        }
+    
+        regs->rax_i = total;
+        break;
+    }
     case 12: { // brk
         uint64_t requested_break = regs->rdi;
 
@@ -94,6 +194,52 @@ void syscall_handler(registers_t* regs) {
 
         current_process->brk_current = requested_break;
         regs->rax = current_process->brk_current;
+        break;
+    }
+    case 158: { // arch_prctl
+        uint64_t code = regs->rdi;
+        uint64_t addr = regs->rsi;
+    
+        switch (code) {
+        case ARCH_SET_FS:
+            write_fs_base(addr);
+            regs->rax_i = 0;
+            break;
+    
+        case ARCH_GET_FS: {
+            uint64_t fs = read_fs_base();
+            if (!addr) {
+                regs->rax_i = -1;
+                break;
+            }
+    
+            *(uint64_t*)addr = fs;
+            regs->rax_i = 0;
+            break;
+        }
+    
+        case ARCH_SET_GS:
+            write_gs_base(addr);
+            regs->rax_i = 0;
+            break;
+    
+        case ARCH_GET_GS: {
+            uint64_t gs = read_gs_base();
+            if (!addr) {
+                regs->rax_i = -1;
+                break;
+            }
+    
+            *(uint64_t*)addr = gs;
+            regs->rax_i = 0;
+            break;
+        }
+    
+        default:
+            regs->rax_i = -1;
+            break;
+        }
+    
         break;
     }
     case 60: case 231: { // exit

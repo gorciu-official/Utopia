@@ -262,6 +262,7 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
 
     proc->brk_start = (res.highest_vaddr + 0xFFFULL) & ~0xFFFULL;
     proc->brk_current = proc->brk_start;
+    proc->page_table = proc_l4;
 
     return 0;
 }
