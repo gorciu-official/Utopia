@@ -41,6 +41,8 @@ process_t* process_create(const char* name, void (*entry_point)(void*), void* ar
     }
     main_thread->process = proc;
     proc->main_thread = main_thread;
+    proc->brk_start = 0;
+    proc->brk_current = 0;
 
     spinlock_acquire(&process_lock);
     proc->next = process_list_head;

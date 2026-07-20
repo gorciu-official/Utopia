@@ -254,7 +254,14 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
     
     write_cr3(kernel_virt_to_phys(proc_l4)); // TODO: context switch should do this not me
 
-    process_create("jakis-elf", (void (*)(void*))res.entry, NULL, 3);
+    process_t* proc = process_create("jakis-elf", (void (*)(void*))res.entry, NULL, 3);
+    if (!proc) {
+        free_page_table(proc_l4);
+        return -1;
+    }
+
+    proc->brk_start = (res.highest_vaddr + 0xFFFULL) & ~0xFFFULL;
+    proc->brk_current = proc->brk_start;
 
     return 0;
 }

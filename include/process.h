@@ -9,6 +9,8 @@ typedef struct process {
     uint32_t pid;
     char name[32];
     uint64_t* page_table; 
+    uint64_t brk_start;
+    uint64_t brk_current;
     struct thread* main_thread; 
     struct process* next;   
 } process_t;
