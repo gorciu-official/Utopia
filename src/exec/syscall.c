@@ -1,4 +1,6 @@
+#include <process.h>
 #include <scheduler.h>
+#include <panic.h>
 #include <lib/screen.h>
 #include <drivers/ps2.h>
 #include <arch/x86_64/registers.h>
@@ -9,6 +11,9 @@
 //      rdi, rsi, rdx (unsigned)
 
 void syscall_handler(registers_t* regs) {
+    thread_t* current_thread = scheduler_get_current_thread();
+    process_t* current_process = current_thread->process;
+
     switch (regs->rax) {
     case 0: // read
         switch (regs->rdi) {
@@ -34,9 +39,14 @@ void syscall_handler(registers_t* regs) {
             break;
         }
         break;
-    case 60: // exit
+    case 60: { // exit
+        if (current_process && current_process->pid == 1) {
+            panic("INIT_EXITED", NULL);
+        }
+
         thread_exit();
         break;
+    }
     default:
         regs->rax_i = -1;
         break;

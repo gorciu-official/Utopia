@@ -1,6 +1,7 @@
 #include <types.h>
 #include <arch/x86_64/common.h>
 #include <lib/screen.h>
+#include <panic.h>
 
 bool has_invariant_tsc() {
     unsigned int eax, ebx, ecx, edx;
@@ -64,7 +65,7 @@ static bool tsc_initialized = false;
 
 void tsc_init() {
     if (!has_invariant_tsc()) {
-        printk("Clock", "Invariant TSC: not supported");
+        panic("NO_INVARIANT_TSC", NULL);
     }
 
     tsc_frequency = calibrate_tsc(10);
