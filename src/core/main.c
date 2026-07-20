@@ -58,7 +58,6 @@ void kmain() {
     
         for (uint64_t i = 0; i < module_count; i++) {
             struct limine_file* mod = modules[i];
-            printk("Module", "path=%s", mod->path);
             if (strcmp(mod->path, "/initramfs.tar") == 0) {
                 initram_fs_addr = mod->address;
                 initram_fs_size = mod->size;
