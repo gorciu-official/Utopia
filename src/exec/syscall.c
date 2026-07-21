@@ -4,6 +4,7 @@
 #include <lib/screen.h>
 #include <drivers/ps2.h>
 #include <arch/x86_64/registers.h>
+#include <arch/x86_64/msr.h>
 #include <memory.h>
 
 //  ---- syscall convention ----
@@ -16,61 +17,6 @@ typedef struct {
     size_t iov_len; 
 } iovec_t;
 
-#define ARCH_SET_GS 0x1001
-#define ARCH_SET_FS 0x1002
-#define ARCH_GET_FS 0x1003
-#define ARCH_GET_GS 0x1004
-
-// TODO: we already have write_msr though i kinda used AI for some syscalls 
-static inline void write_fs_base(uint64_t value) {
-    uint32_t low = (uint32_t)value;
-    uint32_t high = (uint32_t)(value >> 32);
-
-    uint32_t ecx = 0xC0000100; // IA32_FS_BASE
-    asm volatile(
-        "wrmsr"
-        :
-        : "c"(ecx), "a"(low), "d"(high)
-    );
-}
-
-static inline uint64_t read_fs_base(void) {
-    uint32_t low, high;
-    uint32_t ecx = 0xC0000100;
-
-    asm volatile(
-        "rdmsr"
-        : "=a"(low), "=d"(high)
-        : "c"(ecx)
-    );
-
-    return ((uint64_t)high << 32) | low;
-}
-
-static inline void write_gs_base(uint64_t value) {
-    uint32_t low = (uint32_t)value;
-    uint32_t high = (uint32_t)(value >> 32);
-
-    uint32_t ecx = 0xC0000101; // IA32_GS_BASE
-    asm volatile(
-        "wrmsr"
-        :
-        : "c"(ecx), "a"(low), "d"(high)
-    );
-}
-
-static inline uint64_t read_gs_base(void) {
-    uint32_t low, high;
-    uint32_t ecx = 0xC0000101;
-
-    asm volatile(
-        "rdmsr"
-        : "=a"(low), "=d"(high)
-        : "c"(ecx)
-    );
-
-    return ((uint64_t)high << 32) | low;
-}
 #define USER_HEAP_MAX 0x0000800000000000ULL
 
 static uint64_t page_align_up(uint64_t value) {
@@ -117,7 +63,7 @@ void syscall_handler(registers_t* regs) {
     thread_t* current_thread = scheduler_get_current_thread();
     process_t* current_process = current_thread->process;
 
-    printk("Debug", "Syscall %d invoked", regs->rax);
+    dprintk("Debug", "Syscall %d invoked", regs->rax);
 
     switch (regs->rax) {
     case 0: // read
@@ -153,11 +99,6 @@ void syscall_handler(registers_t* regs) {
                 iov[i].iov_len,
                 fd
             );
-    
-            if (ret < 0) {
-                regs->rax_i = (total > 0) ? total : ret;
-                break;
-            }
     
             total += ret;
     
@@ -202,12 +143,12 @@ void syscall_handler(registers_t* regs) {
     
         switch (code) {
         case ARCH_SET_FS:
-            write_fs_base(addr);
+            write_msr(IA32_FS_BASE, addr);
             regs->rax_i = 0;
             break;
     
         case ARCH_GET_FS: {
-            uint64_t fs = read_fs_base();
+            uint64_t fs = read_msr(IA32_FS_BASE);
             if (!addr) {
                 regs->rax_i = -1;
                 break;
@@ -219,12 +160,12 @@ void syscall_handler(registers_t* regs) {
         }
     
         case ARCH_SET_GS:
-            write_gs_base(addr);
+            write_msr(IA32_GS_BASE, addr);
             regs->rax_i = 0;
             break;
     
         case ARCH_GET_GS: {
-            uint64_t gs = read_gs_base();
+            uint64_t gs = read_msr(IA32_GS_BASE);
             if (!addr) {
                 regs->rax_i = -1;
                 break;
@@ -255,5 +196,5 @@ void syscall_handler(registers_t* regs) {
         break;
     }
 
-    printk("Debug", "RAX return value %d", regs->rax_i);
+    dprintk("Debug", "RAX return value %d", regs->rax_i);
 }

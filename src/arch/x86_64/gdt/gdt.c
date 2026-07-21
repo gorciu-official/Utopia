@@ -1,4 +1,5 @@
 #include <arch/x86_64/common.h>
+#include <arch/x86_64/msr.h>
 #include <lib/spinlock.h>
 #include <lib/string.h>
 #include <types.h>
@@ -92,8 +93,8 @@ void gdt_init() {
     cpu_local_data[cpu_id].kernel_stack = (uint64_t)&kernel_stacks[cpu_id][16384];
     cpu_local_data[cpu_id].user_stack = 0;
 
-    write_msr(0xC0000101, (uint64_t)&cpu_local_data[cpu_id]); // GS_BASE
-    write_msr(0xC0000102, (uint64_t)&cpu_local_data[cpu_id]); // KERNEL_GS_BASE
+    write_msr(IA32_GS_BASE, (uint64_t)&cpu_local_data[cpu_id]);
+    write_msr(IA32_KERNEL_GS_BASE, (uint64_t)&cpu_local_data[cpu_id]);
     
     spinlock_release(&gdt_spinlock);
 }
