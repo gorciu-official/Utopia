@@ -165,7 +165,9 @@ void kmain() {
     }
 
     // suspend console output 
-    //printk_suspend_console();
+#if UTOPIA_DEBUG == 0
+    printk_suspend_console();
+#endif
 
     cpu_main();
 }
