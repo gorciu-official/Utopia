@@ -29,7 +29,7 @@ void vmm_init(void) {
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
     uint64_t cr3_phys;
     asm volatile("mov %%cr3, %0" : "=r"(cr3_phys));
-    page_table_l4 = (uint64_t*)phys_to_virt(cr3_phys & ~0xFFFULL);
+    page_table_l4 = (uint64_t*)phys_to_virt(cr3_phys & PAGE_PHYS_MASK);
 #endif
 }
 
@@ -53,6 +53,15 @@ uintptr_t kernel_virt_to_phys(void* addr) {
 #else
     return (uintptr_t)addr;
 #endif
+}
+
+uintptr_t hhdm_virt_to_phys(void* addr) {
+#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
+    if (exec_addr_request.response) {
+        return (uintptr_t)addr - hhdm_request.response->offset;
+    }
+#endif 
+    return (uintptr_t)addr;
 }
 
 void* phys_to_virt(uint64_t phys) {
@@ -80,7 +89,7 @@ int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags) {
             page_table_l4[l4_idx] = (uint64_t)kernel_virt_to_phys(new_l3) | PAGE_PRESENT | PAGE_RW;
         }
 
-        uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
+        uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & PAGE_PHYS_MASK);
 
         if (!(l3[l3_idx] & PAGE_PRESENT)) {
             uint64_t* new_l2 = pt_pool_alloc();
@@ -88,7 +97,7 @@ int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags) {
             l3[l3_idx] = (uint64_t)kernel_virt_to_phys(new_l2) | PAGE_PRESENT | PAGE_RW;
         }
 
-        uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
+        uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
 
         l2[l2_idx] = (addr & ~0x1FFFFFULL) | flags | PAGE_PRESENT | PAGE_RW | PAGE_HUGE;
     }
@@ -103,19 +112,24 @@ void set_page_permissions(uint64_t virt, uint64_t flags) {
 
     if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) return;
     page_table_l4[l4_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
+    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & PAGE_PHYS_MASK);
 
     if (!(l3[l3_idx] & PAGE_PRESENT)) return;
     l3[l3_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
+    if (l3[l3_idx] & PAGE_HUGE) {
+        l3[l3_idx] = (l3[l3_idx] & PAGE_PHYS_MASK) | flags | PAGE_HUGE;
+        __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+        return;
+    }
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
 
     if (l2[l2_idx] & PAGE_HUGE) {
-        l2[l2_idx] = (l2[l2_idx] & ~0xFFFULL) | flags | PAGE_HUGE;
+        l2[l2_idx] = (l2[l2_idx] & PAGE_PHYS_MASK) | flags | PAGE_HUGE;
     } else if (l2[l2_idx] & PAGE_PRESENT) {
         l2[l2_idx] |= (flags & (PAGE_USER | PAGE_RW));
         uint64_t l1_idx = (virt >> 12) & 0x1FF;
-        uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & ~0xFFFULL);
-        l1[l1_idx] = (l1[l1_idx] & ~0xFFFULL) | flags;
+        uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
+        l1[l1_idx] = (l1[l1_idx] & PAGE_PHYS_MASK) | flags;
     }
 
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
@@ -129,12 +143,22 @@ void set_page_executable(uint64_t virt, bool executable) {
     if (!(page_table_l4[l4_idx] & PAGE_PRESENT))
         return;
 
-    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & ~0xFFFULL);
+    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & PAGE_PHYS_MASK);
 
     if (!(l3[l3_idx] & PAGE_PRESENT))
         return;
 
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & ~0xFFFULL);
+    if (l3[l3_idx] & PAGE_HUGE) {
+        if (executable) {
+            l3[l3_idx] &= ~PAGE_NX;
+        } else {
+            l3[l3_idx] |= PAGE_NX;
+        }
+        __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+        return;
+    }
+
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
 
     if (l2[l2_idx] & PAGE_HUGE) {
 
@@ -149,7 +173,7 @@ void set_page_executable(uint64_t virt, bool executable) {
     }
 
     uint64_t l1_idx = (virt >> 12) & 0x1FF;
-    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & ~0xFFFULL);
+    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
 
     if (!(l2[l2_idx] & PAGE_PRESENT))
         return;
@@ -168,9 +192,8 @@ static void free_table_level(uint64_t* table, int level) {
         for (int i = 0; i < 512; i++) {
             uint64_t entry = table[i];
             if (!(entry & PAGE_PRESENT)) continue;
-            if (level == 2 && (entry & PAGE_HUGE)) continue; 
-            if (level == 1) continue; 
-            uint64_t* child = (uint64_t*)phys_to_virt(entry & ~0xFFFULL);
+            if ((entry & PAGE_HUGE) || level == 1) continue; 
+            uint64_t* child = (uint64_t*)phys_to_virt(entry & PAGE_PHYS_MASK);
             free_table_level(child, level - 1);
         }
     }
@@ -179,7 +202,7 @@ static void free_table_level(uint64_t* table, int level) {
 void free_page_table(uint64_t* l4_table) {
     for (int i = 0; i < 256; i++) {
         if (!(l4_table[i] & PAGE_PRESENT)) continue;
-        uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[i] & ~0xFFFULL);
+        uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[i] & PAGE_PHYS_MASK);
         free_table_level(l3, 3);
     }
 }
@@ -196,12 +219,12 @@ static uint64_t* clone_table_level(uint64_t* old_table, int level) {
             continue;
         }
 
-        if ((level == 2 && (entry & PAGE_HUGE)) || level == 1) {
+        if ((entry & PAGE_HUGE) || level == 1) {
             new_table[i] = entry;
             continue;
         }
 
-        uint64_t* old_child = (uint64_t*)phys_to_virt(entry & ~0xFFFULL);
+        uint64_t* old_child = (uint64_t*)phys_to_virt(entry & PAGE_PHYS_MASK);
         uint64_t* new_child = clone_table_level(old_child, level - 1);
         if (!new_child) {
             free_table_level(new_table, level);
@@ -229,7 +252,7 @@ uint64_t* clone_page_table(void) {
             continue;
         }
 
-        uint64_t* old_l3 = (uint64_t*)phys_to_virt(page_table_l4[i] & ~0xFFFULL);
+        uint64_t* old_l3 = (uint64_t*)phys_to_virt(page_table_l4[i] & PAGE_PHYS_MASK);
         uint64_t* new_l3 = clone_table_level(old_l3, 3);
         if (!new_l3) {
             free_page_table(new_l4);
@@ -240,4 +263,71 @@ uint64_t* clone_page_table(void) {
     }
 
     return new_l4;
+}
+
+int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags) {
+    // TODO: pt_pool runs out veryyyyyy quickly so it would be 
+    //       wise to stop using it
+
+    uint64_t l4_idx = (virt >> 39) & 0x1FF;
+    uint64_t l3_idx = (virt >> 30) & 0x1FF;
+    uint64_t l2_idx = (virt >> 21) & 0x1FF;
+    uint64_t l1_idx = (virt >> 12) & 0x1FF;
+
+    if (!(l4_table[l4_idx] & PAGE_PRESENT)) {
+        uint64_t* new_l3 = pt_pool_alloc();
+        if (!new_l3) return -1;
+        l4_table[l4_idx] = (uint64_t)kernel_virt_to_phys(new_l3) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    } else {
+        l4_table[l4_idx] |= (flags & (PAGE_RW | PAGE_USER));
+    }
+    uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[l4_idx] & PAGE_PHYS_MASK);
+
+    if (!(l3[l3_idx] & PAGE_PRESENT)) {
+        uint64_t* new_l2 = pt_pool_alloc();
+        if (!new_l2) return -1;
+        l3[l3_idx] = (uint64_t)kernel_virt_to_phys(new_l2) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    } else {
+        l3[l3_idx] |= (flags & (PAGE_RW | PAGE_USER));
+    }
+
+    if (l3[l3_idx] & PAGE_HUGE) {
+        return -1;
+    }
+
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
+
+    if (l2[l2_idx] & PAGE_HUGE) {
+        uint64_t huge_entry = l2[l2_idx];
+        uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
+        uint64_t huge_flags = huge_entry & 0xFFF & ~PAGE_HUGE; 
+    
+        uint64_t* new_l1 = pt_pool_alloc();
+        if (!new_l1) return -1;
+    
+        for (int i = 0; i < 512; i++) {
+            new_l1[i] = (huge_phys_base + i * 0x1000) | huge_flags;
+        }
+    
+        l2[l2_idx] = (uint64_t)kernel_virt_to_phys(new_l1) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    
+        uint64_t region_base = virt & ~0x1FFFFFULL;
+        for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
+            __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
+        }
+    }
+
+    if (!(l2[l2_idx] & PAGE_PRESENT)) {
+        uint64_t* new_l1 = pt_pool_alloc();
+        if (!new_l1) return -1;
+        l2[l2_idx] = (uint64_t)kernel_virt_to_phys(new_l1) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    } else {
+        l2[l2_idx] |= (flags & (PAGE_RW | PAGE_USER));
+    }
+    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
+
+    l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
+
+    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+    return 0;
 }

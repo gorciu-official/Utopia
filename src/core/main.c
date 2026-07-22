@@ -26,25 +26,6 @@ static inline void cpu_main() {
     while (true) continue;
 }
 
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-void kmain(multiboot_info_t* mbd) {
-    framebuffer_init(mbd);
-    char* initram_fs_addr = NULL;
-    size_t initram_fs_size = 0;
-#endif 
-#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_framebuffer_request framebuffer_request = {
-    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_module_request module_request = {
-    .id = LIMINE_MODULE_REQUEST_ID,
-    .revision = 0
-};
-
 void enable_sse(void) {
     uint64_t cr0 = read_cr0();
     cr0 |= (1ULL << 1);
@@ -59,6 +40,42 @@ void enable_sse(void) {
 
     write_cr4(cr4);
 }
+
+// TODO: this function (kmain) needs a refactor.
+//       it is too bootloader-dependent, a bootloader-specific
+//       function should set up an common structure and then 
+//       pass it as an argument to kmain
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+void kmain(multiboot_info_t* mbd) {
+    framebuffer_init(mbd);
+    char* initram_fs_addr = NULL;
+    size_t initram_fs_size = 0;
+
+    if (mbd->mods_count > 0) {
+        uint32_t count = mbd->mods_count;
+        multiboot_module_t* mods = (multiboot_module_t*)(uintptr_t)mbd->mods_addr;
+
+        for (unsigned int i = 0; i < count; i++) {
+            multiboot_module_t mod = mods[i];
+
+            if (strcmp((char*)(uintptr_t)mod.cmdline, "initramfs.tar") == 0) {
+                initram_fs_addr = (char*)(uintptr_t)mod.mod_start;
+                initram_fs_size = mod.mod_end - mod.mod_start;
+            }
+        }
+    }
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_framebuffer_request framebuffer_request = {
+    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_module_request module_request = {
+    .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0
+};
 
 void kmain() {
     struct limine_framebuffer* framebuffer = framebuffer_request.response->framebuffers[0];
@@ -177,9 +194,9 @@ extern uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
 void ap_main() {
     uint32_t id = current_processor_id();
     ap_alive_table[id] = 1;
+    enable_sse();
     idt_init();
     gdt_init();
-    timer_init(100);
     enable_umip();
     init_syscall();
 

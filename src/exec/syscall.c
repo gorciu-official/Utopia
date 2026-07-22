@@ -24,8 +24,6 @@ static uint64_t page_align_up(uint64_t value) {
 }
 
 static int grow_process_brk(process_t* process, uint64_t new_break) {
-    int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags);
-
     uint64_t old_end = page_align_up(process->brk_current);
     uint64_t new_end = page_align_up(new_break);
 
@@ -75,15 +73,15 @@ void syscall_handler(registers_t* regs) {
             asm volatile ("cli");
             break;
         default:
-            regs->rax_i = -1;
+            regs->rax_i = -38;
             break;
         }
         break;
     case 1: // write
         regs->rax_i = write((void*)regs->rsi, regs->rdx, regs->rdi);
         break;
-    case 10: {
-        // TODO: implement mprotect syscall
+    case 10: case 202: {
+        // TODO: implement mprotect and futex syscall
         break;
     }
     case 20: { // writev
@@ -114,7 +112,7 @@ void syscall_handler(registers_t* regs) {
         uint64_t requested_break = regs->rdi;
 
         if (!current_process) {
-            regs->rax_i = -1;
+            regs->rax_i = -38;
             break;
         }
 
@@ -177,7 +175,7 @@ void syscall_handler(registers_t* regs) {
         }
     
         default:
-            regs->rax_i = -1;
+            regs->rax_i = -38;
             break;
         }
     
@@ -192,7 +190,7 @@ void syscall_handler(registers_t* regs) {
         break;
     }
     default:
-        regs->rax_i = -1;
+        regs->rax_i = -38;
         break;
     }
 

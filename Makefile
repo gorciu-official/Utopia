@@ -47,7 +47,7 @@ LIMINE_URL     := https://github.com/limine-bootloader/limine.git
 LIMINE_BRANCH  := v11.x-binary
 
 EXTRA_QEMU_FLAGS ?=
-QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m 16G
+QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m 1G
 ifeq ($(SMP_ENABLED),true)
 QEMU_FLAGS += -smp $(SMP_CORES)
 endif
@@ -95,6 +95,7 @@ ifeq ($(BOOTLOADER),grub)
 build_iso: build_kernel
 	@echo -e "\033[1;33m[*]\033[0m Creating ISO directory structure"
 	@mkdir -p $(GRUB_DIR)
+	@make build_archive 
 	@cp $(KERNEL_BIN) $(BOOT_DIR)
 	@cp $(SRC_DIR)/build/grub.cfg $(GRUB_DIR)/grub.cfg
 	@echo -e "\033[1;33m[*]\033[0m Generating ISO with GRUB"

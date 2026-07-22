@@ -3,9 +3,6 @@
 -Wextra
 -Wimplicit-fallthrough
 -m64 
--mno-sse 
--mno-sse2 
--mno-sse3 
 -mno-mmx 
 -ffreestanding 
 -nostartfiles 

@@ -65,7 +65,7 @@ static bool tsc_initialized = false;
 
 void tsc_init() {
     if (!has_invariant_tsc()) {
-        panic("NO_INVARIANT_TSC", NULL);
+        return printk("Clock", "Warning: invariant TSC not present, clock will return 0. PIT is no longer a clock source.");
     }
 
     tsc_frequency = calibrate_tsc(10);
