@@ -1,6 +1,7 @@
 #include <types.h>
 #include <drivers/ps2.h>
 #include <lib/screen.h>
+#include <drivers/framebuffer.h>
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/io.h>
 
@@ -96,7 +97,9 @@ void ps2_interrupt_handler() {
     buffers[processor][pos] = character;
     positions[processor]++;
 
-    if (positions[processor] == sizes[processor] - 1) {
+    framebuffer_putchar(character, 0xFFFFFF, 0x000000);
+
+    if (positions[processor] == sizes[processor] - 1 || key == 0x1C) {
         buffers[processor][positions[processor]] = '\0';
         finished[processor] = true;
     }

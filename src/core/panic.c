@@ -60,6 +60,13 @@ void panic(const char* reason, registers_t* regs) {
         printk("Core", "  - Registers:  rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
         printk("Core", "  - Registers:  rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
         printk("Core", "  - Registers:  cr2=%p  rip=%p", read_cr2(), regs->rip);
+
+        if (regs->int_no == 14) {
+            printk(
+                "Core", "  - Page fault: %s mode, %s %p", (regs->err_code & (1 << 2)) ? "user" : "kernel",
+                (regs->err_code & (1 << 1)) ? "writing to" : "reading", read_cr2()
+            );
+        } 
     }
     
     invoker = current_processor_id();
