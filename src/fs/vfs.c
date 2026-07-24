@@ -163,3 +163,81 @@ int vfs_lookup(const char* path, vnode_t** result) {
     *result = current;
     return 0;
 }
+
+static int vfs_split_path(const char* path, char* parent_out, char* filename_out) {
+    int len = 0;
+    while (path[len]) len++;
+    if (len == 0 || path[0] != '/') return -1;
+    
+    int last_slash = -1;
+    for (int i = len - 1; i >= 0; i--) {
+        if (path[i] == '/') {
+            last_slash = i;
+            break;
+        }
+    }
+    
+    if (last_slash == -1) return -1;
+    
+    if (last_slash == 0) {
+        strcpy(parent_out, "/");
+        strcpy(filename_out, path + 1);
+    } else {
+        memcpy(parent_out, path, last_slash);
+        parent_out[last_slash] = '\0';
+        strcpy(filename_out, path + last_slash + 1);
+    }
+    return 0;
+}
+
+int vfs_open(const char* path, int flags, vnode_t** result) {
+    if (!path || !result) {
+        return -22; // -EINVAL
+    }
+
+    vnode_t* node = NULL;
+    int lookup_res = vfs_lookup(path, &node);
+    
+    if (lookup_res == 0) {
+        if ((flags & O_CREAT) && (flags & O_EXCL)) {
+            return -17; // -EEXIST
+        }
+        if ((flags & O_DIRECTORY) && node->type != VNODE_TYPE_DIR) {
+            return -20; // -ENOTDIR
+        }
+        *result = node;
+        return 0;
+    }
+    
+    if (flags & O_CREAT) {
+        char parent_path[PATH_MAX];
+        char filename[128];
+        if (vfs_split_path(path, parent_path, filename) != 0) {
+            return -2; // -ENOENT
+        }
+        
+        vnode_t* parent_node = NULL;
+        if (vfs_lookup(parent_path, &parent_node) != 0) {
+            return -2; // -ENOENT
+        }
+        
+        if (parent_node->type != VNODE_TYPE_DIR) {
+            return -20; // -ENOTDIR
+        }
+
+        if (!parent_node->ops || !parent_node->ops->create) {
+            return -30; // -EROFS
+        }
+        
+        vnode_t* new_node = NULL;
+        if (parent_node->ops->create(parent_node, filename, &new_node) != 0) {
+            return -5; // -EIO
+        }
+        
+        *result = new_node;
+        return 0;
+    }
+    
+    return -2; // -ENOENT
+}
+

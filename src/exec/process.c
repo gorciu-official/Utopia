@@ -46,6 +46,11 @@ process_t* process_create(const char* name, void (*entry_point)(void*), void* ar
     proc->mmap_start = 0;
     proc->mmap_current = 0;
 
+    memset(proc->fds, 0, sizeof(proc->fds));
+    proc->fds[0].used = true;
+    proc->fds[1].used = true;
+    proc->fds[2].used = true;
+
     spinlock_acquire(&process_lock);
     proc->next = process_list_head;
     process_list_head = proc;
@@ -56,6 +61,11 @@ process_t* process_create(const char* name, void (*entry_point)(void*), void* ar
 
 void process_terminate(process_t* proc) {
     if (!proc) return;
+
+    for (int i = 0; i < MAX_FILES_PER_PROCESS; i++) {
+        proc->fds[i].used = false;
+        proc->fds[i].vnode = NULL;
+    }
 
     if (proc->main_thread) {
         proc->main_thread->state = THREAD_STATE_TERMINATED;

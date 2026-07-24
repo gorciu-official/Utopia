@@ -4,6 +4,7 @@
 #include <panic.h>
 #include <lib/screen.h>
 #include <drivers/ps2.h>
+#include <drivers/filesystem.h>
 #include <arch/x86_64/registers.h>
 #include <arch/x86_64/msr.h>
 #include <memory.h>
@@ -59,44 +60,88 @@ static int grow_process_brk(process_t* process, uint64_t new_break) {
     return 0;
 }
 
-static uintptr_t write_internal(void* data, uintptr_t len, uintptr_t fd) {
-    uint64_t result = -1;
+static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, int fd) {
+    if (!process) return -1;
 
-    switch (fd) {
-    case 1: case 2:
-        user_print(data, len);
-        result = len;
-        break;
-    default:
-        break;
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
+        return -9; // -EBADF
     }
 
-    return result;
+    if (fd == 1 || fd == 2) {
+        user_print(data, len);
+        return len;
+    }
+
+    vnode_t* vnode = process->fds[fd].vnode;
+    if (!vnode) return -9; // -EBADF
+
+    if (vnode->type == VNODE_TYPE_DIR) {
+        return -21; // -EISDIR
+    }
+
+    if (!vnode->ops || !vnode->ops->write) {
+        return -30; // -EROFS
+    }
+
+    uint64_t bytes_written = 0;
+    int res = vnode->ops->write(vnode, data, len, process->fds[fd].offset, &bytes_written);
+    if (res != 0) {
+        return res;
+    }
+
+    process->fds[fd].offset += bytes_written;
+    return bytes_written;
 }
 
 SYSCALL_DEFINE(read) {
-    (void)process; (void)thread;
+    (void)thread;
+    if (!process) return -1;
 
-    switch (regs->rdi) {
-    case 0: {
+    int fd = regs->rdi;
+    char* buf = (char*)regs->rsi;
+    size_t count = regs->rdx;
+
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
+        return -9; // -EBADF
+    }
+
+    if (fd == 0) {
         asm volatile ("sti"); // TODO: temporary fix, syscalls
                               // should not enable interrupts
-        uintptr_t ret = ps2_read((char*)regs->rsi, regs->rdx);
+        uintptr_t ret = ps2_read(buf, count);
         asm volatile ("cli");
         return ret;
     }
-    default:
-        return ENOSYS_ERR;
+
+    vnode_t* vnode = process->fds[fd].vnode;
+    if (!vnode) return -9; // -EBADF
+
+    if (vnode->type == VNODE_TYPE_DIR) {
+        return -21; // -EISDIR
     }
+
+    if (!vnode->ops || !vnode->ops->read) {
+        return -22; // -EINVAL
+    }
+
+    uint64_t bytes_read = 0;
+    int res = vnode->ops->read(vnode, buf, count, process->fds[fd].offset, &bytes_read);
+    if (res != 0) {
+        return res;
+    }
+
+    process->fds[fd].offset += bytes_read;
+    return bytes_read;
 }
 
 SYSCALL_DEFINE(write) {
-    (void)process; (void)thread;
-    return write_internal((void*)regs->rsi, regs->rdx, regs->rdi);
+    (void)thread;
+    return write_internal(process, (void*)regs->rsi, regs->rdx, regs->rdi);
 }
 
 SYSCALL_DEFINE(writev) {
-    (void)process; (void)thread;
+    (void)thread;
+    if (!process) return -1;
 
     int fd = regs->rdi;
     iovec_t* iov = (iovec_t*)regs->rsi;
@@ -105,7 +150,11 @@ SYSCALL_DEFINE(writev) {
     size_t total = 0;
 
     for (int i = 0; i < iovcnt; i++) {
-        size_t ret = write_internal(iov[i].iov_base, iov[i].iov_len, fd);
+        size_t ret = write_internal(process, iov[i].iov_base, iov[i].iov_len, fd);
+        if (ret == (uintptr_t)-9) {
+            if (total == 0) return -9;
+            break;
+        }
         total += ret;
 
         if ((size_t)ret < iov[i].iov_len) {
@@ -114,7 +163,95 @@ SYSCALL_DEFINE(writev) {
     }
 
     return total;
-};
+}
+
+SYSCALL_DEFINE(open) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+
+    const char* path = (const char*)regs->rdi;
+    int flags = regs->rsi;
+
+    if (!path) return -14; // -EFAULT
+
+    int fd = -1;
+    for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
+        if (!process->fds[i].used) {
+            fd = i;
+            break;
+        }
+    }
+
+    if (fd == -1) {
+        return -24; // -EMFILE
+    }
+
+    vnode_t* vnode = NULL;
+    int res = vfs_open(path, flags, &vnode);
+    if (res != 0) {
+        return res;
+    }
+
+    process->fds[fd].vnode = vnode;
+    process->fds[fd].offset = (flags & O_APPEND) ? vnode->size : 0;
+    process->fds[fd].flags = flags;
+    process->fds[fd].used = true;
+
+    return fd;
+}
+
+SYSCALL_DEFINE(close) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+
+    int fd = regs->rdi;
+
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
+        return -9; // -EBADF
+    }
+
+    process->fds[fd].vnode = NULL;
+    process->fds[fd].offset = 0;
+    process->fds[fd].flags = 0;
+    process->fds[fd].used = false;
+
+    return 0;
+}
+
+SYSCALL_DEFINE(openat) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+
+    const char* path = (const char*)regs->rsi;
+    int flags = regs->rdx;
+
+    if (!path) return -14; // -EFAULT
+
+    int fd = -1;
+    for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
+        if (!process->fds[i].used) {
+            fd = i;
+            break;
+        }
+    }
+
+    if (fd == -1) {
+        return -24; // -EMFILE
+    }
+
+    vnode_t* vnode = NULL;
+    int res = vfs_open(path, flags, &vnode);
+    if (res != 0) {
+        return res;
+    }
+
+    process->fds[fd].vnode = vnode;
+    process->fds[fd].offset = (flags & O_APPEND) ? vnode->size : 0;
+    process->fds[fd].flags = flags;
+    process->fds[fd].used = true;
+
+    return fd;
+}
 
 SYSCALL_DEFINE(brk) {
     (void)thread;
@@ -246,9 +383,12 @@ SYSCALL_DEFINE(mmap) {
 static const syscall_fn_t syscall_table[] = {
     [0]   = syscall_read,
     [1]   = syscall_write,
+    [2]   = syscall_open,
+    [3]   = syscall_close,
     [7]   = syscall_stub_unimplemented,
     [9]   = syscall_mmap,
     [10]  = syscall_stub_unimplemented, 
+    [11]  = syscall_stub_unimplemented,
     [12]  = syscall_brk,
     [13]  = syscall_stub_unimplemented, 
     [20]  = syscall_writev,
@@ -259,6 +399,7 @@ static const syscall_fn_t syscall_table[] = {
     [158] = syscall_arch_prctl,
     [202] = syscall_stub_unimplemented,
     [231] = syscall_exit,
+    [257] = syscall_openat,
 };
 
 #define SYSCALL_TABLE_SIZE (sizeof(syscall_table) / sizeof(syscall_table[0]))

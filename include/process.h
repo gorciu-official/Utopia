@@ -4,6 +4,16 @@
 #include <scheduler.h>
 
 #define MAX_PROCESSES 256
+#define MAX_FILES_PER_PROCESS 32
+
+struct vnode;
+
+typedef struct file_desc {
+    struct vnode* vnode;
+    uint64_t offset;
+    int flags;
+    bool used;
+} file_desc_t;
 
 typedef struct process {
     uint32_t pid;
@@ -15,6 +25,7 @@ typedef struct process {
     uint64_t mmap_current;
     struct thread* main_thread; 
     struct process* next;   
+    file_desc_t fds[MAX_FILES_PER_PROCESS];
 } process_t;
 
 void process_init(void);

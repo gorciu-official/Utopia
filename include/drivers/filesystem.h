@@ -2,6 +2,17 @@
 
 #include <types.h>
 
+#define O_RDONLY    0x0000
+#define O_WRONLY    0x0001
+#define O_RDWR      0x0002
+#define O_CREAT     0x0040
+#define O_EXCL      0x0080
+#define O_NOCTTY    0x0100
+#define O_TRUNC     0x0200
+#define O_APPEND    0x0400
+#define O_NONBLOCK  0x0800
+#define O_DIRECTORY 0x10000
+
 typedef enum {
     VNODE_TYPE_FILE = 0,
     VNODE_TYPE_DIR = 1
@@ -44,6 +55,7 @@ void vfs_init(void);
 int vfs_register_driver(filesystem_driver_t *driver);
 int vfs_mount(const char *type, const char *source, const char *target);
 int vfs_lookup(const char *path, vnode_t **result);
+int vfs_open(const char *path, int flags, vnode_t **result);
 extern filesystem_driver_t ramfs_driver;
 extern filesystem_driver_t tarfs_driver;
 
