@@ -6,11 +6,11 @@
 #define UTOPIA_BETA_STATE 1
 #if UTOPIA_BETA_STATE == 1
     #define UTOPIA_VERSION \
-        "Utopia beta@" \
+        "beta@" \
         UTOPIA_VERSION_MAJOR "." UTOPIA_VERSION_MINOR "." UTOPIA_VERSION_PATCH
 #else 
     #define UTOPIA_VERSION \
-        "Utopia v" \
+        "v" \
         UTOPIA_VERSION_MAJOR "." UTOPIA_VERSION_MINOR "." UTOPIA_VERSION_PATCH
 #endif
 

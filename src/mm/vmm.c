@@ -266,6 +266,7 @@ uint64_t* clone_page_table(void) {
 }
 
 int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags) {
+    if (!l4_table) return -1;
     // TODO: pt_pool runs out veryyyyyy quickly so it would be 
     //       wise to stop using it
 

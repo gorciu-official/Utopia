@@ -196,9 +196,13 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
         return -1;
     }
 
+    if (proc->page_table) free_page_table(proc->page_table);
+    proc->page_table = proc_l4;
+
     proc->brk_start = (res.highest_vaddr + 0xFFFULL) & ~0xFFFULL;
     proc->brk_current = proc->brk_start;
-    proc->page_table = proc_l4;
+    proc->mmap_start = 0x400000000000;
+    proc->mmap_current = proc->mmap_start;
 
     return 0;
 }

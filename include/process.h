@@ -11,6 +11,8 @@ typedef struct process {
     uint64_t* page_table; 
     uint64_t brk_start;
     uint64_t brk_current;
+    uint64_t mmap_start;
+    uint64_t mmap_current;
     struct thread* main_thread; 
     struct process* next;   
 } process_t;

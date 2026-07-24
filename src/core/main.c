@@ -98,7 +98,7 @@ void kmain() {
     }
 #endif
 
-    printk("Core", "%s", UTOPIA_VERSION);
+    printk("Core", "Utopia %s", UTOPIA_VERSION);
     printk("Core", "  Source code: https://github.com/gorciu-official/Utopia");
     printk("Core", "  Licensed under GPL-v3.0");
     printk("Core", "---");

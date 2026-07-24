@@ -34,10 +34,10 @@ static uint8_t read_scancode() {
     return inb(0x60);
 }
 
-uint64_t   positions[CPU_ARCH_MAX_CPUS] = {0};
-bool        finished[CPU_ARCH_MAX_CPUS] = {1};
-char*        buffers[CPU_ARCH_MAX_CPUS] = {0};
-uint64_t       sizes[CPU_ARCH_MAX_CPUS] = {0};
+volatile uint64_t   positions[CPU_ARCH_MAX_CPUS] = {0};
+volatile bool        finished[CPU_ARCH_MAX_CPUS] = {[0 ... CPU_ARCH_MAX_CPUS-1] = true};
+volatile char*        buffers[CPU_ARCH_MAX_CPUS] = {0};
+volatile uint64_t       sizes[CPU_ARCH_MAX_CPUS] = {0};
 
 int ps2_read(char* buffer, uint64_t size) {
     int processor = current_processor_id();
@@ -50,8 +50,12 @@ int ps2_read(char* buffer, uint64_t size) {
     while (!finished[processor]) 
         asm volatile ("pause");
 
+    while (inb(0x64) & 0x01) {
+        (void)inb(0x60); // flush stale byte
+    }
+
     // i think we can leave garbage in arrays, since finished is true and it wont matter anyways 
-    return size;
+    return sizes[processor];
 }
 
 void ps2_interrupt_handler() {
@@ -86,11 +90,20 @@ void ps2_interrupt_handler() {
     } else if (key == 0x36) {
         SHIFT_RIGHT_PRESSED = 1;
         return;
+    } else if (key == 0x1C) {
+        buffers[processor][positions[processor]] = '\0';
+        sizes[processor] = positions[processor];
+        finished[processor] = true;
+        return;
     }
 
     // backspace should be handled by userspace
 
     char character = (SHIFT_LEFT_PRESSED || SHIFT_RIGHT_PRESSED) ? shift_keymap[key] : keymap[key];
+
+    if (character == 0) {
+        return;
+    }
    
     uint64_t pos = positions[processor];
 
@@ -99,7 +112,7 @@ void ps2_interrupt_handler() {
 
     framebuffer_putchar(character, 0xFFFFFF, 0x000000);
 
-    if (positions[processor] == sizes[processor] - 1 || key == 0x1C) {
+    if (positions[processor] == sizes[processor] - 1) {
         buffers[processor][positions[processor]] = '\0';
         finished[processor] = true;
     }

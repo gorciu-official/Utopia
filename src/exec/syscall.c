@@ -1,3 +1,4 @@
+#include <constants.h>
 #include <process.h>
 #include <scheduler.h>
 #include <panic.h>
@@ -6,6 +7,7 @@
 #include <arch/x86_64/registers.h>
 #include <arch/x86_64/msr.h>
 #include <memory.h>
+#include <string.h>
 
 //  ---- syscall convention ----
 //    rax - return value (signed) & first syscall number (unsigned)
@@ -16,6 +18,15 @@ typedef struct {
     void* iov_base;
     size_t iov_len;
 } iovec_t;
+
+struct utsname {
+    char sysname[65];
+    char nodename[65];
+    char release[65];
+    char version[65];
+    char machine[65];
+    char domainname[65];
+};
 
 #define USER_HEAP_MAX 0x0000800000000000ULL
 #define ENOSYS_ERR    (-38)
@@ -179,15 +190,74 @@ SYSCALL_DEFINE(stub_unimplemented) {
     return 0;
 }
 
+SYSCALL_DEFINE(uname) {
+    (void)process; (void)thread;
+
+    struct utsname* ptr = (struct utsname*)regs->rdi;
+
+    strcpy(ptr->sysname, "Utopia");
+    strcpy(ptr->nodename, "example-computer-lol");
+    strcpy(ptr->release, UTOPIA_VERSION);
+    strcpy(ptr->version, "(no build information)");
+    strcpy(ptr->machine, "x86_64");
+    strcpy(ptr->domainname, "");
+
+    return 0;
+}
+
+SYSCALL_DEFINE(mmap) {
+    (void)thread;
+
+    if (!process) return 0;
+
+    uint64_t addr = regs->rdi;
+    uint64_t length = regs->rsi;
+    uint64_t prot = regs->rdx;
+
+    if (length == 0) return 0;
+
+    uint64_t target_vaddr;
+    if (addr == 0) {
+        target_vaddr = process->mmap_current;
+        process->mmap_current += page_align_up(length);
+    } else {
+        target_vaddr = page_align_up(addr);
+    }
+
+    uint64_t flags = PAGE_USER | PAGE_PRESENT;
+    if (prot & 0x2) flags |= PAGE_RW; // PF_W/PROT_WRITE
+    if (!(prot & 0x1)) flags |= PAGE_NX; // PF_X/PROT_EXEC
+
+    for (uint64_t vaddr = target_vaddr; vaddr < target_vaddr + length; vaddr += 0x1000) {
+        uint64_t phys = pmm_alloc_page();
+        if (!phys) return 0;
+
+        memset(phys_to_virt(phys), 0, 0x1000);
+
+        if (map_page_4k(process->page_table, vaddr, phys, flags) != 0) {
+            pmm_free_page(phys);
+            return 0;
+        }
+    }
+
+    return target_vaddr;
+}
+
 static const syscall_fn_t syscall_table[] = {
     [0]   = syscall_read,
     [1]   = syscall_write,
+    [7]   = syscall_stub_unimplemented,
+    [9]   = syscall_mmap,
     [10]  = syscall_stub_unimplemented, 
     [12]  = syscall_brk,
+    [13]  = syscall_stub_unimplemented, 
     [20]  = syscall_writev,
     [60]  = syscall_exit,
+    [63]  = syscall_uname,
+    [102] = syscall_stub_unimplemented, // that is indeed correct. let me explain.
+                                        // this returns 0 and 0 means root
     [158] = syscall_arch_prctl,
-    [202] = syscall_stub_unimplemented, 
+    [202] = syscall_stub_unimplemented,
     [231] = syscall_exit,
 };
 
