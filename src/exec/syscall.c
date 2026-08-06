@@ -15,6 +15,8 @@
 //    then:
 //      rdi, rsi, rdx (unsigned)
 
+typedef unsigned long nfds_t;
+
 typedef struct {
     void* iov_base;
     size_t iov_len;
@@ -28,6 +30,19 @@ struct utsname {
     char machine[65];
     char domainname[65];
 };
+
+struct pollfd {
+    int fd;
+    short events;
+    short revents;
+};
+
+#define POLLIN    0x001
+#define POLLPRI   0x002
+#define POLLOUT   0x004
+#define POLLERR   0x008
+#define POLLHUP   0x010
+#define POLLNVAL  0x020
 
 #define USER_HEAP_MAX 0x0000800000000000ULL
 #define ENOSYS_ERR    (-38)
@@ -253,6 +268,51 @@ SYSCALL_DEFINE(openat) {
     return fd;
 }
 
+SYSCALL_DEFINE(poll) {
+    (void)thread;
+
+    struct pollfd *fds = (struct pollfd*)regs->rdi;
+    nfds_t nfds = regs->rsi;
+
+    int ready = 0;
+
+    for (size_t i = 0; i < nfds; i++) {
+        fds[i].revents = 0;
+
+        int fd = fds[i].fd;
+        if (fd < 0) continue;
+
+        if (fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
+            fds[i].revents = POLLNVAL;
+            ready++;
+            continue;
+        }
+
+        if (fds[i].events & POLLOUT) {
+            fds[i].revents |= POLLOUT;
+        }
+
+        if (fds[i].events & POLLIN) {
+            if (fd == 0) {
+                fds[i].revents |= POLLIN;
+            } else {
+                vnode_t *vnode = process->fds[fd].vnode;
+
+                if (vnode && vnode->size > process->fds[fd].offset)
+                    fds[i].revents |= POLLIN;
+            }
+        }
+
+        if (fds[i].revents)
+            ready++;
+    }
+
+    if (ready)
+        return ready;
+
+    return 0;
+}
+
 SYSCALL_DEFINE(brk) {
     (void)thread;
 
@@ -311,12 +371,6 @@ SYSCALL_DEFINE(arch_prctl) {
 }
 
 SYSCALL_DEFINE(exit) {
-    (void)regs; (void)thread;
-
-    if (process && process->pid == 1) {
-        panic("INIT_EXITED", NULL);
-    }
-
     thread_exit();
     return 0; 
 }
@@ -385,12 +439,13 @@ static const syscall_fn_t syscall_table[] = {
     [1]   = syscall_write,
     [2]   = syscall_open,
     [3]   = syscall_close,
-    [7]   = syscall_stub_unimplemented,
+    [7]   = syscall_poll,
     [9]   = syscall_mmap,
     [10]  = syscall_stub_unimplemented, 
     [11]  = syscall_stub_unimplemented,
     [12]  = syscall_brk,
-    [13]  = syscall_stub_unimplemented, 
+    [13]  = syscall_stub_unimplemented,
+    [16]  = syscall_stub_unimplemented,
     [20]  = syscall_writev,
     [60]  = syscall_exit,
     [63]  = syscall_uname,

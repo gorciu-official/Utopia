@@ -11,7 +11,17 @@
 registers_t* isr_handler(registers_t* regs) {
     // -- cpu exceptions
     if (regs->int_no < 32) {
-        panic("CPU_EXCEPTION", regs);
+        if (regs->int_no == 14 && regs->err_code & (1 << 2)) {
+            printf(
+                "Segmentation fault at %p (%s %p; %s)\n", regs->rip,
+                (regs->err_code & (1 << 1)) ? "writing to" : "reading", 
+                read_cr2(), 
+                (regs->err_code & (1 << 0)) ? "protection violation" : "non-present"
+            );
+            thread_exit();
+        } else {
+            panic("CPU_EXCEPTION", regs);
+        }
     }  
 
     // --- end of interrupt 

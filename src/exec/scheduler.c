@@ -5,6 +5,7 @@
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <lib/spinlock.h>
+#include <panic.h>
 
 static spinlock_t scheduler_lock;
 static thread_t* current_threads[CPU_ARCH_MAX_CPUS] = {NULL};
@@ -245,6 +246,9 @@ void thread_exit(void) {
 
     if (curr && curr != idle_threads[cpu_id]) {
         if (curr->process != NULL) {
+            if (curr->process->pid == 1) 
+                return panic("INIT_EXITED", NULL);
+
             process_terminate(curr->process);
             curr->process = NULL;
         }

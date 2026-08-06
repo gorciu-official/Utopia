@@ -91,7 +91,7 @@ void ps2_interrupt_handler() {
         SHIFT_RIGHT_PRESSED = 1;
         return;
     } else if (key == 0x1C) {
-        buffers[processor][positions[processor]] = '\0';
+        buffers[processor][positions[processor]++] = '\n';
         sizes[processor] = positions[processor];
         finished[processor] = true;
         return;
@@ -112,8 +112,7 @@ void ps2_interrupt_handler() {
 
     framebuffer_putchar(character, 0xFFFFFF, 0x000000);
 
-    if (positions[processor] == sizes[processor] - 1) {
-        buffers[processor][positions[processor]] = '\0';
+    if (positions[processor] == sizes[processor]) {
         finished[processor] = true;
     }
 }

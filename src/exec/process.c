@@ -43,8 +43,8 @@ process_t* process_create(const char* name, void (*entry_point)(void*), void* ar
     proc->main_thread = main_thread;
     proc->brk_start = 0;
     proc->brk_current = 0;
-    proc->mmap_start = 0;
-    proc->mmap_current = 0;
+    proc->mmap_start = 0x400000000000;
+    proc->mmap_current = 0x400000000000;
 
     memset(proc->fds, 0, sizeof(proc->fds));
     proc->fds[0].used = true;
