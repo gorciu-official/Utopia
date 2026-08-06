@@ -36,6 +36,21 @@ Testing is usually done in one of two ways:
 
 There are two bootloaders that are supported natively - Limine and GRUB (default is Limine, but you can change that with `BOOTLOADER=grub`). After tweaking the Makefile, you should be able to run the kernel on any bootloader that supports either Limine boot protocol or Multiboot1. Multiboot1 booting used to be the primary option, but now has unresolved issues - please wait a while or use a different boot protocol.
 
+### Software
+
+The kernel is adapted to run some sopftware as system inits quite good (by quite good I mean most of its functionality works). 
+
+**Currently "ported" software list:**
+
+- [nsh](https://github.com/na-razie-bez-nicku/nsh)
+- [JUAMP](https://github.com/gorciu-official/JUAMP)
+
+Running any of these of course assume a good C standard library (glibc may work, musl is ideal) and a statically linked executable with no relocations.
+
+### Hardware 
+
+Due to the memory manager not being as good as it should be (e.g. sometimes overwritting kernel code), I would recommend using at least 8 gigs of memory until this is ~~fixed~~ **completely rewritted**.
+
 ## Additional notes
 
 - Contributions are welcome!
