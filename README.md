@@ -3,7 +3,7 @@
 Utopia is a (probably good) x86_64 operating system kernel.
 
 <div align="center">
-    <img width="750" height="656" alt="image" src="https://github.com/user-attachments/assets/62454838-1908-47d0-857b-1948ff394df7" />
+    [![screenshot](assets/screenshot.png)](https://github.com/gorciu-official/Utopia/releases/latest)
 </div>
 
 ## Features
