@@ -14,7 +14,7 @@ void process_init(void) {
     process_list_head = NULL;
 }
 
-process_t* process_create(const char* name, void (*entry_point)(void*), void* arg, int ring) {
+process_t* process_create(const char* name, void (*entry_point)(void*), void* arg, int ring, elf_auxv_info_t* auxv) {
     process_t* proc = (process_t*)malloc(sizeof(process_t));
     if (!proc) {
         printk("Process", "Failed to allocate PCB for '%s'!", name);
@@ -32,7 +32,7 @@ process_t* process_create(const char* name, void (*entry_point)(void*), void* ar
     strcpy(proc->name, name);
     proc->page_table = pt;
 
-    thread_t* main_thread = thread_create(name, entry_point, arg, ring);
+    thread_t* main_thread = thread_create(name, entry_point, arg, ring, auxv);
     if (!main_thread) {
         printk("Process", "Failed to create main thread for '%s'!", name);
         free_page_table(pt);

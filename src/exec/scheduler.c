@@ -92,7 +92,22 @@ void scheduler_ap_init(void) {
     idle_threads[cpu_id] = ap_thread;
 }
 
-thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg, int ring) {
+#define AT_NULL     0
+#define AT_PHDR     3
+#define AT_PHENT    4
+#define AT_PHNUM    5
+#define AT_PAGESZ    6
+#define AT_BASE     7
+#define AT_ENTRY    9
+#define AT_RANDOM   25
+#define AT_EXECFN 31
+
+static void push_u64(uint64_t* sp, uint64_t value) {
+    *sp -= 8;
+    *(uint64_t*)(*sp) = value;
+}
+
+thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg, int ring, elf_auxv_info_t* auxv) {
     thread_t* t = (thread_t*)malloc(sizeof(thread_t));
     if (!t) {
         printk("Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
@@ -126,45 +141,66 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     t->process = NULL;
 
     uint64_t sp = (uint64_t)stack_base + stack_size;
+    dprintk("Debug", "Stack ptr=%p", sp);
 
     sp &= ~15ULL;
 
-    if (ring == 3) { 
+    if (ring == 3) {
+        sp &= ~0xFULL;
+    
         sp -= 16;
         uint64_t random_addr = sp;
+    
+        uint8_t rand_buf[16];
+        for (int i = 0; i < 16; i++) {
+            rand_buf[i] = (uint8_t)(i ^ 0x42); 
+        }
+    
+        for (int i = 0; i < 16; i++) {
+            ((uint8_t*)random_addr)[i] = rand_buf[i];
+        }
 
-        ((uint8_t*)random_addr)[0] = 0x12;
-        ((uint8_t*)random_addr)[1] = 0x34;
-
-        // auxv: AT_NULL
-        sp -= 8;
-        *(uint64_t*)sp = 0;
-        sp -= 8;
-        *(uint64_t*)sp = 0;
-
-        // auxv: AT_RANDOM
-        sp -= 8;
-        *(uint64_t*)sp = random_addr; 
-        sp -= 8;
-        *(uint64_t*)sp = 25; 
-
-        // envp[0] = NULL
-        sp -= 8;
-        *(uint64_t*)sp = 0;
-
-        // argv[1] = NULL
-        sp -= 8;
-        *(uint64_t*)sp = 0;
-
-        // argv[0]
-        sp -= 8;
-        *(uint64_t*)sp = (uint64_t)arg;
-
-        // argc = 1
-        sp -= 8;
-        *(uint64_t*)sp = 1;
-
-        sp &= ~15ULL;
+        if (auxv) {
+            push_u64(&sp, 0);
+            push_u64(&sp, AT_NULL);
+    
+            if (auxv->at_entry) {
+                push_u64(&sp, auxv->at_entry);
+                push_u64(&sp, AT_ENTRY);
+            }
+    
+            if (auxv->at_phdr) {
+                push_u64(&sp, auxv->at_phdr);
+                push_u64(&sp, AT_PHDR);
+            }
+    
+            push_u64(&sp, random_addr);
+            push_u64(&sp, AT_RANDOM);
+    
+            push_u64(&sp, 4096);
+            push_u64(&sp, AT_PAGESZ);
+    
+            push_u64(&sp, auxv->at_phent);
+            push_u64(&sp, AT_PHENT);
+    
+            push_u64(&sp, auxv->at_phnum);
+            push_u64(&sp, AT_PHNUM);
+    
+            push_u64(&sp, auxv->has_interp ? auxv->at_base : 0);
+            push_u64(&sp, AT_BASE);
+        } else {
+            push_u64(&sp, 0);
+            push_u64(&sp, AT_NULL);
+        }
+    
+        push_u64(&sp, 0); 
+    
+        push_u64(&sp, 0); 
+        push_u64(&sp, (uint64_t)arg);
+    
+        push_u64(&sp, 1); 
+    
+        sp &= ~0xFULL;
     }
 
     registers_t* regs =

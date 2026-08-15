@@ -10,6 +10,8 @@ uintptr_t kernel_virt_to_phys(void* addr);
 
 int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags);
 int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags);
+int protect_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t flags);
+int unmap_page_4k(uint64_t* l4_table, uint64_t virt);
 void set_page_permissions(uint64_t virt, uint64_t flags);
 void set_page_executable(uint64_t virt, bool executable);
 uint64_t* clone_page_table(void);

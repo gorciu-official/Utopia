@@ -24,9 +24,18 @@ typedef struct thread {
     struct process* process; 
 } thread_t;
 
+typedef struct {
+    uint64_t at_entry;   // real program's entry point
+    uint64_t at_phdr;    // vaddr of the real program's phdrs
+    uint16_t at_phent;
+    uint16_t at_phnum;
+    uint64_t at_base;    // interpreter's load bias (0 if no interpreter)
+    bool     has_interp;
+} elf_auxv_info_t;
+
 void scheduler_init(void);
 void scheduler_ap_init(void);
-thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg, int ring);
+thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg, int ring, elf_auxv_info_t* auxv);
 registers_t* scheduler_schedule(registers_t* regs);
 void thread_yield(void);
 void thread_exit(void);

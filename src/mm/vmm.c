@@ -267,8 +267,6 @@ uint64_t* clone_page_table(void) {
 
 int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags) {
     if (!l4_table) return -1;
-    // TODO: pt_pool runs out veryyyyyy quickly so it would be 
-    //       wise to stop using it
 
     uint64_t l4_idx = (virt >> 39) & 0x1FF;
     uint64_t l3_idx = (virt >> 30) & 0x1FF;
@@ -301,7 +299,10 @@ int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags
     if (l2[l2_idx] & PAGE_HUGE) {
         uint64_t huge_entry = l2[l2_idx];
         uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
-        uint64_t huge_flags = huge_entry & 0xFFF & ~PAGE_HUGE; 
+        // Strip PAGE_HUGE; always force PAGE_PRESENT and preserve PAGE_USER
+        // so that all 512 split PTEs are accessible from user-mode.
+        uint64_t huge_flags = (huge_entry & 0xFFF & ~PAGE_HUGE) | PAGE_PRESENT;
+        if (huge_entry & PAGE_USER) huge_flags |= PAGE_USER;
     
         uint64_t* new_l1 = pt_pool_alloc();
         if (!new_l1) return -1;
@@ -328,6 +329,113 @@ int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags
     uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
 
     l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
+
+    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+    return 0;
+}
+
+int protect_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t flags) {
+    if (!l4_table) return -1;
+
+    uint64_t l4_idx = (virt >> 39) & 0x1FF;
+    uint64_t l3_idx = (virt >> 30) & 0x1FF;
+    uint64_t l2_idx = (virt >> 21) & 0x1FF;
+    uint64_t l1_idx = (virt >> 12) & 0x1FF;
+
+    if (!(l4_table[l4_idx] & PAGE_PRESENT)) return -1;
+    uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[l4_idx] & PAGE_PHYS_MASK);
+
+    if (!(l3[l3_idx] & PAGE_PRESENT)) return -1;
+    if (l3[l3_idx] & PAGE_HUGE) return -1;
+
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
+    if (!(l2[l2_idx] & PAGE_PRESENT)) return -1;
+
+    if (l2[l2_idx] & PAGE_HUGE) {
+        uint64_t huge_entry = l2[l2_idx];
+        uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
+        // Strip PAGE_HUGE; always force PAGE_PRESENT and preserve PAGE_USER
+        // so that all 512 split PTEs are accessible from user-mode.
+        uint64_t huge_flags = (huge_entry & 0xFFF & ~PAGE_HUGE) | PAGE_PRESENT;
+        if (huge_entry & PAGE_USER) huge_flags |= PAGE_USER;
+        
+        uint64_t* new_l1 = pt_pool_alloc();
+        if (!new_l1) return -1;
+        
+        for (int i = 0; i < 512; i++) {
+            new_l1[i] = (huge_phys_base + i * 0x1000) | huge_flags;
+        }
+        
+        uint64_t l2_flags = PAGE_PRESENT | PAGE_USER;
+        if (huge_entry & PAGE_RW) l2_flags |= PAGE_RW;
+        
+        l2[l2_idx] = (uint64_t)kernel_virt_to_phys(new_l1) | l2_flags;
+        
+        uint64_t region_base = virt & ~0x1FFFFFULL;
+        for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
+            __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
+        }
+    }
+
+    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
+    if (!(l1[l1_idx] & PAGE_PRESENT)) return -1; 
+
+    uint64_t phys = l1[l1_idx] & PAGE_PHYS_MASK;
+    l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
+
+    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+    return 0;
+}
+
+int unmap_page_4k(uint64_t* l4_table, uint64_t virt) {
+    if (!l4_table) return -1;
+
+    uint64_t l4_idx = (virt >> 39) & 0x1FF;
+    uint64_t l3_idx = (virt >> 30) & 0x1FF;
+    uint64_t l2_idx = (virt >> 21) & 0x1FF;
+    uint64_t l1_idx = (virt >> 12) & 0x1FF;
+
+    if (!(l4_table[l4_idx] & PAGE_PRESENT)) return 0; // already unmapped
+    uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[l4_idx] & PAGE_PHYS_MASK);
+
+    if (!(l3[l3_idx] & PAGE_PRESENT)) return 0;
+    if (l3[l3_idx] & PAGE_HUGE) return -1; // 1GB pages: not handled here
+
+    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
+    if (!(l2[l2_idx] & PAGE_PRESENT)) return 0;
+
+    if (l2[l2_idx] & PAGE_HUGE) {
+        // Same split as map_page_4k/protect_page_4k, so we can drop just
+        // this one 4K page without touching the other 511 pages sharing
+        // the huge entry.
+        uint64_t huge_entry = l2[l2_idx];
+        uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
+        // Strip PAGE_HUGE; always force PAGE_PRESENT and preserve PAGE_USER
+        // so that all 512 split PTEs are accessible from user-mode.
+        uint64_t huge_flags = (huge_entry & 0xFFF & ~PAGE_HUGE) | PAGE_PRESENT;
+        if (huge_entry & PAGE_USER) huge_flags |= PAGE_USER;
+
+        uint64_t* new_l1 = pt_pool_alloc();
+        if (!new_l1) return -1;
+
+        for (int i = 0; i < 512; i++) {
+            new_l1[i] = (huge_phys_base + i * 0x1000) | huge_flags;
+        }
+
+        l2[l2_idx] = (uint64_t)kernel_virt_to_phys(new_l1) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+
+        uint64_t region_base = virt & ~0x1FFFFFULL;
+        for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
+            __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
+        }
+    }
+
+    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
+    if (!(l1[l1_idx] & PAGE_PRESENT)) return 0;
+
+    uint64_t phys = l1[l1_idx] & PAGE_PHYS_MASK;
+    l1[l1_idx] = 0;
+    pmm_free_page(phys);
 
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
     return 0;

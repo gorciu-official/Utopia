@@ -56,22 +56,25 @@ void panic(const char* reason, registers_t* regs) {
     printk("Core", "\x1b[31mKernel panic\x1b[0m: %s", reason);
     if (regs != NULL) {
         printk("Core", "  - CPU exception: %s", cpu_exception_name(regs->int_no));
-        printk("Core", "  - Basic info: interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
-        printk("Core", "  - Registers:  rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
-        printk("Core", "  - Registers:  rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
-        printk("Core", "  - Registers:  cr2=%p  rip=%p", read_cr2(), regs->rip);
+        printk("Core", "  - Basic info:    interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
+        printk("Core", "  - Registers:     rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
+        printk("Core", "  - Registers:     rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
+        printk("Core", "  - Registers:     cr2=%p  rip=%p", read_cr2(), regs->rip);
 
         if (regs->int_no == 14) {
             printk(
-                "Core", "  - Page fault: %s mode, %s %p", (regs->err_code & (1 << 2)) ? "user" : "kernel",
+                "Core", "  - Page fault:    %s mode, %s %p", (regs->err_code & (1 << 2)) ? "user" : "kernel",
                 (regs->err_code & (1 << 1)) ? "writing to" : "reading", read_cr2()
             );
         } 
+    } else {
+        printk("Core", "  - No register dump available, panic not invoked via hardware interrupt.");
     }
     
     invoker = current_processor_id();
     panicked = true; 
-    
+   
+    printk("Core", "  - You can try to file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
     printk("Core", "  - The system enters a halted state, please restart the computer manually.");
 
     while (true)

@@ -175,8 +175,11 @@ void kmain() {
         void* buffer = malloc(size);
         uint64_t bytes_read = 0;
         init_file->ops->read(init_file, buffer, size, 0, &bytes_read);
-        if (bytes_read == size)
-            elf_start(buffer, size);
+        if (bytes_read == size) {
+            int response = elf_start(buffer, size);
+            if (response != 0)
+                panic("INIT_LOAD_FAIL", NULL);
+        }
     } else {
         panic("NO_INIT_FILE", NULL);
     }

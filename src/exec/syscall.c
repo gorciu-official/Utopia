@@ -37,6 +37,27 @@ struct pollfd {
     short revents;
 };
 
+struct stat {
+    uint64_t st_dev;
+    uint64_t st_ino;
+    uint64_t st_nlink;
+    uint32_t st_mode;
+    uint32_t st_uid;
+    uint32_t st_gid;
+    uint32_t __pad0;
+    uint64_t st_rdev;
+    int64_t  st_size;
+    int64_t  st_blksize;
+    int64_t  st_blocks;
+    uint64_t st_atime;
+    uint64_t st_atime_nsec;
+    uint64_t st_mtime;
+    uint64_t st_mtime_nsec;
+    uint64_t st_ctime;
+    uint64_t st_ctime_nsec;
+    int64_t  __unused[3];
+}__attribute__((packed));
+
 #define POLLIN    0x001
 #define POLLPRI   0x002
 #define POLLOUT   0x004
@@ -108,21 +129,56 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     return bytes_written;
 }
 
-SYSCALL_DEFINE(read) {
+SYSCALL_DEFINE(fstat) {
     (void)thread;
-    if (!process) return -1;
+    if (!process) return -22;
 
     int fd = regs->rdi;
-    char* buf = (char*)regs->rsi;
-    size_t count = regs->rdx;
+    struct stat* statbuf = (struct stat*)regs->rsi;
+
+    if (!statbuf) return -14; 
+
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
+        return -9; 
+    }
+
+    memset(statbuf, 0, sizeof(struct stat));
+
+    if (fd == 0 || fd == 1 || fd == 2) {
+        statbuf->st_mode = 020000 | 0666;
+        statbuf->st_blksize = 1024;
+        return 0;
+    }
+
+    vnode_t* vnode = process->fds[fd].vnode;
+    if (!vnode) return -9;
+    
+    statbuf->st_dev  = 1; 
+    statbuf->st_ino  = (uint64_t)(uintptr_t)vnode;
+    statbuf->st_size = vnode->size;
+    statbuf->st_blksize = 4096;
+    statbuf->st_blocks = (vnode->size + 511) / 512;
+
+    if (vnode->type == VNODE_TYPE_DIR) {
+        statbuf->st_mode = 0040000 | 0755;
+    } else {
+        statbuf->st_mode = 0100000 | 0644;
+    }
+
+    dprintk("Debug", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
+
+    return 0;
+}
+
+static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintptr_t offset, bool update_offset) {
+    if (!process) return -1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
         return -9; // -EBADF
     }
 
     if (fd == 0) {
-        asm volatile ("sti"); // TODO: temporary fix, syscalls
-                              // should not enable interrupts
+        asm volatile ("sti"); // TODO: temporary fix, syscalls should not enable interrupts
         uintptr_t ret = ps2_read(buf, count);
         asm volatile ("cli");
         return ret;
@@ -140,13 +196,36 @@ SYSCALL_DEFINE(read) {
     }
 
     uint64_t bytes_read = 0;
-    int res = vnode->ops->read(vnode, buf, count, process->fds[fd].offset, &bytes_read);
+    int res = vnode->ops->read(vnode, buf, count, offset, &bytes_read);
     if (res != 0) {
         return res;
     }
 
-    process->fds[fd].offset += bytes_read;
+    if (update_offset) {
+        process->fds[fd].offset += bytes_read;
+    }
+
     return bytes_read;
+}
+
+SYSCALL_DEFINE(read) {
+    (void)thread;
+    int fd = regs->rdi;
+    char* buf = (char*)regs->rsi;
+    size_t count = regs->rdx;
+
+    return do_read(process, fd, buf, count, process->fds[fd].offset, true);
+}
+
+SYSCALL_DEFINE(pread64) {
+    (void)thread;
+    int fd = regs->rdi;
+    char* buf = (char*)regs->rsi;
+    size_t count = regs->rdx;
+    uintptr_t offset = regs->r10;
+
+    uintptr_t result = do_read(process, fd, buf, count, offset, false);
+    return result;
 }
 
 SYSCALL_DEFINE(write) {
@@ -180,6 +259,57 @@ SYSCALL_DEFINE(writev) {
     return total;
 }
 
+SYSCALL_DEFINE(mprotect) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+    
+    uint64_t addr   = regs->rdi;
+    uint64_t length = regs->rsi;
+    uint64_t prot   = regs->rdx;
+    
+    dprintk("Debug", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
+
+    if (length == 0) return 0;
+    if (addr & 0xFFF) return -22; // -EINVAL
+
+    uint64_t aligned_len = page_align_up(length);
+
+    uint64_t pflags = PAGE_PRESENT | PAGE_USER;
+    if (prot & 0x2) pflags |= PAGE_RW;
+    if (!(prot & 0x1)) pflags |= PAGE_NX; 
+
+    for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
+        if (protect_page_4k(process->page_table, va, pflags) != 0) {
+            return -12; // -ENOMEM
+        }
+    }
+
+    return 0;
+}
+
+SYSCALL_DEFINE(munmap) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+
+    uint64_t addr   = regs->rdi;
+    uint64_t length = regs->rsi;
+    
+    dprintk("Debug", "munmap called with addr=%p length=%p", addr, length);
+
+    if (length == 0) return -22; // -EINVAL
+    if (addr & 0xFFF) return -22; // -EINVAL: addr must be page-aligned
+
+    uint64_t aligned_len = page_align_up(length);
+
+    for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
+        if (unmap_page_4k(process->page_table, va) != 0) {
+            return -12; // -ENOMEM
+        }
+    }
+
+    return 0;
+}
+
 SYSCALL_DEFINE(open) {
     (void)thread;
     if (!process) return -22; // -EINVAL
@@ -203,6 +333,7 @@ SYSCALL_DEFINE(open) {
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
+    dprintk("Debug", "Accessing through open %s, code %d", path, res);
     if (res != 0) {
         return res;
     }
@@ -237,8 +368,10 @@ SYSCALL_DEFINE(openat) {
     (void)thread;
     if (!process) return -22; // -EINVAL
 
+    int dfd = (int)regs->rdi;        // Added dfd argument
     const char* path = (const char*)regs->rsi;
-    int flags = regs->rdx;
+    int flags = (int)regs->rdx;
+    (void)dfd;                       // Ignore dfd for now if AT_FDCWD is default
 
     if (!path) return -14; // -EFAULT
 
@@ -256,6 +389,7 @@ SYSCALL_DEFINE(openat) {
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
+    dprintk("Debug", "Accessing through openat %s, code %d", path, res);
     if (res != 0) {
         return res;
     }
@@ -344,6 +478,8 @@ SYSCALL_DEFINE(arch_prctl) {
     uint64_t code = regs->rdi;
     uint64_t addr = regs->rsi;
 
+    dprintk("Debug", "Calling arch_ptrctl with code %d addr %p", code, addr);
+
     switch (code) {
     case ARCH_SET_FS:
         write_msr(IA32_FS_BASE, addr);
@@ -371,13 +507,14 @@ SYSCALL_DEFINE(arch_prctl) {
 }
 
 SYSCALL_DEFINE(exit) {
+    (void)regs; (void)process; (void)thread;
     thread_exit();
     return 0; 
 }
 
 SYSCALL_DEFINE(stub_unimplemented) {
     (void)regs; (void)process; (void)thread;
-    // TODO: implement mprotect and futex syscall
+    printk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->rax);
     return 0;
 }
 
@@ -396,14 +533,20 @@ SYSCALL_DEFINE(uname) {
     return 0;
 }
 
+#define MAP_SHARED     0x01
+#define MAP_PRIVATE    0x02
+#define MAP_FIXED      0x10
+#define MAP_ANONYMOUS  0x20
+
 SYSCALL_DEFINE(mmap) {
     (void)thread;
-
     if (!process) return 0;
-
-    uint64_t addr = regs->rdi;
+    uint64_t addr   = regs->rdi;
     uint64_t length = regs->rsi;
-    uint64_t prot = regs->rdx;
+    uint64_t prot   = regs->rdx;
+    uint64_t flags  = regs->r10;
+    int64_t  fd     = (int64_t)regs->r8;
+    uint64_t offset = regs->r9;
 
     if (length == 0) return 0;
 
@@ -415,17 +558,34 @@ SYSCALL_DEFINE(mmap) {
         target_vaddr = page_align_up(addr);
     }
 
-    uint64_t flags = PAGE_USER | PAGE_PRESENT;
-    if (prot & 0x2) flags |= PAGE_RW; // PF_W/PROT_WRITE
-    if (!(prot & 0x1)) flags |= PAGE_NX; // PF_X/PROT_EXEC
+    uint64_t pflags = PAGE_USER | PAGE_PRESENT;
+    if (prot & 0x2) pflags |= PAGE_RW;
+    if (!(prot & 0x1)) pflags |= PAGE_NX;
+
+    bool anonymous = (flags & MAP_ANONYMOUS) || fd < 0;
+    vnode_t *node = NULL;
+    if (!anonymous) {
+        node = process->fds[fd].vnode;
+        if (!node) return (uint64_t)-1; // -EBADF
+    }
 
     for (uint64_t vaddr = target_vaddr; vaddr < target_vaddr + length; vaddr += 0x1000) {
         uint64_t phys = pmm_alloc_page();
         if (!phys) return 0;
+        uint8_t *dst = (uint8_t*)phys_to_virt(phys);
+        memset(dst, 0, 0x1000);
 
-        memset(phys_to_virt(phys), 0, 0x1000);
+        if (node) {
+            uint64_t file_off = offset + (vaddr - target_vaddr);
+            uint64_t bytes_read = 0;
+            if (file_off < node->size) {
+                uint64_t want = node->size - file_off;
+                if (want > 0x1000) want = 0x1000;
+                node->ops->read(node, dst, want, file_off, &bytes_read);
+            }
+        }
 
-        if (map_page_4k(process->page_table, vaddr, phys, flags) != 0) {
+        if (map_page_4k(process->page_table, vaddr, phys, pflags) != 0) {
             pmm_free_page(phys);
             return 0;
         }
@@ -433,28 +593,137 @@ SYSCALL_DEFINE(mmap) {
 
     return target_vaddr;
 }
+#define F_OK 0
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+
+SYSCALL_DEFINE(access) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+
+    const char* pathname = (const char*)regs->rdi;
+    int mode = (int)regs->rsi;
+
+    if (!pathname) return -14; // -EFAULT
+
+    dprintk("Debug", "Accessing %s", pathname);
+
+    vnode_t* vnode = NULL;
+    int res = vfs_open(pathname, 0, &vnode);
+    if (res != 0) {
+        return res;
+    }
+
+    if (mode == F_OK) {
+        return 0;
+    }
+
+    uint32_t st_mode;
+    if (vnode->type == VNODE_TYPE_DIR) {
+        st_mode = 0040000 | 0755;
+    } else {
+        st_mode = 0100000 | 0644;
+    }
+
+    if ((mode & R_OK) && !(st_mode & 0444)) return -13; // -EACCES
+    if ((mode & W_OK) && !(st_mode & 0222)) return -13; // -EACCES
+    if ((mode & X_OK) && !(st_mode & 0111)) return -13; // -EACCES
+
+    return 0;
+}
+
+#define AT_FDCWD -100
+#define AT_SYMLINK_NOFOLLOW 0x100
+
+SYSCALL_DEFINE(newfstatat) {
+    (void)thread;
+    if (!process) return -22; // -EINVAL
+
+    int dfd = (int)regs->rdi;
+    const char* filename = (const char*)regs->rsi;
+    struct stat* statbuf = (struct stat*)regs->rdx;
+    int flag = (int)regs->r10;
+
+    (void)dfd;  
+    (void)flag;
+
+    if (!filename || !statbuf) return -14; // -EFAULT
+
+    vnode_t* vnode = NULL;
+    int res = vfs_open(filename, 0, &vnode);
+    if (res != 0) {
+        return res;
+    }
+
+    memset(statbuf, 0, sizeof(struct stat));
+    statbuf->st_dev  = 1;  
+    statbuf->st_ino  = (uint64_t)(uintptr_t)vnode;
+    statbuf->st_size = vnode->size;
+    statbuf->st_blksize = 4096;
+    statbuf->st_blocks = (vnode->size + 511) / 512;
+
+    if (vnode->type == VNODE_TYPE_DIR) {
+        statbuf->st_mode = 0040000 | 0755;
+    } else {
+        statbuf->st_mode = 0100000 | 0644;
+    }
+
+    return 0;
+}
+
+SYSCALL_DEFINE(set_tid_address) {
+    (void) process;
+
+    if ((int32_t*)regs->rdi != NULL) {
+        *((int32_t*)regs->rdi) = thread->id;
+    }
+
+    return thread->id;
+}
+
+SYSCALL_DEFINE(getrandom) {
+    (void)thread; (void)process;
+
+    uint8_t* buf = (uint8_t*)regs->rdi;
+    size_t count = regs->rsi;
+
+    if (!buf) return -14;
+    
+    for (size_t i = 0; i < count; i++) {
+        buf[i] = (char)(i ^ 0x5A); 
+    }
+    return count; 
+}
 
 static const syscall_fn_t syscall_table[] = {
     [0]   = syscall_read,
     [1]   = syscall_write,
     [2]   = syscall_open,
     [3]   = syscall_close,
+    [5]   = syscall_fstat,
     [7]   = syscall_poll,
     [9]   = syscall_mmap,
-    [10]  = syscall_stub_unimplemented, 
-    [11]  = syscall_stub_unimplemented,
+    [10]  = syscall_mprotect, 
+    [11]  = syscall_munmap,
     [12]  = syscall_brk,
     [13]  = syscall_stub_unimplemented,
     [16]  = syscall_stub_unimplemented,
+    [17]  = syscall_pread64,
     [20]  = syscall_writev,
+    [21]  = syscall_access,
     [60]  = syscall_exit,
     [63]  = syscall_uname,
     [102] = syscall_stub_unimplemented, // that is indeed correct. let me explain.
                                         // this returns 0 and 0 means root
     [158] = syscall_arch_prctl,
     [202] = syscall_stub_unimplemented,
+    [218] = syscall_set_tid_address,
     [231] = syscall_exit,
     [257] = syscall_openat,
+    [262] = syscall_newfstatat,
+    [273] = syscall_stub_unimplemented,
+    [318] = syscall_getrandom
 };
 
 #define SYSCALL_TABLE_SIZE (sizeof(syscall_table) / sizeof(syscall_table[0]))
@@ -465,13 +734,15 @@ void syscall_handler(registers_t* regs) {
 
     uint64_t syscall_num = regs->rax;
 
-    dprintk("Debug", "Syscall %d invoked", regs->rax);
+    dprintk("Debug", "Syscall %d invoked, RIP=%p", regs->rax, regs->rip);
 
     if (syscall_num < SYSCALL_TABLE_SIZE && syscall_table[syscall_num]) {
-        regs->rax_i = syscall_table[syscall_num](regs, current_process, current_thread);
+        int64_t res = syscall_table[syscall_num](regs, current_process, current_thread);
+        regs->rax_i = res;
     } else {
+        printk("Syscall", "fixme: syscall %d reached -ENOSYS (function not implemented)", regs->rax);
         regs->rax_i = ENOSYS_ERR;
     }
 
-    dprintk("Debug", "RAX return value %d", regs->rax_i);
+    dprintk("Debug", "RAX return value %p (decimal %d)", regs->rax, regs->rax_i);
 }

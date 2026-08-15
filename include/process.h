@@ -30,6 +30,6 @@ typedef struct process {
 
 void process_init(void);
 
-process_t* process_create(const char* name, void (*entry_point)(void*), void* arg, int ring);
+process_t* process_create(const char* name, void (*entry_point)(void*), void* arg, int ring, elf_auxv_info_t* auxv);
 void process_terminate(process_t* proc);
 process_t* process_get_current(void);
