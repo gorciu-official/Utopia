@@ -128,6 +128,50 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     return bytes_written;
 }
 
+SYSCALL_DEFINE(lseek) {
+    (void)thread;
+
+    if (!process)
+        return -22; // -EINVAL
+
+    int fd = (int)regs->rdi;
+    int64_t offset = (int64_t)regs->rsi;
+    int whence = (int)regs->rdx;
+
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
+        return -9; // -EBADF
+
+    vnode_t *vnode = process->fds[fd].vnode;
+    if (!vnode)
+        return -9; // -EBADF
+
+    int64_t new_offset;
+
+    switch (whence) {
+    case 0: // SEEK_SET
+        new_offset = offset;
+        break;
+
+    case 1: // SEEK_CUR
+        new_offset = (int64_t)process->fds[fd].offset + offset;
+        break;
+
+    case 2: // SEEK_END
+        new_offset = (int64_t)vnode->size + offset;
+        break;
+
+    default:
+        return -22; // -EINVAL
+    }
+
+    if (new_offset < 0)
+        return -22; // -EINVAL
+
+    process->fds[fd].offset = (uint64_t)new_offset;
+
+    return new_offset;
+}
+
 SYSCALL_DEFINE(fstat) {
     (void)thread;
     if (!process) return -22;
@@ -701,6 +745,7 @@ static const syscall_fn_t syscall_table[] = {
     [3]   = syscall_close,
     [5]   = syscall_fstat,
     [7]   = syscall_poll,
+    [8]   = syscall_lseek,
     [9]   = syscall_mmap,
     [10]  = syscall_mprotect, 
     [11]  = syscall_munmap,
