@@ -1,4 +1,5 @@
 #include <process.h>
+#include <panic.h>
 #include <memory.h>
 #include <arch/x86_64/common.h>
 #include <lib/screen.h>

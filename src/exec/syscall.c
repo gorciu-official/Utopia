@@ -82,13 +82,12 @@ static int grow_process_brk(process_t* process, uint64_t new_break) {
     uint64_t new_end = page_align_up(new_break);
 
     for (uint64_t addr = old_end; addr < new_end; addr += 0x1000) {
-        uint64_t phys = pmm_alloc_page();
+        uint64_t phys = kernel_virt_to_phys(pt_pool_alloc());
         if (!phys) return -1;
 
         memset(phys_to_virt(phys), 0, 0x1000);
 
         if (map_page_4k(process->page_table, addr, phys, PAGE_RW | PAGE_USER | PAGE_NX) != 0) {
-            pmm_free_page(phys);
             return -1;
         }
     }
@@ -570,7 +569,7 @@ SYSCALL_DEFINE(mmap) {
     }
 
     for (uint64_t vaddr = target_vaddr; vaddr < target_vaddr + length; vaddr += 0x1000) {
-        uint64_t phys = pmm_alloc_page();
+        uint64_t phys = kernel_virt_to_phys(pt_pool_alloc());
         if (!phys) return 0;
         uint8_t *dst = (uint8_t*)phys_to_virt(phys);
         memset(dst, 0, 0x1000);
@@ -586,7 +585,6 @@ SYSCALL_DEFINE(mmap) {
         }
 
         if (map_page_4k(process->page_table, vaddr, phys, pflags) != 0) {
-            pmm_free_page(phys);
             return 0;
         }
     }
@@ -734,7 +732,8 @@ void syscall_handler(registers_t* regs) {
 
     uint64_t syscall_num = regs->rax;
 
-    dprintk("Debug", "Syscall %d invoked, RIP=%p", regs->rax, regs->rip);
+    dprintk("Debug", "thread=%p process=%p", current_thread, current_process);
+    dprintk("Debug", "Syscall %d invoked, RIP=%p RDI=%p RSI=%p RDX=%p", regs->rax, regs->rip, regs->rdi, regs->rsi, regs->rdx);
 
     if (syscall_num < SYSCALL_TABLE_SIZE && syscall_table[syscall_num]) {
         int64_t res = syscall_table[syscall_num](regs, current_process, current_thread);

@@ -114,7 +114,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
         return NULL;
     }
 
-    size_t stack_size = 8192;
+    size_t stack_size = 8192 * 1024;
     void* stack_base = malloc(stack_size);
 
     if (!stack_base) {
@@ -306,5 +306,7 @@ void thread_exit(void) {
 
 thread_t* scheduler_get_current_thread(void) {
     uint32_t cpu_id = current_processor_id();
-    return current_threads[cpu_id];
+    thread_t* t = current_threads[cpu_id];
+
+    return t;
 }

@@ -33,7 +33,7 @@ void vmm_init(void) {
 #endif
 }
 
-#define PT_POOL_PAGES 128
+#define PT_POOL_PAGES 4096
 static uint8_t pt_pool[PT_POOL_PAGES][4096] __attribute__((aligned(4096)));
 static uint32_t pt_pool_next = 0;
 
@@ -432,10 +432,6 @@ int unmap_page_4k(uint64_t* l4_table, uint64_t virt) {
 
     uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
     if (!(l1[l1_idx] & PAGE_PRESENT)) return 0;
-
-    uint64_t phys = l1[l1_idx] & PAGE_PHYS_MASK;
-    l1[l1_idx] = 0;
-    pmm_free_page(phys);
 
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
     return 0;

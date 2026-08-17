@@ -16,4 +16,4 @@ typedef struct registers {
     uint64_t rflags;
     uint64_t rsp;
     uint64_t ss;
-} registers_t;
+} __attribute__((packed)) registers_t;

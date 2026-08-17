@@ -46,5 +46,4 @@ void free(void* ptr);
 #define PAGE_NX            (1ULL << 63)
 #define PAGE_PHYS_MASK     0x000FFFFFFFFFF000ULL
 
-void pmm_free_page(uint64_t phys_addr);
-uint64_t pmm_alloc_page(void);
+uint64_t* pt_pool_alloc(void);
