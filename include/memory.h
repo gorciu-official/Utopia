@@ -7,6 +7,8 @@ void vmm_init(void);
 
 void* phys_to_virt(uint64_t phys);
 uintptr_t kernel_virt_to_phys(void* addr);
+uintptr_t hhdm_virt_to_phys(void* addr);
+void* page_alloc(uint64_t pages);
 
 int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags);
 int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags);

@@ -82,7 +82,7 @@ static int grow_process_brk(process_t* process, uint64_t new_break) {
     uint64_t new_end = page_align_up(new_break);
 
     for (uint64_t addr = old_end; addr < new_end; addr += 0x1000) {
-        uint64_t phys = kernel_virt_to_phys(pt_pool_alloc());
+        uint64_t phys = hhdm_virt_to_phys(pt_pool_alloc());
         if (!phys) return -1;
 
         memset(phys_to_virt(phys), 0, 0x1000);
@@ -583,7 +583,8 @@ SYSCALL_DEFINE(uname) {
 
 SYSCALL_DEFINE(mmap) {
     (void)thread;
-    if (!process) return 0;
+    if (!process) return (uint64_t)-1;
+    
     uint64_t addr   = regs->rdi;
     uint64_t length = regs->rsi;
     uint64_t prot   = regs->rdx;
@@ -593,10 +594,13 @@ SYSCALL_DEFINE(mmap) {
 
     if (length == 0) return 0;
 
+    uint64_t alloc_size = page_align_up(length);
+    uint64_t pages_count = alloc_size / 0x1000;
+
     uint64_t target_vaddr;
     if (addr == 0) {
         target_vaddr = process->mmap_current;
-        process->mmap_current += page_align_up(length);
+        process->mmap_current += alloc_size;
     } else {
         target_vaddr = page_align_up(addr);
     }
@@ -608,33 +612,39 @@ SYSCALL_DEFINE(mmap) {
     bool anonymous = (flags & MAP_ANONYMOUS) || fd < 0;
     vnode_t *node = NULL;
     if (!anonymous) {
+        if (fd < 0 || !process->fds[fd].vnode) return (uint64_t)-1; // -EBADF
         node = process->fds[fd].vnode;
-        if (!node) return (uint64_t)-1; // -EBADF
     }
 
-    for (uint64_t vaddr = target_vaddr; vaddr < target_vaddr + length; vaddr += 0x1000) {
-        uint64_t phys = kernel_virt_to_phys(pt_pool_alloc());
-        if (!phys) return 0;
-        uint8_t *dst = (uint8_t*)phys_to_virt(phys);
-        memset(dst, 0, 0x1000);
+    void *virt_block = page_alloc(pages_count);
+    if (!virt_block) return 0;
 
-        if (node) {
-            uint64_t file_off = offset + (vaddr - target_vaddr);
+    uint64_t phys_base = hhdm_virt_to_phys(virt_block);
+    memset(virt_block, 0, alloc_size);
+
+    if (node) {
+        if (offset < node->size) {
+            uint64_t want = node->size - offset;
+            if (want > alloc_size) want = alloc_size;
+            
             uint64_t bytes_read = 0;
-            if (file_off < node->size) {
-                uint64_t want = node->size - file_off;
-                if (want > 0x1000) want = 0x1000;
-                node->ops->read(node, dst, want, file_off, &bytes_read);
-            }
+            node->ops->read(node, virt_block, want, offset, &bytes_read);
         }
+    }
+
+    for (uint64_t i = 0; i < pages_count; i++) {
+        uint64_t vaddr = target_vaddr + (i * 0x1000);
+        uint64_t phys  = phys_base + (i * 0x1000);
 
         if (map_page_4k(process->page_table, vaddr, phys, pflags) != 0) {
+            free(virt_block); 
             return 0;
         }
     }
 
     return target_vaddr;
 }
+
 #define F_OK 0
 #define R_OK 4
 #define W_OK 2

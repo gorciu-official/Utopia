@@ -219,3 +219,58 @@ void free(void* ptr) {
 
     restore_interrupts(flags);
 }
+
+void* page_alloc(uint64_t pages) {
+    size_t alignment = 4096;
+    size_t size = 4096 * pages;
+
+    uint64_t flags = save_interrupts();
+
+    heap_block_t* curr = head;
+    void* result = NULL;
+
+    while (curr) {
+        if (curr->free) {
+            uintptr_t raw_addr = (uintptr_t)curr + sizeof(heap_block_t);
+            uintptr_t aligned_addr = (raw_addr + (alignment - 1)) & ~(alignment - 1);
+            size_t padding = aligned_addr - raw_addr;
+
+            if (curr->size >= size + padding) {
+                heap_block_t* target_block = curr;
+
+                if (padding >= sizeof(heap_block_t) + 16) {
+                    heap_block_t* aligned_block = (heap_block_t*)(aligned_addr - sizeof(heap_block_t));
+                    
+                    aligned_block->size = curr->size - padding;
+                    aligned_block->next = curr->next;
+                    aligned_block->free = false;
+
+                    curr->size = padding - sizeof(heap_block_t);
+                    curr->next = aligned_block;
+                    curr->free = true;
+
+                    target_block = aligned_block;
+                } else {
+                    target_block->free = false;
+                }
+
+                if (target_block->size >= size + sizeof(heap_block_t) + 16) {
+                    heap_block_t* remainder = (heap_block_t*)((uint8_t*)target_block + sizeof(heap_block_t) + size);
+                    remainder->size = target_block->size - size - sizeof(heap_block_t);
+                    remainder->next = target_block->next;
+                    remainder->free = true;
+
+                    target_block->size = size;
+                    target_block->next = remainder;
+                }
+
+                result = (void*)aligned_addr;
+                break;
+            }
+        }
+        curr = curr->next;
+    }
+
+    restore_interrupts(flags);
+    return result;
+}

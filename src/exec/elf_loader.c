@@ -665,7 +665,7 @@ elf_load_result_t elf_load(const uint8_t* image, uint64_t image_size,
                 if (!(flags & PAGE_NX)) merged &= ~PAGE_NX;
                 *pte = merged;
             } else {
-                phys = kernel_virt_to_phys(pt_pool_alloc());
+                phys = hhdm_virt_to_phys(pt_pool_alloc());
                 if (!phys) {
                     result.status = ELF_ERR_NO_MEMORY;
                     return result;
@@ -848,7 +848,7 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
         return rc;
     }
 
-    write_cr3(kernel_virt_to_phys(proc_l4)); // TODO: context switch should do this not me
+    write_cr3(hhdm_virt_to_phys(proc_l4)); // TODO: context switch should do this not me
 
     process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, NULL, 3, &auxv);
     if (!proc) {
