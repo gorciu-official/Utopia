@@ -4,6 +4,7 @@
 #include <constants.h>
 
 void vmm_init(void);
+int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end);
 
 void* phys_to_virt(uint64_t phys);
 uintptr_t kernel_virt_to_phys(void* addr);
@@ -33,10 +34,11 @@ typedef struct {
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
 #include <boot/multiboot1.h>
 
-void memory_init(multiboot_info_t* mbd);
+void memory_init_base(multiboot_info_t* mbd);
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-void memory_init(void);
+void memory_init_base(void);
 #endif
+void memory_init(void);
 
 void* malloc(size_t size);
 void free(void* ptr);

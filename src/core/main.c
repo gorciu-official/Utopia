@@ -120,10 +120,12 @@ void kmain() {
 
     // misc init 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    memory_init(mbd);
+    memory_init_base(mbd);
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-    memory_init();
+    memory_init_base();
 #endif
+    memory_reserve_range((uintptr_t)initram_fs_addr, (uintptr_t)((char*)initram_fs_addr + initram_fs_size));
+    memory_init();
     framebuffer_enable_backbuffer();
     acpi_init();
 
