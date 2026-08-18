@@ -2,6 +2,16 @@
 
 This file contains some of the important information for (I guess) new contributors.
 
+## Dependencies
+
+So, before building, make sure you have these:
+
+- a normal assembler: NASM
+- a C compiler 
+- GNU make (or any other program that reads Makefiles)
+
+If you want to test on an emulated machine make sure you have a good CPU (good cpu = smth better than core 2 quad q9300) and QEMU installed.
+
 ## Building and testing
 
 To build the project, simply use `make`. Alternatively, you can only build the kernel using `make build_kernel`.

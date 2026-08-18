@@ -16,12 +16,6 @@ Utopia is a (probably good) x86_64 operating system kernel.
 
 That's it lol. Please note that this is an hobbyist operating system and probably shouldn't be used for anything other than testing purposes, it also lacks a lot of features.
 
-## Dependencies
-
-- a normal assembler: NASM
-- a C compiler 
-- GNU make (or any other program that reads Makefiles)
-
 ## System requirements
 
 Have a working x86_64 machine (kinda).
