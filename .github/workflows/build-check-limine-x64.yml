@@ -1,4 +1,4 @@
-name: Build Check for GRUB x64
+name: Build Check for Limine x64
 
 on:
   push:
