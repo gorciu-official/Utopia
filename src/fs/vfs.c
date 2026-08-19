@@ -123,7 +123,18 @@ int vfs_lookup(const char* path, vnode_t** result) {
     }
 
     if (path[0] != '/') {
-        return -1;
+        // TODO: proper relative path resolution
+        if (path[0] == '.' && (path[1] == '\0' || path[1] == '/')) {
+            path++;
+            if (*path == '/') {
+                path++;
+            }
+        }
+
+        if (*path == '\0') {
+            *result = g_mounts[0]->root;
+            return 0;
+        }
     }
 
     filesystem_mount_t* mount = g_mounts[0];
@@ -140,6 +151,12 @@ int vfs_lookup(const char* path, vnode_t** result) {
         p = vfs_next_token(p, token);
 
         if (token[0] == 0) {
+            continue;
+        }
+
+        // Hardcoded: "." means root for now.
+        if (token[0] == '.' && token[1] == '\0') {
+            current = mount->root;
             continue;
         }
 
