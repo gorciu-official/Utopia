@@ -336,7 +336,6 @@ void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t
         return;
 
     uint8_t ch = (uint8_t)c;
-
     if (ch >= 128)
         ch = '?';
 
@@ -347,58 +346,54 @@ void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t
 
     uint32_t* target = backbuffer ? backbuffer : fb_addr;
 
+    uint8_t* glyph;
+    bool lsb_first;
+
     if (current_font != NULL) {
-        uint32_t glyph_count = (current_font->mode & PSF1_MODE512) ? 512 : 256;
+        uint32_t glyph_count =
+            (current_font->mode & PSF1_MODE512) ? 512 : 256;
 
         if (ch >= glyph_count)
             ch = '?';
 
-        uint8_t* glyph_data = (uint8_t*)current_font + sizeof(psf1_header_t);
-        uint8_t* glyph = glyph_data + (uintptr_t)ch * current_font->charsize;
+        uint8_t* glyph_data =
+            (uint8_t*)current_font + sizeof(psf1_header_t);
 
-        if (fb_bpp == 32) {
-            for (uint32_t row = 0; row < current_font->charsize; row++) {
-                uint8_t bits = glyph[row];
-                uint32_t* row_ptr = (uint32_t*)((uint8_t*)target + (y + row) * fb_pitch + x * 4);
+        glyph = glyph_data + (uintptr_t)ch * current_font->charsize;
 
-                for (uint32_t col = 0; col < 8; col++)
-                    row_ptr[col] = (bits & (1 << (7 - col))) ? fg : bg;
-            }
-        } else if (fb_bpp == 24) {
-            for (uint32_t row = 0; row < current_font->charsize; row++) {
-                uint8_t bits = glyph[row];
-                uint8_t* row_ptr = (uint8_t*)target + (y + row) * fb_pitch + x * 3;
-
-                for (uint32_t col = 0; col < 8; col++) {
-                    uint32_t color = (bits & (1 << (7 - col))) ? fg : bg;
-
-                    row_ptr[col * 3] = color & 0xFF;
-                    row_ptr[col * 3 + 1] = (color >> 8) & 0xFF;
-                    row_ptr[col * 3 + 2] = (color >> 16) & 0xFF;
-                }
-            }
-        }
+        lsb_first = false;
     } else {
-        if (fb_bpp == 32) {
-            for (uint32_t row = 0; row < 8; row++) {
-                uint8_t bits = font8x8_basic[ch][row];
-                uint32_t* row_ptr = (uint32_t*)((uint8_t*)target + (y + row) * fb_pitch + x * 4);
+        glyph = (uint8_t*)font8x8_basic[ch];
 
-                for (uint32_t col = 0; col < 8; col++)
-                    row_ptr[col] = (bits & (1 << (7 - col))) ? fg : bg;
-            }
-        } else if (fb_bpp == 24) {
-            for (uint32_t row = 0; row < 8; row++) {
-                uint8_t bits = font8x8_basic[ch][row];
-                uint8_t* row_ptr = (uint8_t*)target + (y + row) * fb_pitch + x * 3;
+        lsb_first = true;
+    }
 
-                for (uint32_t col = 0; col < 8; col++) {
-                    uint32_t color = (bits & (1 << (7 - col))) ? fg : bg;
+    for (uint32_t row = 0; row < font_height; row++) {
+        uint8_t bits = glyph[row];
 
-                    row_ptr[col * 3] = color & 0xFF;
-                    row_ptr[col * 3 + 1] = (color >> 8) & 0xFF;
-                    row_ptr[col * 3 + 2] = (color >> 16) & 0xFF;
-                }
+        for (uint32_t col = 0; col < FONT_WIDTH; col++) {
+            uint8_t bit = lsb_first
+                ? (bits >> col) & 1
+                : (bits >> (7 - col)) & 1;
+
+            uint32_t color = bit ? fg : bg;
+
+            if (fb_bpp == 32) {
+                uint32_t* pixel =
+                    (uint32_t*)((uint8_t*)target +
+                    (y + row) * fb_pitch +
+                    (x + col) * 4);
+
+                *pixel = color;
+            } else if (fb_bpp == 24) {
+                uint8_t* pixel =
+                    (uint8_t*)target +
+                    (y + row) * fb_pitch +
+                    (x + col) * 3;
+
+                pixel[0] = color & 0xFF;
+                pixel[1] = (color >> 8) & 0xFF;
+                pixel[2] = (color >> 16) & 0xFF;
             }
         }
     }
