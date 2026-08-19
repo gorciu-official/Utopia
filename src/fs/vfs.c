@@ -145,29 +145,24 @@ int vfs_lookup(const char* path, vnode_t** result) {
     while (p && *p) {
         p = vfs_next_token(p, token);
 
-        if (token[0] == 0) {
+        if (token[0] == 0) 
             continue;
-        }
 
-        // Hardcoded: "." means root for now.
         if (token[0] == '.' && token[1] == '\0') {
             current = mount->root;
             continue;
         }
 
-        if (!current || !current->ops || !current->ops->lookup) {
+        if (!current || !current->ops || !current->ops->lookup) 
             return -1;
-        }
 
         vnode_t* next = 0;
 
-        if (current->ops->lookup(current, token, &next) != 0) {
+        if (current->ops->lookup(current, token, &next) != 0)
             return -1;
-        }
 
-        if (!next) {
+        if (!next) 
             return -1;
-        }
 
         current = next;
     }
