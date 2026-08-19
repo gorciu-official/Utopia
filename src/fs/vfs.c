@@ -123,17 +123,12 @@ int vfs_lookup(const char* path, vnode_t** result) {
     }
 
     if (path[0] != '/') {
-        // TODO: proper relative path resolution
         if (path[0] == '.' && (path[1] == '\0' || path[1] == '/')) {
             path++;
+
             if (*path == '/') {
                 path++;
             }
-        }
-
-        if (*path == '\0') {
-            *result = g_mounts[0]->root;
-            return 0;
         }
     }
 
