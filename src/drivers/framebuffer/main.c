@@ -12,7 +12,7 @@
 #define PSF1_MAGIC0 0x36
 #define PSF1_MAGIC1 0x04
 
-#define PSF1_MODE512    0x01
+#define PSF1_MODE512 0x01
 #define PSF1_MODEHASTAB 0x02
 
 #define FONT_WIDTH 8
@@ -39,13 +39,6 @@ static uint32_t framebuffer_font_height(void) {
     return 8;
 }
 
-static uint32_t framebuffer_font_glyph_count(void) {
-    if (current_font == NULL)
-        return 256;
-
-    return (current_font->mode & PSF1_MODE512) ? 512 : 256;
-}
-
 void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
     if (font == NULL) {
         current_font = NULL;
@@ -63,20 +56,15 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
     if (size < sizeof(psf1_header_t))
         return;
 
-    if (font->magic[0] != PSF1_MAGIC0 ||
-        font->magic[1] != PSF1_MAGIC1)
+    if (font->magic[0] != PSF1_MAGIC0 || font->magic[1] != PSF1_MAGIC1)
         return;
 
     if (font->charsize == 0)
         return;
 
-    uint32_t glyph_count = framebuffer_font_glyph_count();
-
-    uintptr_t glyph_data_size =
-        (uintptr_t)glyph_count * font->charsize;
-
-    uintptr_t required_size =
-        sizeof(psf1_header_t) + glyph_data_size;
+    uint32_t glyph_count = (font->mode & PSF1_MODE512) ? 512 : 256;
+    uintptr_t glyph_data_size = (uintptr_t)glyph_count * font->charsize;
+    uintptr_t required_size = sizeof(psf1_header_t) + glyph_data_size;
 
     if (size < required_size)
         return;
@@ -116,55 +104,40 @@ static int init_serial() {
 
 void framebuffer_init(multiboot_info_t* mbd) {
     if (!(mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER)) {
-        printk(
-            "Framebuffer",
-            "Framebuffer not available in Multiboot info"
-        );
+        printk("Framebuffer", "Framebuffer not available in Multiboot info");
         return;
     }
 
     if (mbd->framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-        printk(
-            "Framebuffer",
-            "Framebuffer is not RGB mode (type: %d)",
-            mbd->framebuffer_type
-        );
+        printk("Framebuffer", "Framebuffer is not RGB mode (type: %d)", mbd->framebuffer_type);
         return;
     }
 
-    fb_addr   = phys_to_virt((uintptr_t)mbd->framebuffer_addr);
-    fb_width  = mbd->framebuffer_width;
+    fb_addr = phys_to_virt((uintptr_t)mbd->framebuffer_addr);
+    fb_width = mbd->framebuffer_width;
     fb_height = mbd->framebuffer_height;
-    fb_pitch  = mbd->framebuffer_pitch;
-    fb_bpp    = mbd->framebuffer_bpp;
+    fb_pitch = mbd->framebuffer_pitch;
+    fb_bpp = mbd->framebuffer_bpp;
 }
 
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
 
 void framebuffer_init(struct limine_framebuffer* framebuffer) {
     if (framebuffer == NULL) {
-        printk(
-            "Framebuffer",
-            "Framebuffer request not available"
-        );
+        printk("Framebuffer", "Framebuffer request not available");
         return;
     }
 
-    fb_addr   = (uint32_t*)framebuffer->address;
-    fb_width  = framebuffer->width;
+    fb_addr = (uint32_t*)framebuffer->address;
+    fb_width = framebuffer->width;
     fb_height = framebuffer->height;
-    fb_pitch  = framebuffer->pitch;
-    fb_bpp    = framebuffer->bpp;
+    fb_pitch = framebuffer->pitch;
+    fb_bpp = framebuffer->bpp;
 }
 
 #endif
 
-void framebuffer_flush(
-    uint32_t x,
-    uint32_t y,
-    uint32_t width,
-    uint32_t height
-) {
+void framebuffer_flush(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     if (!fb_addr || !backbuffer)
         return;
 
@@ -179,15 +152,8 @@ void framebuffer_flush(
 
     if (fb_bpp == 32) {
         for (uint32_t row = 0; row < height; row++) {
-            uint32_t* src =
-                (uint32_t*)((uint8_t*)backbuffer +
-                (y + row) * fb_pitch +
-                x * 4);
-
-            uint32_t* dest =
-                (uint32_t*)((uint8_t*)fb_addr +
-                (y + row) * fb_pitch +
-                x * 4);
+            uint32_t* src = (uint32_t*)((uint8_t*)backbuffer + (y + row) * fb_pitch + x * 4);
+            uint32_t* dest = (uint32_t*)((uint8_t*)fb_addr + (y + row) * fb_pitch + x * 4);
 
             size_t words = width;
             size_t words64 = words / 2;
@@ -201,18 +167,10 @@ void framebuffer_flush(
             if (words % 2 != 0)
                 dest[words - 1] = src[words - 1];
         }
-
     } else if (fb_bpp == 24) {
         for (uint32_t row = 0; row < height; row++) {
-            uint8_t* src =
-                (uint8_t*)backbuffer +
-                (y + row) * fb_pitch +
-                x * 3;
-
-            uint8_t* dest =
-                (uint8_t*)fb_addr +
-                (y + row) * fb_pitch +
-                x * 3;
+            uint8_t* src = (uint8_t*)backbuffer + (y + row) * fb_pitch + x * 3;
+            uint8_t* dest = (uint8_t*)fb_addr + (y + row) * fb_pitch + x * 3;
 
             size_t bytes = width * 3;
             size_t bytes64 = bytes / 8;
@@ -234,60 +192,37 @@ void framebuffer_enable_backbuffer() {
         return;
 
     size_t size = fb_height * fb_pitch;
-
     backbuffer = malloc(size);
 
     if (backbuffer) {
         memcpy(backbuffer, fb_addr, size);
     } else {
-        printk(
-            "Framebuffer",
-            "Failed to allocate backbuffer, using direct access to VRAM."
-        );
+        printk("Framebuffer", "Failed to allocate backbuffer, using direct access to VRAM.");
     }
 }
 
-void framebuffer_putpixel(
-    uint32_t x,
-    uint32_t y,
-    uint32_t color
-) {
+void framebuffer_putpixel(uint32_t x, uint32_t y, uint32_t color) {
     if (!fb_addr || x >= fb_width || y >= fb_height)
         return;
 
     if (fb_bpp == 32) {
         if (backbuffer) {
-            uint32_t* pixel_bb =
-                (uint32_t*)((uint8_t*)backbuffer +
-                y * fb_pitch +
-                x * 4);
-
+            uint32_t* pixel_bb = (uint32_t*)((uint8_t*)backbuffer + y * fb_pitch + x * 4);
             *pixel_bb = color;
         }
 
-        uint32_t* pixel_fb =
-            (uint32_t*)((uint8_t*)fb_addr +
-            y * fb_pitch +
-            x * 4);
-
+        uint32_t* pixel_fb = (uint32_t*)((uint8_t*)fb_addr + y * fb_pitch + x * 4);
         *pixel_fb = color;
-
     } else if (fb_bpp == 24) {
         if (backbuffer) {
-            uint8_t* pixel_bb =
-                (uint8_t*)backbuffer +
-                y * fb_pitch +
-                x * 3;
+            uint8_t* pixel_bb = (uint8_t*)backbuffer + y * fb_pitch + x * 3;
 
             pixel_bb[0] = color & 0xFF;
             pixel_bb[1] = (color >> 8) & 0xFF;
             pixel_bb[2] = (color >> 16) & 0xFF;
         }
 
-        uint8_t* pixel_fb =
-            (uint8_t*)fb_addr +
-            y * fb_pitch +
-            x * 3;
+        uint8_t* pixel_fb = (uint8_t*)fb_addr + y * fb_pitch + x * 3;
 
         pixel_fb[0] = color & 0xFF;
         pixel_fb[1] = (color >> 8) & 0xFF;
@@ -308,16 +243,11 @@ void framebuffer_scroll() {
 
     if (backbuffer) {
         uint8_t* dest = (uint8_t*)backbuffer;
-        uint8_t* src =
-            (uint8_t*)backbuffer +
-            font_height * fb_pitch;
-
-        size_t size =
-            (fb_height - font_height) * fb_pitch;
+        uint8_t* src = (uint8_t*)backbuffer + font_height * fb_pitch;
+        size_t size = (fb_height - font_height) * fb_pitch;
 
         uint64_t* d64 = (uint64_t*)dest;
         uint64_t* s64 = (uint64_t*)src;
-
         size_t size64 = size / 8;
 
         for (size_t i = 0; i < size64; i++)
@@ -327,21 +257,11 @@ void framebuffer_scroll() {
             dest[i] = src[i];
 
         if (fb_bpp == 32) {
-            uint64_t bg64 =
-                ((uint64_t)bg << 32) | bg;
+            uint64_t bg64 = ((uint64_t)bg << 32) | bg;
 
-            for (
-                uint32_t y = fb_height - font_height;
-                y < fb_height;
-                y++
-            ) {
-                uint32_t* row_ptr =
-                    (uint32_t*)((uint8_t*)backbuffer +
-                    y * fb_pitch);
-
-                uint64_t* row_ptr64 =
-                    (uint64_t*)row_ptr;
-
+            for (uint32_t y = fb_height - font_height; y < fb_height; y++) {
+                uint32_t* row_ptr = (uint32_t*)((uint8_t*)backbuffer + y * fb_pitch);
+                uint64_t* row_ptr64 = (uint64_t*)row_ptr;
                 size_t width64 = fb_width / 2;
 
                 for (size_t x = 0; x < width64; x++)
@@ -350,50 +270,26 @@ void framebuffer_scroll() {
                 if (fb_width % 2 != 0)
                     row_ptr[fb_width - 1] = bg;
             }
-
         } else if (fb_bpp == 24) {
-            for (
-                uint32_t y = fb_height - font_height;
-                y < fb_height;
-                y++
-            ) {
-                uint8_t* row_ptr =
-                    (uint8_t*)backbuffer +
-                    y * fb_pitch;
+            for (uint32_t y = fb_height - font_height; y < fb_height; y++) {
+                uint8_t* row_ptr = (uint8_t*)backbuffer + y * fb_pitch;
 
                 for (uint32_t x = 0; x < fb_width; x++) {
-                    row_ptr[x * 3] =
-                        bg & 0xFF;
-
-                    row_ptr[x * 3 + 1] =
-                        (bg >> 8) & 0xFF;
-
-                    row_ptr[x * 3 + 2] =
-                        (bg >> 16) & 0xFF;
+                    row_ptr[x * 3] = bg & 0xFF;
+                    row_ptr[x * 3 + 1] = (bg >> 8) & 0xFF;
+                    row_ptr[x * 3 + 2] = (bg >> 16) & 0xFF;
                 }
             }
         }
 
-        framebuffer_flush(
-            0,
-            0,
-            fb_width,
-            fb_height
-        );
-
+        framebuffer_flush(0, 0, fb_width, fb_height);
     } else {
         uint8_t* dest = (uint8_t*)fb_addr;
-
-        uint8_t* src =
-            (uint8_t*)fb_addr +
-            font_height * fb_pitch;
-
-        size_t size =
-            (fb_height - font_height) * fb_pitch;
+        uint8_t* src = (uint8_t*)fb_addr + font_height * fb_pitch;
+        size_t size = (fb_height - font_height) * fb_pitch;
 
         uint64_t* d64 = (uint64_t*)dest;
         uint64_t* s64 = (uint64_t*)src;
-
         size_t size64 = size / 8;
 
         for (size_t i = 0; i < size64; i++)
@@ -403,21 +299,11 @@ void framebuffer_scroll() {
             dest[i] = src[i];
 
         if (fb_bpp == 32) {
-            uint64_t bg64 =
-                ((uint64_t)bg << 32) | bg;
+            uint64_t bg64 = ((uint64_t)bg << 32) | bg;
 
-            for (
-                uint32_t y = fb_height - font_height;
-                y < fb_height;
-                y++
-            ) {
-                uint32_t* row_ptr =
-                    (uint32_t*)((uint8_t*)fb_addr +
-                    y * fb_pitch);
-
-                uint64_t* row_ptr64 =
-                    (uint64_t*)row_ptr;
-
+            for (uint32_t y = fb_height - font_height; y < fb_height; y++) {
+                uint32_t* row_ptr = (uint32_t*)((uint8_t*)fb_addr + y * fb_pitch);
+                uint64_t* row_ptr64 = (uint64_t*)row_ptr;
                 size_t width64 = fb_width / 2;
 
                 for (size_t x = 0; x < width64; x++)
@@ -426,26 +312,14 @@ void framebuffer_scroll() {
                 if (fb_width % 2 != 0)
                     row_ptr[fb_width - 1] = bg;
             }
-
         } else if (fb_bpp == 24) {
-            for (
-                uint32_t y = fb_height - font_height;
-                y < fb_height;
-                y++
-            ) {
-                uint8_t* row_ptr =
-                    (uint8_t*)fb_addr +
-                    y * fb_pitch;
+            for (uint32_t y = fb_height - font_height; y < fb_height; y++) {
+                uint8_t* row_ptr = (uint8_t*)fb_addr + y * fb_pitch;
 
                 for (uint32_t x = 0; x < fb_width; x++) {
-                    row_ptr[x * 3] =
-                        bg & 0xFF;
-
-                    row_ptr[x * 3 + 1] =
-                        (bg >> 8) & 0xFF;
-
-                    row_ptr[x * 3 + 2] =
-                        (bg >> 16) & 0xFF;
+                    row_ptr[x * 3] = bg & 0xFF;
+                    row_ptr[x * 3 + 1] = (bg >> 8) & 0xFF;
+                    row_ptr[x * 3 + 2] = (bg >> 16) & 0xFF;
                 }
             }
         }
@@ -457,13 +331,7 @@ void framebuffer_scroll() {
         cursor_y = 0;
 }
 
-void framebuffer_draw_char(
-    uint32_t x,
-    uint32_t y,
-    char c,
-    uint32_t fg,
-    uint32_t bg
-) {
+void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t bg) {
     if (!fb_addr)
         return;
 
@@ -472,148 +340,74 @@ void framebuffer_draw_char(
     if (ch >= 128)
         ch = '?';
 
-    uint32_t font_height =
-        framebuffer_font_height();
+    uint32_t font_height = framebuffer_font_height();
 
-    if (x + FONT_WIDTH > fb_width ||
-        y + font_height > fb_height)
+    if (x + FONT_WIDTH > fb_width || y + font_height > fb_height)
         return;
 
-    uint32_t* target =
-        backbuffer ? backbuffer : fb_addr;
+    uint32_t* target = backbuffer ? backbuffer : fb_addr;
 
     if (current_font != NULL) {
-        uint32_t glyph_count =
-            (current_font->mode & PSF1_MODE512)
-            ? 512
-            : 256;
+        uint32_t glyph_count = (current_font->mode & PSF1_MODE512) ? 512 : 256;
 
         if (ch >= glyph_count)
             ch = '?';
 
-        uint8_t* glyph_data =
-            (uint8_t*)current_font +
-            sizeof(psf1_header_t);
-
-        uint8_t* glyph =
-            glyph_data +
-            (uintptr_t)ch *
-            current_font->charsize;
-
+        uint8_t* glyph_data = (uint8_t*)current_font + sizeof(psf1_header_t);
+        uint8_t* glyph = glyph_data + (uintptr_t)ch * current_font->charsize;
 
         if (fb_bpp == 32) {
-            for (
-                uint32_t row = 0;
-                row < current_font->charsize;
-                row++
-            ) {
+            for (uint32_t row = 0; row < current_font->charsize; row++) {
                 uint8_t bits = glyph[row];
+                uint32_t* row_ptr = (uint32_t*)((uint8_t*)target + (y + row) * fb_pitch + x * 4);
 
-                uint32_t* row_ptr =
-                    (uint32_t*)((uint8_t*)target +
-                    (y + row) * fb_pitch +
-                    x * 4);
-
-                for (uint32_t col = 0; col < 8; col++) {
-                    row_ptr[col] =
-                        (bits & (1 << col))
-                        ? fg
-                        : bg;
-                }
+                for (uint32_t col = 0; col < 8; col++)
+                    row_ptr[col] = (bits & (1 << (7 - col))) ? fg : bg;
             }
         } else if (fb_bpp == 24) {
-            for (
-                uint32_t row = 0;
-                row < current_font->charsize;
-                row++
-            ) {
+            for (uint32_t row = 0; row < current_font->charsize; row++) {
                 uint8_t bits = glyph[row];
-
-                uint8_t* row_ptr =
-                    (uint8_t*)target +
-                    (y + row) * fb_pitch +
-                    x * 3;
+                uint8_t* row_ptr = (uint8_t*)target + (y + row) * fb_pitch + x * 3;
 
                 for (uint32_t col = 0; col < 8; col++) {
-                    uint32_t color =
-                        (bits & (1 << col))
-                        ? fg
-                        : bg;
+                    uint32_t color = (bits & (1 << (7 - col))) ? fg : bg;
 
-                    row_ptr[col * 3] =
-                        color & 0xFF;
-
-                    row_ptr[col * 3 + 1] =
-                        (color >> 8) & 0xFF;
-
-                    row_ptr[col * 3 + 2] =
-                        (color >> 16) & 0xFF;
+                    row_ptr[col * 3] = color & 0xFF;
+                    row_ptr[col * 3 + 1] = (color >> 8) & 0xFF;
+                    row_ptr[col * 3 + 2] = (color >> 16) & 0xFF;
                 }
             }
         }
     } else {
         if (fb_bpp == 32) {
             for (uint32_t row = 0; row < 8; row++) {
-                uint8_t bits =
-                    font8x8_basic[ch][row];
+                uint8_t bits = font8x8_basic[ch][row];
+                uint32_t* row_ptr = (uint32_t*)((uint8_t*)target + (y + row) * fb_pitch + x * 4);
 
-                uint32_t* row_ptr =
-                    (uint32_t*)((uint8_t*)target +
-                    (y + row) * fb_pitch +
-                    x * 4);
-
-                for (uint32_t col = 0; col < 8; col++) {
-                    row_ptr[col] =
-                        (bits & (1 << col))
-                        ? fg
-                        : bg;
-                }
+                for (uint32_t col = 0; col < 8; col++)
+                    row_ptr[col] = (bits & (1 << (7 - col))) ? fg : bg;
             }
-
         } else if (fb_bpp == 24) {
             for (uint32_t row = 0; row < 8; row++) {
-                uint8_t bits =
-                    font8x8_basic[ch][row];
-
-                uint8_t* row_ptr =
-                    (uint8_t*)target +
-                    (y + row) * fb_pitch +
-                    x * 3;
+                uint8_t bits = font8x8_basic[ch][row];
+                uint8_t* row_ptr = (uint8_t*)target + (y + row) * fb_pitch + x * 3;
 
                 for (uint32_t col = 0; col < 8; col++) {
-                    uint32_t color =
-                        (bits & (1 << col))
-                        ? fg
-                        : bg;
+                    uint32_t color = (bits & (1 << (7 - col))) ? fg : bg;
 
-                    row_ptr[col * 3] =
-                        color & 0xFF;
-
-                    row_ptr[col * 3 + 1] =
-                        (color >> 8) & 0xFF;
-
-                    row_ptr[col * 3 + 2] =
-                        (color >> 16) & 0xFF;
+                    row_ptr[col * 3] = color & 0xFF;
+                    row_ptr[col * 3 + 1] = (color >> 8) & 0xFF;
+                    row_ptr[col * 3 + 2] = (color >> 16) & 0xFF;
                 }
             }
         }
     }
 
-    if (backbuffer) {
-        framebuffer_flush(
-            x,
-            y,
-            FONT_WIDTH,
-            font_height
-        );
-    }
+    if (backbuffer)
+        framebuffer_flush(x, y, FONT_WIDTH, font_height);
 }
 
-void framebuffer_putchar(
-    char c,
-    uint32_t fg,
-    uint32_t bg
-) {
+void framebuffer_putchar(char c, uint32_t fg, uint32_t bg) {
     if (!serial_used)
         init_serial();
 
@@ -623,22 +417,13 @@ void framebuffer_putchar(
         outb(COM1, c);
     }
 
-    uint32_t font_height =
-        framebuffer_font_height();
-
+    uint32_t font_height = framebuffer_font_height();
 
     if (c == '\n') {
         cursor_x = 0;
         cursor_y += font_height;
-
     } else {
-        framebuffer_draw_char(
-            cursor_x,
-            cursor_y,
-            c,
-            fg,
-            bg
-        );
+        framebuffer_draw_char(cursor_x, cursor_y, c, fg, bg);
 
         cursor_x += FONT_WIDTH;
 
@@ -648,22 +433,13 @@ void framebuffer_putchar(
         }
     }
 
-
     if (cursor_y + font_height >= fb_height)
         framebuffer_scroll();
 }
 
-void framebuffer_printstr(
-    char* str,
-    uint32_t fg,
-    uint32_t bg
-) {
+void framebuffer_printstr(char* str, uint32_t fg, uint32_t bg) {
     for (int i = 0; i < strlen(str); i++)
-        framebuffer_putchar(
-            str[i],
-            fg,
-            bg
-        );
+        framebuffer_putchar(str[i], fg, bg);
 }
 
 uint32_t* framebuffer_get_addr() {

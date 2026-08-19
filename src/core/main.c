@@ -61,10 +61,10 @@ void kmain(multiboot_info_t* mbd) {
             multiboot_module_t mod = mods[i];
 
             if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
-                initram_fs_addr = (char*)(uintptr_t)mod.mod_start;
+                initram_fs_addr = phys_to_virt((uintptr_t)mod.mod_start);
                 initram_fs_size = mod.mod_end - mod.mod_start;
             } else if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "font.psf1") == 0) {
-                font_addr = (char*)(uintptr_t)mod.mod_start;
+                font_addr = phys_to_virt((uintptr_t)mod.mod_start);
                 font_size = mod.mod_end - mod.mod_start;
             }
         }
