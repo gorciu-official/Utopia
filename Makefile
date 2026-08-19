@@ -81,7 +81,7 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.c
 $(BIN_DIR)/%.o: $(SRC_DIR)/%.asm
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@nasm -f elf64 $< -o $@
+	@nasm -g -f elf64 $< -o $@
 
 build_archive:
 	@mkdir -p $(ROOT_DIR)/initramfs/

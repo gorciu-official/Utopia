@@ -56,11 +56,11 @@ void framebuffer_init(multiboot_info_t* mbd) {
         return;
     }
 
-    fb_addr = (uint32_t*)(uintptr_t)mbd->framebuffer_addr;
-    fb_width = mbd->framebuffer_width;
+    fb_addr   = phys_to_virt((uintptr_t)mbd->framebuffer_addr);
+    fb_width  = mbd->framebuffer_width;
     fb_height = mbd->framebuffer_height;
-    fb_pitch = mbd->framebuffer_pitch;
-    fb_bpp = mbd->framebuffer_bpp;
+    fb_pitch  = mbd->framebuffer_pitch;
+    fb_bpp    = mbd->framebuffer_bpp;
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
 void framebuffer_init(struct limine_framebuffer* framebuffer) {
     if (framebuffer == NULL) {
@@ -68,11 +68,11 @@ void framebuffer_init(struct limine_framebuffer* framebuffer) {
         return;
     }
 
-    fb_addr = (uint32_t*)framebuffer->address;
-    fb_width = framebuffer->width;
+    fb_addr   = (uint32_t*)framebuffer->address;
+    fb_width  = framebuffer->width;
     fb_height = framebuffer->height;
-    fb_pitch = framebuffer->pitch;
-    fb_bpp = framebuffer->bpp;
+    fb_pitch  = framebuffer->pitch;
+    fb_bpp    = framebuffer->bpp;
 #endif
 }
 

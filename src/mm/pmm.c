@@ -48,28 +48,17 @@ void memory_init_base(multiboot_info_t* mbd) {
         return;
     }
 
-    multiboot_memory_map_t* mmap =
-        (multiboot_memory_map_t*)((uintptr_t)mbd->mmap_addr);
-
-    uint32_t mmap_length = mbd->mmap_length;
+    uintptr_t mmap_start = (uintptr_t)phys_to_virt(((uintptr_t)mbd->mmap_addr));
+    uintptr_t mmap_end = mmap_start + mbd->mmap_length;
 
     memory_map_count = 0;
 
-    for (multiboot_memory_map_t* entry = mmap;
-         (uintptr_t)entry <
-             mbd->mmap_addr + mmap_length;
-         entry = (multiboot_memory_map_t*)
-             ((uintptr_t)entry +
-              entry->size +
-              sizeof(entry->size))) {
-
+    for (multiboot_memory_map_t* entry = (multiboot_memory_map_t*)mmap_start; (uintptr_t)entry < mmap_end; entry = (multiboot_memory_map_t*) ((uintptr_t)entry +  entry->size +  sizeof(entry->size))) {
         if (memory_map_count >= 64)
             break;
 
         kernel_memory_map[memory_map_count].addr = entry->addr;
-
         kernel_memory_map[memory_map_count].len = entry->len;
-
         kernel_memory_map[memory_map_count].type = entry->type;
 
         memory_map_count++;

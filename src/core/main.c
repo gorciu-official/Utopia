@@ -53,12 +53,12 @@ void kmain(multiboot_info_t* mbd) {
 
     if (mbd->mods_count > 0) {
         uint32_t count = mbd->mods_count;
-        multiboot_module_t* mods = (multiboot_module_t*)(uintptr_t)mbd->mods_addr;
+        multiboot_module_t* mods = phys_to_virt((uintptr_t)mbd->mods_addr);
 
         for (unsigned int i = 0; i < count; i++) {
             multiboot_module_t mod = mods[i];
 
-            if (strcmp((char*)(uintptr_t)mod.cmdline, "initramfs.tar") == 0) {
+            if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
                 initram_fs_addr = (char*)(uintptr_t)mod.mod_start;
                 initram_fs_size = mod.mod_end - mod.mod_start;
             }
@@ -104,7 +104,7 @@ void kmain() {
     printk("Core", "---");
 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    char* cmdline = (char*) (uintptr_t) mbd->cmdline;
+    char* cmdline = phys_to_virt((uintptr_t) mbd->cmdline);
     bool cmdline_is_empty = strlen(cmdline) == 0;
     printk("Core", "Kernel command line: %s", cmdline_is_empty ? "<EMPTY>" : cmdline);
 #endif

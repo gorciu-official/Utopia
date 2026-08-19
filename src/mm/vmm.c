@@ -45,10 +45,8 @@ uintptr_t kernel_virt_to_phys(void* addr) {
     if (exec_addr_request.response) {
         return (uintptr_t)addr - exec_addr_request.response->virtual_base + exec_addr_request.response->physical_base;
     }
-    return (uintptr_t)addr - 0xffffffff80000000ULL + 0x100000ULL;
-#else
-    return (uintptr_t)addr;
 #endif
+    return (uintptr_t)addr - 0xffffffff80000000ULL + 0x100000ULL;
 }
 
 uintptr_t hhdm_virt_to_phys(void* addr) {
@@ -57,12 +55,12 @@ uintptr_t hhdm_virt_to_phys(void* addr) {
         return (uintptr_t)addr - hhdm_request.response->offset;
     }
 #endif 
-    return (uintptr_t)addr;
+    return (uintptr_t)addr - 0xffff800000000000;
 }
 
 void* phys_to_virt(uint64_t phys) {
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    return (void*)phys;
+    return (void*)phys  + 0xffff800000000000;
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
     if (hhdm_request.response) {
         return (void*)(hhdm_request.response->offset + phys);
