@@ -289,7 +289,7 @@ int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
     if (reserve_start >= reserve_end)
         return 0;
 
-    printk("Memory", "Reserving region [%p-%p]");
+    printk("Memory", "Reserving region [%p-%p]", reserve_start, reserve_end);
 
     for (uint32_t i = 0; i < memory_map_count; i++) {
         if (kernel_memory_map[i].type != 1)
