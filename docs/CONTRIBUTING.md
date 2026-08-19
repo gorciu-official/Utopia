@@ -22,8 +22,13 @@ Testing is usually done in one of two ways:
 
 There are two bootloaders that are supported natively - Limine and GRUB (default is Limine, but you can change that with `BOOTLOADER=grub`). After tweaking the Makefile, you should be able to run the kernel on any bootloader that supports either Limine boot protocol or Multiboot1. Multiboot1 booting used to be the primary option, but now has unresolved issues - please wait a while or use a different boot protocol.
 
-## Resolving issues 
+## Rebuilding bootloader configuration
 
-So if you want to resolve an issue, just comment that you are handling this, so no one else claims that issue.  If you are new. check issues with the `good first issue` tag.
+By default, `make` does it the first time you try to compile the project. But if you for some reason need to rebuild it again (e.g. after removing initramfs or adding a custom font), you will need to execute these commands:
 
-That is really it.
+```
+chmod +x scripts/mk_bootloader_cfg.sh 
+./scripts/mk_bootloader_cfg.sh
+```
+
+Alternatively, you may just delete old configuration files from `src/build/`, specifically `limine.conf` and `grub.cfg`, then rebuild the kernel.
