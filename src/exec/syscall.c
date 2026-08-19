@@ -172,6 +172,19 @@ SYSCALL_DEFINE(lseek) {
     return new_offset;
 }
 
+SYSCALL_DEFINE(getcwd) {
+    char *buf = (char *)regs->rdi;
+    size_t size = regs->rsi;
+
+    if (size < 2)
+        return -34;
+
+    buf[0] = '/';
+    buf[1] = '\0';
+
+    return 2;
+}
+
 SYSCALL_DEFINE(fstat) {
     (void)thread;
     if (!process) return -22;
@@ -767,6 +780,7 @@ static const syscall_fn_t syscall_table[] = {
     [21]  = syscall_access,
     [60]  = syscall_exit,
     [63]  = syscall_uname,
+    [79]  = syscall_getcwd,
     [102] = syscall_stub_unimplemented, // that is indeed correct. let me explain.
                                         // this returns 0 and 0 means root
     [158] = syscall_arch_prctl,
