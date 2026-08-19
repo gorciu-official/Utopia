@@ -50,6 +50,8 @@ void kmain(multiboot_info_t* mbd) {
     framebuffer_init(mbd);
     char* initram_fs_addr = NULL;
     size_t initram_fs_size = 0;
+    char* font_addr = NULL;
+    size_t font_size = 0;
 
     if (mbd->mods_count > 0) {
         uint32_t count = mbd->mods_count;
@@ -61,6 +63,9 @@ void kmain(multiboot_info_t* mbd) {
             if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
                 initram_fs_addr = (char*)(uintptr_t)mod.mod_start;
                 initram_fs_size = mod.mod_end - mod.mod_start;
+            } else if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "font.psf1") == 0) {
+                font_addr = (char*)(uintptr_t)mod.mod_start;
+                font_size = mod.mod_end - mod.mod_start;
             }
         }
     }
@@ -83,6 +88,8 @@ void kmain() {
 
     char* initram_fs_addr = NULL;
     size_t initram_fs_size = 0;
+    char* font_addr = NULL;
+    size_t font_size = 0;
 
     if (module_request.response) {
         uint64_t module_count = module_request.response->module_count;
@@ -93,6 +100,9 @@ void kmain() {
             if (strcmp(mod->path, "/initramfs.tar") == 0) {
                 initram_fs_addr = mod->address;
                 initram_fs_size = mod->size;
+            } else if (strcmp(mod->path, "/font.psf1") == 0) {
+                font_addr = mod->address;
+                font_size = mod->size;
             }
         }
     }
@@ -102,6 +112,10 @@ void kmain() {
     printk("Core", "  Source code: https://github.com/gorciu-official/Utopia");
     printk("Core", "  Licensed under GPL-v3.0");
     printk("Core", "---");
+
+    if (font_addr != NULL) {
+        framebuffer_switch_font((psf1_header_t*)font_addr, font_size);
+    }
 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
     char* cmdline = phys_to_virt((uintptr_t) mbd->cmdline);

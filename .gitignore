@@ -4,3 +4,6 @@ Utopia.iso
 iso
 limine
 initramfs
+src/build/grub.cfg
+src/build/limine.conf
+font.psf1

@@ -83,9 +83,10 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.asm
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@nasm -g -f elf64 $< -o $@
 
-build_archive:
-	@mkdir -p $(ROOT_DIR)/initramfs/
-	@tar --format=ustar -cf iso/initramfs.tar -C $(ROOT_DIR)/initramfs .
+build_deps:
+	@chmod +x scripts/mk_bootloader_cfg.sh && ./scripts/mk_bootloader_cfg.sh -e
+	@if [ -d initramfs ]; then tar --format=ustar -cf iso/initramfs.tar -C $(ROOT_DIR)/initramfs . ; fi
+	@if [ -f font.psf1 ]; then cp font.psf1 iso/ ; fi
 
 build_kernel: $(OBJECTS)
 	@echo -e "\033[1;33m[*]\033[0m Linking objects -> kernel binary"
@@ -95,7 +96,7 @@ ifeq ($(BOOTLOADER),grub)
 build_iso: build_kernel
 	@echo -e "\033[1;33m[*]\033[0m Creating ISO directory structure"
 	@mkdir -p $(GRUB_DIR)
-	@make build_archive 
+	@make build_deps
 	@cp $(KERNEL_BIN) $(BOOT_DIR)
 	@cp $(SRC_DIR)/build/grub.cfg $(GRUB_DIR)/grub.cfg
 	@echo -e "\033[1;33m[*]\033[0m Generating ISO with GRUB"
@@ -107,7 +108,7 @@ build_iso: build_kernel $(LIMINE_DIR)/limine
 	@echo -e "\033[1;33m[*]\033[0m Creating ISO directory structure for Limine"
 	@rm -rf $(ISO_DIR)
 	@mkdir -p $(ISO_DIR)
-	@make build_archive
+	@make build_deps
 	@cp $(KERNEL_BIN) $(ISO_DIR)/
 	@cp $(LIMINE_CONFIG) $(ISO_DIR)/limine.conf
 	@cp $(LIMINE_DIR)/limine-bios.sys $(ISO_DIR)/
