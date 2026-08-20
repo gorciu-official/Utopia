@@ -20,6 +20,7 @@ typedef struct {
 
     // registers
     syscall_regs_t (*to_sregs)(registers_t* source);
+    void (*set_ret_value)(int64_t val, registers_t* regs);
 } syscall_abi_t;
 
 #define USER_HEAP_MAX 0x0000800000000000ULL
@@ -36,6 +37,6 @@ typedef struct {
 #define SYSCALL_ABI_DECLARE(abi_name) \
     syscall_abi_t syscall_abi_##abi_name 
 
-#define SYSCALL_ABI_DEFINE(abi_name, syscall_table, to_sregs_fun, not_found_err) \
+#define SYSCALL_ABI_DEFINE(abi_name, syscall_table, to_sregs_fun, set_return_value, not_found_err) \
     SYSCALL_ABI_DECLARE(abi_name) = \
-        { .table = &syscall_table, .table_size = SYSCALL_TABLE_SIZE(syscall_table), .to_sregs = to_sregs_fun, .not_found_error = (not_found_err) };
+        { .table = &syscall_table, .table_size = SYSCALL_TABLE_SIZE(syscall_table), .to_sregs = to_sregs_fun, .not_found_error = (not_found_err), .set_ret_value = set_return_value };

@@ -730,4 +730,8 @@ static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
     };
 };
 
-SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, -ENOSYS);
+static void syscall_set_return_val(int64_t val, registers_t* regs) {
+    regs->rax_i = val;
+}
+
+SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_set_return_val, -ENOSYS);

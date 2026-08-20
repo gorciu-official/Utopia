@@ -23,19 +23,24 @@ void syscall_handler(registers_t* regs) {
     syscall_regs_t sregs = current_abi.to_sregs(regs);
     uint64_t syscall_num = sregs.syscall_no;
 
-    dprintk("Syscall", "thread=%p process=%p", current_thread, current_process);
-    dprintk("Syscall", "Syscall %d invoked, RIP=%p RDI=%p RSI=%p RDX=%p", regs->rax, regs->rip, regs->arg1, regs->arg2, regs->arg3);
+    dprintk(
+        "Syscall", "Invoked %d with args arg1=%p arg2=%p arg3=%p", sregs.syscall_no, 
+        sregs.arg1, sregs.arg2, sregs.arg3
+    );
+    dprintk(
+        "Syscall", "                     arg4=%p arg5=%p arg6=%p", 
+        sregs.arg4, sregs.arg5, sregs.arg6
+    );
 
-    // TODO: for now RAX is hardcoded, this will be changed later or smth 
     if (
         syscall_num < current_abi.table_size && 
         (*current_abi.table)[syscall_num]
     ) {
         int64_t res = (*current_abi.table)[syscall_num](&sregs, current_process, current_thread);
-        regs->rax_i = res;
+        current_abi.set_ret_value(res, regs); 
     } else {
         dprintk("Syscall", "Called non-existing syscall %d", regs->rax);
-        regs->rax_i = current_abi.not_found_error;
+        current_abi.set_ret_value(current_abi.not_found_error, regs); 
     }
 
     dprintk("Syscall", "Return value %p (decimal %d)", regs->rax, regs->rax_i);
