@@ -13,13 +13,6 @@
 #include "linux.h"
 #include "common.h"
 
-//  ---- syscall convention ----
-//    rax - return value (signed) & first syscall number (unsigned)
-//    then:
-//      rdi, rsi, rdx (unsigned)
-
-typedef uintptr_t (*syscall_fn_t)(syscall_regs_t* regs, process_t* process, thread_t* thread);
-
 static uint64_t page_align_up(uint64_t value) {
     return (value + 0xFFFULL) & ~0xFFFULL;
 }
@@ -697,7 +690,7 @@ SYSCALL_DEFINE_LINUX(getrandom) {
     return count; 
 }
 
-static const syscall_fn_t syscall_table[] = {
+static const syscall_fn_t syscall_linux_table[] = {
     [0]   = syscall_linux_read,
     [1]   = syscall_linux_write,
     [2]   = syscall_linux_open,
@@ -729,29 +722,12 @@ static const syscall_fn_t syscall_table[] = {
     [318] = syscall_linux_getrandom
 };
 
-#define SYSCALL_TABLE_SIZE (sizeof(syscall_table) / sizeof(syscall_table[0]))
+static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
+    return (syscall_regs_t){
+        .syscall_no = regs->rax,
+        .arg1 = regs->rdi, .arg2 = regs->rsi, .arg3 = regs->rdx,
+        .arg4 = regs->r10, .arg5 = regs->r9, .arg6 = regs->r8
+    };
+};
 
-void syscall_handler(registers_t* regs) {
-    thread_t* current_thread = scheduler_get_current_thread();
-    process_t* current_process = current_thread->process;
-
-    uint64_t syscall_num = regs->rax;
-
-    dprintk("Syscall", "thread=%p process=%p", current_thread, current_process);
-    dprintk("Syscall", "Syscall %d invoked, RIP=%p RDI=%p RSI=%p RDX=%p", regs->rax, regs->rip, regs->arg1, regs->arg2, regs->arg3);
-
-    if (syscall_num < SYSCALL_TABLE_SIZE && syscall_table[syscall_num]) {
-        syscall_regs_t sregs = {
-            .syscall_no = regs->rax,
-            .arg1 = regs->rdi, .arg2 = regs->rsi, .arg3 = regs->rdx,
-            .arg4 = regs->r10, .arg5 = regs->r9, .arg6 = regs->r8
-        };
-        int64_t res = syscall_table[syscall_num](&sregs, current_process, current_thread);
-        regs->rax_i = res;
-    } else {
-        dprintk("Syscall", "fixme: syscall %d reached -ENOSYS (function not implemented)", regs->rax);
-        regs->rax_i = -ENOSYS;
-    }
-
-    dprintk("Syscall", "RAX return value %p (decimal %d)", regs->rax, regs->rax_i);
-}
+SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, -ENOSYS);
