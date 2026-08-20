@@ -18,13 +18,7 @@
 //    then:
 //      rdi, rsi, rdx (unsigned)
 
-typedef uintptr_t (*syscall_fn_t)(registers_t* regs, process_t* process, thread_t* thread);
-
-#define SYSCALL_DEFINE(platform, syscall_name) \
-    static uintptr_t syscall_##platform##_##syscall_name(registers_t* regs, process_t* process, thread_t* thread) 
-
-#define SYSCALL_DEFINE_LINUX(syscall_name) \
-    SYSCALL_DEFINE(linux, syscall_name)
+typedef uintptr_t (*syscall_fn_t)(syscall_regs_t* regs, process_t* process, thread_t* thread);
 
 static uint64_t page_align_up(uint64_t value) {
     return (value + 0xFFFULL) & ~0xFFFULL;
@@ -87,9 +81,9 @@ SYSCALL_DEFINE_LINUX(lseek) {
     if (!process)
         return -EINVAL;
 
-    int fd = (int)regs->rdi;
-    int64_t offset = (int64_t)regs->rsi;
-    int whence = (int)regs->rdx;
+    int fd = (int)regs->arg1;
+    int64_t offset = (int64_t)regs->arg2;
+    int whence = (int)regs->arg3;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
         return -EBADF;
@@ -128,8 +122,8 @@ SYSCALL_DEFINE_LINUX(lseek) {
 SYSCALL_DEFINE_LINUX(getcwd) {
     (void)thread; (void)process;
 
-    char *buf = (char *)regs->rdi;
-    size_t size = regs->rsi;
+    char *buf = (char *)regs->arg1;
+    size_t size = regs->arg2;
 
     if (size < 2)
         return -34;
@@ -144,8 +138,8 @@ SYSCALL_DEFINE_LINUX(fstat) {
     (void)thread;
     if (!process) return -EINVAL;
 
-    int fd = regs->rdi;
-    struct stat* statbuf = (struct stat*)regs->rsi;
+    int fd = regs->arg1;
+    struct stat* statbuf = (struct stat*)regs->arg2;
 
     if (!statbuf) return -EFAULT; 
 
@@ -176,7 +170,7 @@ SYSCALL_DEFINE_LINUX(fstat) {
         statbuf->st_mode = 0100000 | 0644;
     }
 
-    dprintk("Debug", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
+    dprintk("Syscall", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
 
     return 0;
 }
@@ -221,19 +215,19 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
 
 SYSCALL_DEFINE_LINUX(read) {
     (void)thread;
-    int fd = regs->rdi;
-    char* buf = (char*)regs->rsi;
-    size_t count = regs->rdx;
+    int fd = regs->arg1;
+    char* buf = (char*)regs->arg2;
+    size_t count = regs->arg3;
 
     return do_read(process, fd, buf, count, process->fds[fd].offset, true);
 }
 
 SYSCALL_DEFINE_LINUX(pread64) {
     (void)thread;
-    int fd = regs->rdi;
-    char* buf = (char*)regs->rsi;
-    size_t count = regs->rdx;
-    uintptr_t offset = regs->r10;
+    int fd = regs->arg1;
+    char* buf = (char*)regs->arg2;
+    size_t count = regs->arg3;
+    uintptr_t offset = regs->arg4;
 
     uintptr_t result = do_read(process, fd, buf, count, offset, false);
     return result;
@@ -241,16 +235,16 @@ SYSCALL_DEFINE_LINUX(pread64) {
 
 SYSCALL_DEFINE_LINUX(write) {
     (void)thread;
-    return write_internal(process, (void*)regs->rsi, regs->rdx, regs->rdi);
+    return write_internal(process, (void*)regs->arg2, regs->arg3, regs->arg1);
 }
 
 SYSCALL_DEFINE_LINUX(writev) {
     (void)thread;
     if (!process) return -1;
 
-    int fd = regs->rdi;
-    iovec_t* iov = (iovec_t*)regs->rsi;
-    int iovcnt = regs->rdx;
+    int fd = regs->arg1;
+    iovec_t* iov = (iovec_t*)regs->arg2;
+    int iovcnt = regs->arg3;
 
     size_t total = 0;
 
@@ -274,11 +268,11 @@ SYSCALL_DEFINE_LINUX(mprotect) {
     (void)thread;
     if (!process) return -EINVAL;
     
-    uint64_t addr   = regs->rdi;
-    uint64_t length = regs->rsi;
-    uint64_t prot   = regs->rdx;
+    uint64_t addr   = regs->arg1;
+    uint64_t length = regs->arg2;
+    uint64_t prot   = regs->arg3;
     
-    dprintk("Debug", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
+    dprintk("Syscall", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
 
     if (length == 0) return 0;
     if (addr & 0xFFF) return -EINVAL; 
@@ -302,10 +296,10 @@ SYSCALL_DEFINE_LINUX(munmap) {
     (void)thread;
     if (!process) return -EINVAL; 
 
-    uint64_t addr   = regs->rdi;
-    uint64_t length = regs->rsi;
+    uint64_t addr   = regs->arg1;
+    uint64_t length = regs->arg2;
     
-    dprintk("Debug", "munmap called with addr=%p length=%p", addr, length);
+    dprintk("Syscall", "munmap called with addr=%p length=%p", addr, length);
 
     if (length == 0) return -EINVAL;
     if (addr & 0xFFF) return -EINVAL; 
@@ -325,8 +319,8 @@ SYSCALL_DEFINE_LINUX(open) {
     (void)thread;
     if (!process) return -EINVAL;
 
-    const char* path = (const char*)regs->rdi;
-    int flags = regs->rsi;
+    const char* path = (const char*)regs->arg1;
+    int flags = regs->arg2;
 
     if (!path) return -EFAULT; 
 
@@ -344,7 +338,7 @@ SYSCALL_DEFINE_LINUX(open) {
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
-    dprintk("Debug", "Accessing through open %s, code %d", path, res);
+    dprintk("Syscall", "Accessing through open %s, code %d", path, res);
     if (res != 0) {
         return res;
     }
@@ -361,7 +355,7 @@ SYSCALL_DEFINE_LINUX(close) {
     (void)thread;
     if (!process) return -EINVAL; 
 
-    int fd = regs->rdi;
+    int fd = regs->arg1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
         return -EBADF; 
@@ -379,9 +373,9 @@ SYSCALL_DEFINE_LINUX(openat) {
     (void)thread;
     if (!process) return -EINVAL; 
 
-    int dfd = (int)regs->rdi;  
-    const char* path = (const char*)regs->rsi;
-    int flags = (int)regs->rdx;
+    int dfd = (int)regs->arg1;  
+    const char* path = (const char*)regs->arg2;
+    int flags = (int)regs->arg3;
     (void)dfd;
 
     if (!path) return -EFAULT;
@@ -400,7 +394,7 @@ SYSCALL_DEFINE_LINUX(openat) {
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
-    dprintk("Debug", "Accessing through openat %s, code %d", path, res);
+    dprintk("Syscall", "Accessing through openat %s, code %d", path, res);
     if (res != 0) {
         return res;
     }
@@ -416,8 +410,8 @@ SYSCALL_DEFINE_LINUX(openat) {
 SYSCALL_DEFINE_LINUX(poll) {
     (void)thread;
 
-    struct pollfd *fds = (struct pollfd*)regs->rdi;
-    unsigned long nfds = regs->rsi;
+    struct pollfd *fds = (struct pollfd*)regs->arg1;
+    unsigned long nfds = regs->arg2;
 
     int ready = 0;
 
@@ -461,7 +455,7 @@ SYSCALL_DEFINE_LINUX(poll) {
 SYSCALL_DEFINE_LINUX(brk) {
     (void)thread;
 
-    uint64_t requested_break = regs->rdi;
+    uint64_t requested_break = regs->arg1;
 
     if (!process) {
         return -ENOSYS;
@@ -486,10 +480,10 @@ SYSCALL_DEFINE_LINUX(brk) {
 SYSCALL_DEFINE_LINUX(arch_prctl) {
     (void)process; (void)thread;
 
-    uint64_t code = regs->rdi;
-    uint64_t addr = regs->rsi;
+    uint64_t code = regs->arg1;
+    uint64_t addr = regs->arg2;
 
-    dprintk("Debug", "Calling arch_ptrctl with code %d addr %p", code, addr);
+    dprintk("Syscall", "Calling arch_ptrctl with code %d addr %p", code, addr);
 
     switch (code) {
     case ARCH_SET_FS:
@@ -525,14 +519,14 @@ SYSCALL_DEFINE_LINUX(exit) {
 
 SYSCALL_DEFINE_LINUX(stub_unimplemented) {
     (void)regs; (void)process; (void)thread;
-    printk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->rax);
+    printk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->syscall_no);
     return 0;
 }
 
 SYSCALL_DEFINE_LINUX(uname) {
     (void)process; (void)thread;
 
-    struct utsname* ptr = (struct utsname*)regs->rdi;
+    struct utsname* ptr = (struct utsname*)regs->arg1;
 
     strcpy(ptr->sysname, "Utopia");
     strcpy(ptr->nodename, "example-computer-lol");
@@ -548,12 +542,12 @@ SYSCALL_DEFINE_LINUX(mmap) {
     (void)thread;
     if (!process) return (uint64_t)-1;
     
-    uint64_t addr   = regs->rdi;
-    uint64_t length = regs->rsi;
-    uint64_t prot   = regs->rdx;
-    uint64_t flags  = regs->r10;
-    int64_t  fd     = (int64_t)regs->r8;
-    uint64_t offset = regs->r9;
+    uint64_t addr   = regs->arg1;
+    uint64_t length = regs->arg2;
+    uint64_t prot   = regs->arg3;
+    uint64_t flags  = regs->arg4;
+    int64_t  fd     = (int64_t)regs->arg6;
+    uint64_t offset = regs->arg5;
 
     if (length == 0) return 0;
 
@@ -608,21 +602,16 @@ SYSCALL_DEFINE_LINUX(mmap) {
     return target_vaddr;
 }
 
-#define F_OK 0
-#define R_OK 4
-#define W_OK 2
-#define X_OK 1
-
 SYSCALL_DEFINE_LINUX(access) {
     (void)thread;
     if (!process) return -EINVAL; 
 
-    const char* pathname = (const char*)regs->rdi;
-    int mode = (int)regs->rsi;
+    const char* pathname = (const char*)regs->arg1;
+    int mode = (int)regs->arg2;
 
     if (!pathname) return -EFAULT; 
 
-    dprintk("Debug", "Accessing %s", pathname);
+    dprintk("Syscall", "Accessing %s", pathname);
 
     vnode_t* vnode = NULL;
     int res = vfs_open(pathname, 0, &vnode);
@@ -648,18 +637,15 @@ SYSCALL_DEFINE_LINUX(access) {
     return 0;
 }
 
-#define AT_FDCWD -100
-#define AT_SYMLINK_NOFOLLOW 0x100
-
 SYSCALL_DEFINE_LINUX(newfstatat) {
     (void)thread;
     if (!process) return -EINVAL;
 
-    int dfd = (int)regs->rdi;
-    const char* filename = (const char*)regs->rsi;
-    struct stat* statbuf = (struct stat*)regs->rdx;
-    int flag = (int)regs->r10;
-
+    int dfd = (int)regs->arg1;
+    const char* filename = (const char*)regs->arg2;
+    struct stat* statbuf = (struct stat*)regs->arg3;
+    int flag = (int)regs->arg4;
+    
     (void)dfd;  
     (void)flag;
 
@@ -690,8 +676,8 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
 SYSCALL_DEFINE_LINUX(set_tid_address) {
     (void) process;
 
-    if ((int32_t*)regs->rdi != NULL) {
-        *((int32_t*)regs->rdi) = thread->id;
+    if ((int32_t*)regs->arg1 != NULL) {
+        *((int32_t*)regs->arg1) = thread->id;
     }
 
     return thread->id;
@@ -700,8 +686,8 @@ SYSCALL_DEFINE_LINUX(set_tid_address) {
 SYSCALL_DEFINE_LINUX(getrandom) {
     (void)thread; (void)process;
 
-    uint8_t* buf = (uint8_t*)regs->rdi;
-    size_t count = regs->rsi;
+    uint8_t* buf = (uint8_t*)regs->arg1;
+    size_t count = regs->arg2;
 
     if (!buf) return -EFAULT;
     
@@ -751,16 +737,21 @@ void syscall_handler(registers_t* regs) {
 
     uint64_t syscall_num = regs->rax;
 
-    dprintk("Debug", "thread=%p process=%p", current_thread, current_process);
-    dprintk("Debug", "Syscall %d invoked, RIP=%p RDI=%p RSI=%p RDX=%p", regs->rax, regs->rip, regs->rdi, regs->rsi, regs->rdx);
+    dprintk("Syscall", "thread=%p process=%p", current_thread, current_process);
+    dprintk("Syscall", "Syscall %d invoked, RIP=%p RDI=%p RSI=%p RDX=%p", regs->rax, regs->rip, regs->arg1, regs->arg2, regs->arg3);
 
     if (syscall_num < SYSCALL_TABLE_SIZE && syscall_table[syscall_num]) {
-        int64_t res = syscall_table[syscall_num](regs, current_process, current_thread);
+        syscall_regs_t sregs = {
+            .syscall_no = regs->rax,
+            .arg1 = regs->rdi, .arg2 = regs->rsi, .arg3 = regs->rdx,
+            .arg4 = regs->r10, .arg5 = regs->r9, .arg6 = regs->r8
+        };
+        int64_t res = syscall_table[syscall_num](&sregs, current_process, current_thread);
         regs->rax_i = res;
     } else {
-        printk("Syscall", "fixme: syscall %d reached -ENOSYS (function not implemented)", regs->rax);
+        dprintk("Syscall", "fixme: syscall %d reached -ENOSYS (function not implemented)", regs->rax);
         regs->rax_i = -ENOSYS;
     }
 
-    dprintk("Debug", "RAX return value %p (decimal %d)", regs->rax, regs->rax_i);
+    dprintk("Syscall", "RAX return value %p (decimal %d)", regs->rax, regs->rax_i);
 }

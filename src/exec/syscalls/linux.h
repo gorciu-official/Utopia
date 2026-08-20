@@ -55,6 +55,14 @@ struct stat {
 #define MAP_FIXED      0x10
 #define MAP_ANONYMOUS  0x20
 
+#define F_OK 0
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+
+#define AT_FDCWD -100
+#define AT_SYMLINK_NOFOLLOW 0x100
+
 #define EBADF     9
 #define ENOMEM    12
 #define EACCES    13
