@@ -262,8 +262,8 @@ void printk(const char* module, const char *fmt, ...) {
 }
 
 void printk_suspend_console() {
-    printk("Framebuffer", "Suspending kernel console output");
     console_suspended = true;
+    printk("Framebuffer", "Suspending kernel console output");
 }
 
 void printk_remove_console_suspension() {

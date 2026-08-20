@@ -10,68 +10,21 @@
 #include <memory.h>
 #include <string.h>
 
+#include "linux.h"
+#include "common.h"
+
 //  ---- syscall convention ----
 //    rax - return value (signed) & first syscall number (unsigned)
 //    then:
 //      rdi, rsi, rdx (unsigned)
 
-typedef unsigned long nfds_t;
-
-typedef struct {
-    void* iov_base;
-    size_t iov_len;
-} iovec_t;
-
-struct utsname {
-    char sysname[65];
-    char nodename[65];
-    char release[65];
-    char version[65];
-    char machine[65];
-    char domainname[65];
-};
-
-struct pollfd {
-    int fd;
-    short events;
-    short revents;
-};
-
-struct stat {
-    uint64_t st_dev;
-    uint64_t st_ino;
-    uint64_t st_nlink;
-    uint32_t st_mode;
-    uint32_t st_uid;
-    uint32_t st_gid;
-    uint32_t __pad0;
-    uint64_t st_rdev;
-    int64_t  st_size;
-    int64_t  st_blksize;
-    int64_t  st_blocks;
-    uint64_t st_atime;
-    uint64_t st_atime_nsec;
-    uint64_t st_mtime;
-    uint64_t st_mtime_nsec;
-    uint64_t st_ctime;
-    uint64_t st_ctime_nsec;
-    int64_t  __unused[3];
-}__attribute__((packed));
-
-#define POLLIN    0x001
-#define POLLPRI   0x002
-#define POLLOUT   0x004
-#define POLLERR   0x008
-#define POLLHUP   0x010
-#define POLLNVAL  0x020
-
-#define USER_HEAP_MAX 0x0000800000000000ULL
-#define ENOSYS_ERR    (-38)
-
 typedef uintptr_t (*syscall_fn_t)(registers_t* regs, process_t* process, thread_t* thread);
 
-#define SYSCALL_DEFINE(syscall_name) \
-    static uintptr_t syscall_##syscall_name(registers_t* regs, process_t* process, thread_t* thread) 
+#define SYSCALL_DEFINE(platform, syscall_name) \
+    static uintptr_t syscall_##platform##_##syscall_name(registers_t* regs, process_t* process, thread_t* thread) 
+
+#define SYSCALL_DEFINE_LINUX(syscall_name) \
+    SYSCALL_DEFINE(linux, syscall_name)
 
 static uint64_t page_align_up(uint64_t value) {
     return (value + 0xFFFULL) & ~0xFFFULL;
@@ -99,7 +52,7 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     if (!process) return -1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -9; // -EBADF
+        return -EBADF; // -EBADF
     }
 
     if (fd == 1 || fd == 2) {
@@ -108,7 +61,7 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -9; // -EBADF
+    if (!vnode) return -EBADF; // -EBADF
 
     if (vnode->type == VNODE_TYPE_DIR) {
         return -21; // -EISDIR
@@ -128,22 +81,22 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     return bytes_written;
 }
 
-SYSCALL_DEFINE(lseek) {
+SYSCALL_DEFINE_LINUX(lseek) {
     (void)thread;
 
     if (!process)
-        return -22; // -EINVAL
+        return -EINVAL;
 
     int fd = (int)regs->rdi;
     int64_t offset = (int64_t)regs->rsi;
     int whence = (int)regs->rdx;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
-        return -9; // -EBADF
+        return -EBADF;
 
     vnode_t *vnode = process->fds[fd].vnode;
     if (!vnode)
-        return -9; // -EBADF
+        return -EBADF;
 
     int64_t new_offset;
 
@@ -161,18 +114,20 @@ SYSCALL_DEFINE(lseek) {
         break;
 
     default:
-        return -22; // -EINVAL
+        return -EINVAL;
     }
 
     if (new_offset < 0)
-        return -22; // -EINVAL
+        return -EINVAL;
 
     process->fds[fd].offset = (uint64_t)new_offset;
 
     return new_offset;
 }
 
-SYSCALL_DEFINE(getcwd) {
+SYSCALL_DEFINE_LINUX(getcwd) {
+    (void)thread; (void)process;
+
     char *buf = (char *)regs->rdi;
     size_t size = regs->rsi;
 
@@ -185,17 +140,17 @@ SYSCALL_DEFINE(getcwd) {
     return 2;
 }
 
-SYSCALL_DEFINE(fstat) {
+SYSCALL_DEFINE_LINUX(fstat) {
     (void)thread;
-    if (!process) return -22;
+    if (!process) return -EINVAL;
 
     int fd = regs->rdi;
     struct stat* statbuf = (struct stat*)regs->rsi;
 
-    if (!statbuf) return -14; 
+    if (!statbuf) return -EFAULT; 
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -9; 
+        return -EBADF; 
     }
 
     memset(statbuf, 0, sizeof(struct stat));
@@ -207,7 +162,7 @@ SYSCALL_DEFINE(fstat) {
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -9;
+    if (!vnode) return -EBADF;
     
     statbuf->st_dev  = 1; 
     statbuf->st_ino  = (uint64_t)(uintptr_t)vnode;
@@ -230,7 +185,7 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     if (!process) return -1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -9; // -EBADF
+        return -EBADF; 
     }
 
     if (fd == 0) {
@@ -241,14 +196,14 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -9; // -EBADF
+    if (!vnode) return -EBADF; 
 
     if (vnode->type == VNODE_TYPE_DIR) {
-        return -21; // -EISDIR
+        return -21; 
     }
 
     if (!vnode->ops || !vnode->ops->read) {
-        return -22; // -EINVAL
+        return -EINVAL; 
     }
 
     uint64_t bytes_read = 0;
@@ -264,7 +219,7 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     return bytes_read;
 }
 
-SYSCALL_DEFINE(read) {
+SYSCALL_DEFINE_LINUX(read) {
     (void)thread;
     int fd = regs->rdi;
     char* buf = (char*)regs->rsi;
@@ -273,7 +228,7 @@ SYSCALL_DEFINE(read) {
     return do_read(process, fd, buf, count, process->fds[fd].offset, true);
 }
 
-SYSCALL_DEFINE(pread64) {
+SYSCALL_DEFINE_LINUX(pread64) {
     (void)thread;
     int fd = regs->rdi;
     char* buf = (char*)regs->rsi;
@@ -284,12 +239,12 @@ SYSCALL_DEFINE(pread64) {
     return result;
 }
 
-SYSCALL_DEFINE(write) {
+SYSCALL_DEFINE_LINUX(write) {
     (void)thread;
     return write_internal(process, (void*)regs->rsi, regs->rdx, regs->rdi);
 }
 
-SYSCALL_DEFINE(writev) {
+SYSCALL_DEFINE_LINUX(writev) {
     (void)thread;
     if (!process) return -1;
 
@@ -301,8 +256,8 @@ SYSCALL_DEFINE(writev) {
 
     for (int i = 0; i < iovcnt; i++) {
         size_t ret = write_internal(process, iov[i].iov_base, iov[i].iov_len, fd);
-        if (ret == (uintptr_t)-9) {
-            if (total == 0) return -9;
+        if (ret == (uintptr_t)-EBADF) {
+            if (total == 0) return -EBADF;
             break;
         }
         total += ret;
@@ -315,9 +270,9 @@ SYSCALL_DEFINE(writev) {
     return total;
 }
 
-SYSCALL_DEFINE(mprotect) {
+SYSCALL_DEFINE_LINUX(mprotect) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL;
     
     uint64_t addr   = regs->rdi;
     uint64_t length = regs->rsi;
@@ -326,7 +281,7 @@ SYSCALL_DEFINE(mprotect) {
     dprintk("Debug", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
 
     if (length == 0) return 0;
-    if (addr & 0xFFF) return -22; // -EINVAL
+    if (addr & 0xFFF) return -EINVAL; 
 
     uint64_t aligned_len = page_align_up(length);
 
@@ -336,44 +291,44 @@ SYSCALL_DEFINE(mprotect) {
 
     for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
         if (protect_page_4k(process->page_table, va, pflags) != 0) {
-            return -12; // -ENOMEM
+            return -ENOMEM;
         }
     }
 
     return 0;
 }
 
-SYSCALL_DEFINE(munmap) {
+SYSCALL_DEFINE_LINUX(munmap) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL; 
 
     uint64_t addr   = regs->rdi;
     uint64_t length = regs->rsi;
     
     dprintk("Debug", "munmap called with addr=%p length=%p", addr, length);
 
-    if (length == 0) return -22; // -EINVAL
-    if (addr & 0xFFF) return -22; // -EINVAL: addr must be page-aligned
+    if (length == 0) return -EINVAL;
+    if (addr & 0xFFF) return -EINVAL; 
 
     uint64_t aligned_len = page_align_up(length);
 
     for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
         if (unmap_page_4k(process->page_table, va) != 0) {
-            return -12; // -ENOMEM
+            return -12;
         }
     }
 
     return 0;
 }
 
-SYSCALL_DEFINE(open) {
+SYSCALL_DEFINE_LINUX(open) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL;
 
     const char* path = (const char*)regs->rdi;
     int flags = regs->rsi;
 
-    if (!path) return -14; // -EFAULT
+    if (!path) return -EFAULT; 
 
     int fd = -1;
     for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
@@ -384,7 +339,7 @@ SYSCALL_DEFINE(open) {
     }
 
     if (fd == -1) {
-        return -24; // -EMFILE
+        return -EMFILE; 
     }
 
     vnode_t* vnode = NULL;
@@ -402,14 +357,14 @@ SYSCALL_DEFINE(open) {
     return fd;
 }
 
-SYSCALL_DEFINE(close) {
+SYSCALL_DEFINE_LINUX(close) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL; 
 
     int fd = regs->rdi;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -9; // -EBADF
+        return -EBADF; 
     }
 
     process->fds[fd].vnode = NULL;
@@ -420,16 +375,16 @@ SYSCALL_DEFINE(close) {
     return 0;
 }
 
-SYSCALL_DEFINE(openat) {
+SYSCALL_DEFINE_LINUX(openat) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL; 
 
-    int dfd = (int)regs->rdi;        // Added dfd argument
+    int dfd = (int)regs->rdi;  
     const char* path = (const char*)regs->rsi;
     int flags = (int)regs->rdx;
-    (void)dfd;                       // Ignore dfd for now if AT_FDCWD is default
+    (void)dfd;
 
-    if (!path) return -14; // -EFAULT
+    if (!path) return -EFAULT;
 
     int fd = -1;
     for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
@@ -440,7 +395,7 @@ SYSCALL_DEFINE(openat) {
     }
 
     if (fd == -1) {
-        return -24; // -EMFILE
+        return -EMFILE;
     }
 
     vnode_t* vnode = NULL;
@@ -458,11 +413,11 @@ SYSCALL_DEFINE(openat) {
     return fd;
 }
 
-SYSCALL_DEFINE(poll) {
+SYSCALL_DEFINE_LINUX(poll) {
     (void)thread;
 
     struct pollfd *fds = (struct pollfd*)regs->rdi;
-    nfds_t nfds = regs->rsi;
+    unsigned long nfds = regs->rsi;
 
     int ready = 0;
 
@@ -503,13 +458,13 @@ SYSCALL_DEFINE(poll) {
     return 0;
 }
 
-SYSCALL_DEFINE(brk) {
+SYSCALL_DEFINE_LINUX(brk) {
     (void)thread;
 
     uint64_t requested_break = regs->rdi;
 
     if (!process) {
-        return ENOSYS_ERR;
+        return -ENOSYS;
     }
 
     if (requested_break == 0) {
@@ -528,7 +483,7 @@ SYSCALL_DEFINE(brk) {
     return process->brk_current;
 }
 
-SYSCALL_DEFINE(arch_prctl) {
+SYSCALL_DEFINE_LINUX(arch_prctl) {
     (void)process; (void)thread;
 
     uint64_t code = regs->rdi;
@@ -558,23 +513,23 @@ SYSCALL_DEFINE(arch_prctl) {
     }
 
     default:
-        return ENOSYS_ERR;
+        return -ENOSYS;
     }
 }
 
-SYSCALL_DEFINE(exit) {
+SYSCALL_DEFINE_LINUX(exit) {
     (void)regs; (void)process; (void)thread;
     thread_exit();
     return 0; 
 }
 
-SYSCALL_DEFINE(stub_unimplemented) {
+SYSCALL_DEFINE_LINUX(stub_unimplemented) {
     (void)regs; (void)process; (void)thread;
     printk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->rax);
     return 0;
 }
 
-SYSCALL_DEFINE(uname) {
+SYSCALL_DEFINE_LINUX(uname) {
     (void)process; (void)thread;
 
     struct utsname* ptr = (struct utsname*)regs->rdi;
@@ -589,12 +544,7 @@ SYSCALL_DEFINE(uname) {
     return 0;
 }
 
-#define MAP_SHARED     0x01
-#define MAP_PRIVATE    0x02
-#define MAP_FIXED      0x10
-#define MAP_ANONYMOUS  0x20
-
-SYSCALL_DEFINE(mmap) {
+SYSCALL_DEFINE_LINUX(mmap) {
     (void)thread;
     if (!process) return (uint64_t)-1;
     
@@ -663,14 +613,14 @@ SYSCALL_DEFINE(mmap) {
 #define W_OK 2
 #define X_OK 1
 
-SYSCALL_DEFINE(access) {
+SYSCALL_DEFINE_LINUX(access) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL; 
 
     const char* pathname = (const char*)regs->rdi;
     int mode = (int)regs->rsi;
 
-    if (!pathname) return -14; // -EFAULT
+    if (!pathname) return -EFAULT; 
 
     dprintk("Debug", "Accessing %s", pathname);
 
@@ -691,9 +641,9 @@ SYSCALL_DEFINE(access) {
         st_mode = 0100000 | 0644;
     }
 
-    if ((mode & R_OK) && !(st_mode & 0444)) return -13; // -EACCES
-    if ((mode & W_OK) && !(st_mode & 0222)) return -13; // -EACCES
-    if ((mode & X_OK) && !(st_mode & 0111)) return -13; // -EACCES
+    if ((mode & R_OK) && !(st_mode & 0444)) return -EACCES;
+    if ((mode & W_OK) && !(st_mode & 0222)) return -EACCES;
+    if ((mode & X_OK) && !(st_mode & 0111)) return -EACCES;
 
     return 0;
 }
@@ -701,9 +651,9 @@ SYSCALL_DEFINE(access) {
 #define AT_FDCWD -100
 #define AT_SYMLINK_NOFOLLOW 0x100
 
-SYSCALL_DEFINE(newfstatat) {
+SYSCALL_DEFINE_LINUX(newfstatat) {
     (void)thread;
-    if (!process) return -22; // -EINVAL
+    if (!process) return -EINVAL;
 
     int dfd = (int)regs->rdi;
     const char* filename = (const char*)regs->rsi;
@@ -713,7 +663,7 @@ SYSCALL_DEFINE(newfstatat) {
     (void)dfd;  
     (void)flag;
 
-    if (!filename || !statbuf) return -14; // -EFAULT
+    if (!filename || !statbuf) return -EFAULT; 
 
     vnode_t* vnode = NULL;
     int res = vfs_open(filename, 0, &vnode);
@@ -737,7 +687,7 @@ SYSCALL_DEFINE(newfstatat) {
     return 0;
 }
 
-SYSCALL_DEFINE(set_tid_address) {
+SYSCALL_DEFINE_LINUX(set_tid_address) {
     (void) process;
 
     if ((int32_t*)regs->rdi != NULL) {
@@ -747,13 +697,13 @@ SYSCALL_DEFINE(set_tid_address) {
     return thread->id;
 }
 
-SYSCALL_DEFINE(getrandom) {
+SYSCALL_DEFINE_LINUX(getrandom) {
     (void)thread; (void)process;
 
     uint8_t* buf = (uint8_t*)regs->rdi;
     size_t count = regs->rsi;
 
-    if (!buf) return -14;
+    if (!buf) return -EFAULT;
     
     for (size_t i = 0; i < count; i++) {
         buf[i] = (char)(i ^ 0x5A); 
@@ -762,35 +712,35 @@ SYSCALL_DEFINE(getrandom) {
 }
 
 static const syscall_fn_t syscall_table[] = {
-    [0]   = syscall_read,
-    [1]   = syscall_write,
-    [2]   = syscall_open,
-    [3]   = syscall_close,
-    [5]   = syscall_fstat,
-    [7]   = syscall_poll,
-    [8]   = syscall_lseek,
-    [9]   = syscall_mmap,
-    [10]  = syscall_mprotect, 
-    [11]  = syscall_munmap,
-    [12]  = syscall_brk,
-    [13]  = syscall_stub_unimplemented,
-    [16]  = syscall_stub_unimplemented,
-    [17]  = syscall_pread64,
-    [20]  = syscall_writev,
-    [21]  = syscall_access,
-    [60]  = syscall_exit,
-    [63]  = syscall_uname,
-    [79]  = syscall_getcwd,
-    [102] = syscall_stub_unimplemented, // that is indeed correct. let me explain.
-                                        // this returns 0 and 0 means root
-    [158] = syscall_arch_prctl,
-    [202] = syscall_stub_unimplemented,
-    [218] = syscall_set_tid_address,
-    [231] = syscall_exit,
-    [257] = syscall_openat,
-    [262] = syscall_newfstatat,
-    [273] = syscall_stub_unimplemented,
-    [318] = syscall_getrandom
+    [0]   = syscall_linux_read,
+    [1]   = syscall_linux_write,
+    [2]   = syscall_linux_open,
+    [3]   = syscall_linux_close,
+    [5]   = syscall_linux_fstat,
+    [7]   = syscall_linux_poll,
+    [8]   = syscall_linux_lseek,
+    [9]   = syscall_linux_mmap,
+    [10]  = syscall_linux_mprotect, 
+    [11]  = syscall_linux_munmap,
+    [12]  = syscall_linux_brk,
+    [13]  = syscall_linux_stub_unimplemented,
+    [16]  = syscall_linux_stub_unimplemented,
+    [17]  = syscall_linux_pread64,
+    [20]  = syscall_linux_writev,
+    [21]  = syscall_linux_access,
+    [60]  = syscall_linux_exit,
+    [63]  = syscall_linux_uname,
+    [79]  = syscall_linux_getcwd,
+    [102] = syscall_linux_stub_unimplemented, // that is indeed correct. let me explain.
+                                              // this returns 0 and 0 means root
+    [158] = syscall_linux_arch_prctl,
+    [202] = syscall_linux_stub_unimplemented,
+    [218] = syscall_linux_set_tid_address,
+    [231] = syscall_linux_exit,
+    [257] = syscall_linux_openat,
+    [262] = syscall_linux_newfstatat,
+    [273] = syscall_linux_stub_unimplemented,
+    [318] = syscall_linux_getrandom
 };
 
 #define SYSCALL_TABLE_SIZE (sizeof(syscall_table) / sizeof(syscall_table[0]))
@@ -809,7 +759,7 @@ void syscall_handler(registers_t* regs) {
         regs->rax_i = res;
     } else {
         printk("Syscall", "fixme: syscall %d reached -ENOSYS (function not implemented)", regs->rax);
-        regs->rax_i = ENOSYS_ERR;
+        regs->rax_i = -ENOSYS;
     }
 
     dprintk("Debug", "RAX return value %p (decimal %d)", regs->rax, regs->rax_i);

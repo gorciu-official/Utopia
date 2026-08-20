@@ -1,0 +1,3 @@
+#pragma once
+
+#define USER_HEAP_MAX 0x0000800000000000ULL
