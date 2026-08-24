@@ -216,6 +216,7 @@ void ap_main() {
     enable_sse();
     idt_init();
     gdt_init();
+    timer_init(100);
     enable_umip();
     init_syscall();
 
