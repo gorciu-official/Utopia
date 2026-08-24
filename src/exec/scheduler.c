@@ -15,7 +15,7 @@ static thread_t* ready_queue_tail = NULL;
 static thread_t* garbage_list = NULL;
 static uint32_t next_thread_id = 0;
 
-static void scheduler_enqueue(thread_t* t) {
+void scheduler_enqueue(thread_t* t) {
     spinlock_acquire(&scheduler_lock);
     t->state = THREAD_STATE_READY;
     t->next = NULL;
@@ -134,7 +134,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
 
     t->id = next_thread_id++;
     strcpy(t->name, name);
-    t->state = THREAD_STATE_READY;
+    t->state = THREAD_STATE_UNINITIALISED;
     t->stack_base = stack_base;
     t->stack_size = stack_size;
     t->next = NULL;
@@ -225,7 +225,6 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     regs->rsp = sp;
     t->stack_ptr = regs;
 
-    scheduler_enqueue(t);
     return t;
 }
 

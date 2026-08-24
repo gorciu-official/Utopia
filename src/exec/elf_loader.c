@@ -848,8 +848,6 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
         return rc;
     }
 
-    write_cr3(hhdm_virt_to_phys(proc_l4)); // TODO: context switch should do this not me
-
     process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, NULL, 3, &auxv);
     if (!proc) {
         free_page_table(proc_l4);
@@ -863,6 +861,8 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
     proc->brk_current = proc->brk_start;
     proc->mmap_start = 0x400000000000;
     proc->mmap_current = proc->mmap_start;
+
+    scheduler_enqueue(proc->main_thread);
 
     return 0;
 }
