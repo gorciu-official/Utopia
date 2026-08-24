@@ -8,6 +8,8 @@
 #include <scheduler.h>
 #include <panic.h>
 
+extern registers_t* lapic_timer_handler(registers_t* regs);
+
 registers_t* isr_handler(registers_t* regs) {
     // -- cpu exceptions
     if (regs->int_no < 32) {
@@ -37,6 +39,8 @@ registers_t* isr_handler(registers_t* regs) {
         regs = scheduler_schedule(regs);
     } else if (regs->int_no == 33) {
         ps2_interrupt_handler();
+    } else if (regs->int_no == 0x40) {
+        regs = lapic_timer_handler(regs);
     }
 
     return regs;

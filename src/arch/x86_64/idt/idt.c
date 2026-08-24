@@ -1,13 +1,15 @@
 #include <types.h>
 #include <arch/x86_64/common.h>
-#include "idt_structs.h"
 #include <lib/screen.h>
+
+#include "idt_structs.h"
 
 static idt_entry_t idt_entries[256];
 static idt_ptr_t idt_ptr;
 
 extern uint64_t isr_stub_table[];
 extern uint64_t irq_stub_table[];
+extern void     isr0x40(void);
 
 extern void idt_load(uint64_t);
 
@@ -38,6 +40,8 @@ void idt_init() {
     for (int i = 0; i < 16; ++i) {
         idt_set_gate(32 + i, irq_stub_table[i], 0x08, 0x8E);
     }
+
+    idt_set_gate(0x40, (uintptr_t)isr0x40, 0x08, 0x8E);
 
     idt_load((uint64_t)&idt_ptr);
     
