@@ -9,7 +9,8 @@ typedef enum {
     THREAD_STATE_READY,
     THREAD_STATE_RUNNING,
     THREAD_STATE_BLOCKED,
-    THREAD_STATE_TERMINATED
+    THREAD_STATE_TERMINATED,
+    THREAD_STATE_UNINITIALISED
 } thread_state_t;
 
 typedef struct thread {
@@ -40,3 +41,4 @@ registers_t* scheduler_schedule(registers_t* regs);
 void thread_yield(void);
 void thread_exit(void);
 thread_t* scheduler_get_current_thread(void);
+void scheduler_enqueue(thread_t* t);
