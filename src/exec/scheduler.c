@@ -114,8 +114,9 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
         return NULL;
     }
 
+    // TODO: this isn't a good idea either but theoretically it works
     size_t stack_size = 8192 * 1024;
-    void* stack_base = malloc(stack_size);
+    void* stack_base = page_alloc(stack_size / 0x1000);
 
     if (!stack_base) {
         printk("Scheduler", "Failed to allocate stack for new thread '%s'!", name);
@@ -258,7 +259,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
 
     thread_t* next = scheduler_dequeue();
     if (!next) {
-        if (curr->state != THREAD_STATE_TERMINATED) {
+        if (curr->state != THREAD_STATE_TERMINATED && curr->state != THREAD_STATE_UNINITIALISED) {
             curr->state = THREAD_STATE_RUNNING;
             return regs;
         }
@@ -267,6 +268,12 @@ registers_t* scheduler_schedule(registers_t* regs) {
 
     next->state = THREAD_STATE_RUNNING;
     current_threads[cpu_id] = next;
+
+    // TODO: this is generally a bad idea since kernel pages are mapped but 
+    //       theoretically should work since it clears only lower-half
+    if (next->process) {
+        write_cr3(hhdm_virt_to_phys(next->process->page_table));
+    }
 
     return next->stack_ptr;
 }
