@@ -663,6 +663,7 @@ elf_load_result_t elf_load(const uint8_t* image, uint64_t image_size,
                 uint64_t merged = *pte;
                 if (flags & PAGE_RW)    merged |= PAGE_RW;
                 if (!(flags & PAGE_NX)) merged &= ~PAGE_NX;
+                merged |= PAGE_USER;
                 *pte = merged;
             } else {
                 phys = hhdm_virt_to_phys(pt_pool_alloc());
