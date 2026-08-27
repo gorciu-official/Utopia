@@ -17,7 +17,7 @@ static uint32_t ansi_colors[] = {
     0x00AAAA, // Cyan
     0xAAAAAA, // White
     0x555555, // Bright Black (Gray)
-    0xFF5555, // Bright Red
+    0xFF0000, // Bright Red
     0x55FF55, // Bright Green
     0xFFFF55, // Bright Yellow
     0x5555FF, // Bright Blue

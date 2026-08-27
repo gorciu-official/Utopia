@@ -53,7 +53,7 @@ void panic(const char* reason, registers_t* regs) {
     asm volatile ("cli");
     
     printk_remove_console_suspension();
-    printk("Core", "\x1b[31mKernel panic\x1b[0m: %s", reason);
+    printk("Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
     if (regs != NULL) {
         printk("Core", "  - CPU exception: %s", cpu_exception_name(regs->int_no));
         printk("Core", "  - Basic info:    interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
