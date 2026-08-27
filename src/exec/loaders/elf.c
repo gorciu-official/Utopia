@@ -7,6 +7,9 @@
 #include <lib/screen.h>
 #include <drivers/filesystem.h>
 
+#include "elf_constants.h"
+#include "elf_structs.h"
+
 // this loader wouldn't be possible without
 //
 //   - /usr/include/elf.h containing elf structures
@@ -19,175 +22,6 @@
 //   - claude fixing my code lol (tho i need to refactor
 //     some of its fixes) (also provided minimal elf
 //     used in main.c)
-
-typedef struct {
-    uint8_t  e_ident[16];
-    uint16_t e_type;
-    uint16_t e_machine;
-    uint32_t e_version;
-    uint64_t e_entry;
-    uint64_t e_phoff;
-    uint64_t e_shoff;
-    uint32_t e_flags;
-    uint16_t e_ehsize;
-    uint16_t e_phentsize;
-    uint16_t e_phnum;
-    uint16_t e_shentsize;
-    uint16_t e_shnum;
-    uint16_t e_shstrndx;
-} __attribute__((packed)) elf64_ehdr;
-
-typedef struct {
-    uint32_t p_type;
-    uint32_t p_flags;
-    uint64_t p_offset;
-    uint64_t p_vaddr;
-    uint64_t p_paddr;
-    uint64_t p_filesz;
-    uint64_t p_memsz;
-    uint64_t p_align;
-} __attribute__((packed)) Elf64_Phdr;
-
-typedef struct {
-    int64_t  d_tag;
-    union {
-        uint64_t d_val;
-        uint64_t d_ptr;
-    } d_un;
-} __attribute__((packed)) Elf64_Dyn;
-
-typedef struct {
-    uint64_t r_offset;
-    uint64_t r_info;
-    int64_t  r_addend;
-} __attribute__((packed)) Elf64_Rela;
-
-typedef struct {
-    uint32_t st_name;
-    uint8_t  st_info;
-    uint8_t  st_other;
-    uint16_t st_shndx;
-    uint64_t st_value;
-    uint64_t st_size;
-} __attribute__((packed)) Elf64_Sym;
-
-typedef enum {
-    ELF_OK = 0,
-    ELF_ERR_BAD_MAGIC,
-    ELF_ERR_BAD_CLASS,
-    ELF_ERR_BAD_ENDIAN,
-    ELF_ERR_BAD_MACHINE,
-    ELF_ERR_BAD_TYPE,
-    ELF_ERR_TRUNCATED,
-    ELF_ERR_NO_MEMORY,
-    ELF_ERR_MAP_FAILED,
-    ELF_ERR_BAD_DYNAMIC,
-    ELF_ERR_RELOC_TARGET_UNMAPPED,
-    ELF_ERR_DYNTABLE_NOT_FOUND,
-    ELF_ERR_INTERP_TOO_LONG,
-    ELF_ERR_INTERP_NOT_FOUND,
-    ELF_ERR_INTERP_LOAD_FAILED,
-} elf_load_status_t;
-
-#define ELF_PIE_BASE     0x555555554000ULL
-#define ELF_INTERP_BASE  0x7f0000000000ULL
-#define ELF_INTERP_PATH_MAX 256
-
-typedef struct {
-    elf_load_status_t status;
-
-    uint64_t entry;
-    uint64_t load_bias; 
-    uint64_t lowest_vaddr; 
-    uint64_t highest_vaddr;
-
-    uint64_t phdr_vaddr;  
-    uint16_t phnum;    
-    uint16_t phentsize; 
-
-    bool is_pie;    
-    bool has_interp;
-    char interp_path[ELF_INTERP_PATH_MAX];
-
-    uint64_t symtab_vaddr;
-    uint64_t strtab_vaddr;
-    uint64_t strtab_size;
-    uint64_t sym_count;   
-} elf_load_result_t;
-
-#define ELF_MAG0        0x7f
-#define ELF_MAG1        'E'
-#define ELF_MAG2        'L'
-#define ELF_MAG3        'F'
-#define ELFCLASS64      2
-#define ELFDATA2LSB     1
-#define EM_X86_64       0x3e
-
-#define ET_EXEC         2
-#define ET_DYN          3
-
-#define PT_NULL         0
-#define PT_LOAD         1
-#define PT_DYNAMIC      2
-#define PT_INTERP       3
-#define PT_PHDR         6  
-
-#define PF_X            0x1
-#define PF_W            0x2
-#define PF_R            0x4
-
-#define SHN_UNDEF       0
-
-#define DT_NULL         0
-#define DT_NEEDED       1
-#define DT_PLTRELSZ     2
-#define DT_HASH         4
-#define DT_STRTAB       5
-#define DT_SYMTAB       6
-#define DT_RELA         7
-#define DT_RELASZ       8
-#define DT_RELAENT      9
-#define DT_STRSZ        10
-#define DT_SYMENT       11
-#define DT_REL          17
-#define DT_RELSZ        18
-#define DT_RELENT       19
-#define DT_PLTREL       20
-#define DT_RELRSZ       35
-#define DT_RELR         36
-#define DT_RELRENT      37
-#define DT_JMPREL 23
-#define DT_GNU_HASH     0x6ffffef5
-
-#define R_X86_64_NONE       0
-#define R_X86_64_64         1
-#define R_X86_64_GLOB_DAT   6
-#define R_X86_64_JUMP_SLOT  7
-#define R_X86_64_RELATIVE   8
-
-#define ELF64_R_SYM(i)  ((i) >> 32)      // oh we all love c macros, (x) instead of x is not a bug,
-#define ELF64_R_TYPE(i) ((uint32_t)(i))  // it is a feature
-
-#ifndef PTE_ADDR_MASK
-#define PTE_ADDR_MASK 0x000FFFFFFFFFF000ULL
-#endif
-#ifndef PAGE_PRESENT
-#define PAGE_PRESENT  0x1ULL
-#endif
-
-typedef struct {
-    const uint8_t* image;
-    uint64_t       image_size;
-    const uint8_t* phdr_base;
-    uint16_t       phnum;
-    uint16_t       phentsize;
-    uint64_t       load_bias;
-
-    uint64_t symtab_vaddr; 
-    uint64_t strtab_vaddr;
-    uint64_t strtab_size;  
-    uint64_t sym_count;   
-} elf_module_t;
 
 static uint64_t page_flags_for(uint32_t p_flags) {
     uint64_t flags = 0;
@@ -242,7 +76,7 @@ static const void* elf_vaddr_to_fileptr(
     uint64_t vaddr, uint64_t need_size
 ) {
     for (uint16_t i = 0; i < phnum; i++) {
-        const Elf64_Phdr* ph = (const Elf64_Phdr *)(phdr_base + (uint64_t)i * phentsize);
+        const elf64_phdr_t* ph = (const elf64_phdr_t *)(phdr_base + (uint64_t)i * phentsize);
         if (ph->p_type != PT_LOAD) continue;
 
         uint64_t p_vaddr = ph->p_vaddr;
@@ -284,9 +118,9 @@ static bool elf_module_find_symbol(const elf_module_t* mod, const char *name, ui
     if (!mod->symtab_vaddr || !mod->strtab_vaddr || mod->sym_count == 0) return false;
 
     for (uint64_t i = 1; i < mod->sym_count; i++) { // index 0 is always the null symbol
-        const Elf64_Sym* sym = (const Elf64_Sym *)elf_vaddr_to_fileptr(
+        const elf64_sym_t* sym = (const elf64_sym_t *)elf_vaddr_to_fileptr(
             mod->image, mod->image_size, mod->phdr_base, mod->phnum, mod->phentsize,
-            mod->symtab_vaddr + i * sizeof(Elf64_Sym), sizeof(Elf64_Sym));
+            mod->symtab_vaddr + i * sizeof(elf64_sym_t), sizeof(elf64_sym_t));
         if (!sym) break;
         if (sym->st_name == 0 || sym->st_shndx == SHN_UNDEF) continue; // not defined here either
 
@@ -316,7 +150,7 @@ static int elf_apply_rela_table(
         uint64_t strtab_vaddr, uint64_t strtab_size,
         const elf_module_t* ext_modules, int ext_module_count
 ) {
-    if (entsize == 0) entsize = sizeof(Elf64_Rela);
+    if (entsize == 0) entsize = sizeof(elf64_rela_t);
     uint64_t count = table_size / entsize;
 
     const uint8_t* table = (const uint8_t*)elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize, table_vaddr, table_size);
@@ -326,7 +160,7 @@ static int elf_apply_rela_table(
     }
 
     for (uint64_t i = 0; i < count; i++) {
-        const Elf64_Rela* rel = (const Elf64_Rela *)(table + i * entsize);
+        const elf64_rela_t* rel = (const elf64_rela_t *)(table + i * entsize);
         uint32_t type = ELF64_R_TYPE(rel->r_info);
         uint64_t sym_idx = ELF64_R_SYM(rel->r_info);
 
@@ -343,9 +177,9 @@ static int elf_apply_rela_table(
             case R_X86_64_GLOB_DAT:
             case R_X86_64_JUMP_SLOT: {
                 if (symtab_vaddr == 0) break;
-                const Elf64_Sym* sym = (const Elf64_Sym *)elf_vaddr_to_fileptr(
+                const elf64_sym_t* sym = (const elf64_sym_t *)elf_vaddr_to_fileptr(
                     image, image_size, phdr_base, phnum, phentsize,
-                    symtab_vaddr + sym_idx * sizeof(Elf64_Sym), sizeof(Elf64_Sym));
+                    symtab_vaddr + sym_idx * sizeof(elf64_sym_t), sizeof(elf64_sym_t));
                 if (!sym) break;
 
                 if (sym->st_shndx == SHN_UNDEF) {
@@ -477,15 +311,15 @@ static bool elf_gnu_hash_symcount(
 
 static elf_load_status_t elf_process_dynamic(
         const uint8_t* image, uint64_t image_size, const uint8_t *phdr_base, uint16_t phnum,
-        uint16_t phentsize, uint64_t* l4_table, uint64_t load_bias, const Elf64_Phdr *dyn_ph,
+        uint16_t phentsize, uint64_t* l4_table, uint64_t load_bias, const elf64_phdr_t *dyn_ph,
         const elf_module_t* ext_modules, int ext_module_count, elf_load_result_t *result
 ) {
     if (dyn_ph->p_offset + dyn_ph->p_filesz > image_size) return ELF_ERR_TRUNCATED;
 
-    const Elf64_Dyn* dyn = (const Elf64_Dyn *)(image + dyn_ph->p_offset);
-    uint64_t dyn_count = dyn_ph->p_filesz / sizeof(Elf64_Dyn);
+    const elf64_dyn_t* dyn = (const elf64_dyn_t *)(image + dyn_ph->p_offset);
+    uint64_t dyn_count = dyn_ph->p_filesz / sizeof(elf64_dyn_t);
 
-    uint64_t rela_off = 0, rela_size = 0, rela_ent = sizeof(Elf64_Rela);
+    uint64_t rela_off = 0, rela_size = 0, rela_ent = sizeof(elf64_rela_t);
     uint64_t relr_off = 0, relr_size = 0, relr_ent = sizeof(uint64_t);
     uint64_t jmprel_off = 0, jmprel_size = 0;
     uint64_t pltrel_type = DT_RELA;
@@ -553,7 +387,7 @@ done_scanning:
 
     if (jmprel_off && jmprel_size && pltrel_type == DT_RELA) {
         if (elf_apply_rela_table(image, image_size, phdr_base, phnum, phentsize,
-                                  l4_table, load_bias, jmprel_off, jmprel_size, sizeof(Elf64_Rela),
+                                  l4_table, load_bias, jmprel_off, jmprel_size, sizeof(elf64_rela_t),
                                   symtab_off, strtab_off, strtab_size, ext_modules, ext_module_count) != 0) {
             return ELF_ERR_RELOC_TARGET_UNMAPPED;
         }
@@ -618,12 +452,12 @@ elf_load_result_t elf_load(const uint8_t* image, uint64_t image_size,
 
     uint64_t lowest = ~0ULL;
     uint64_t highest = 0;
-    const Elf64_Phdr* dyn_ph = NULL;
+    const elf64_phdr_t* dyn_ph = NULL;
     bool have_interp = false;
-    const Elf64_Phdr* interp_ph = NULL;
+    const elf64_phdr_t* interp_ph = NULL;
 
     for (uint16_t i = 0; i < ehdr->e_phnum; i++) {
-        const Elf64_Phdr* ph = (const Elf64_Phdr *)(phdr_base + (uint64_t)i * ehdr->e_phentsize);
+        const elf64_phdr_t* ph = (const elf64_phdr_t *)(phdr_base + (uint64_t)i * ehdr->e_phentsize);
 
         if (ph->p_type == PT_PHDR) {
             result.phdr_vaddr = load_bias + ph->p_vaddr;
