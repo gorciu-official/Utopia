@@ -28,7 +28,7 @@ LIMINE_CONFIG  := $(SRC_DIR)/build/limine.conf
 
 C_SOURCES      := $(shell find $(SRC_DIR) -type f -name '*.c' ! -name '*.excluded.c')
 ifeq ($(BOOTLOADER),limine)
-ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm' ! -name 'boot.asm')
+ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm' ! -name 'grub-preinit.asm')
 else 
 ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm')
 endif
