@@ -1,5 +1,5 @@
 OUTPUT_FORMAT(elf64-x86-64)
-ENTRY(kmain)
+ENTRY(kinit)
 PHDRS
 {
     text PT_LOAD FLAGS(5);  /* RX */

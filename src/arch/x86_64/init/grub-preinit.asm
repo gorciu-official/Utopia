@@ -1,6 +1,6 @@
 global _start
 global _long_mode_entry
-extern kmain
+extern kinit
 
 %define KERNEL_VMA     0xffffffff80000000
 %define KERNEL_LMA     0x00100000
@@ -103,7 +103,7 @@ long_mode_high_entry:
     mov cr3, rax
 
     ; enterprise, troje do teleportacji
-    call kmain
+    call kinit
 
 .hang:
     cli

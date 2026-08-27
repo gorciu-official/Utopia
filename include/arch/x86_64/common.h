@@ -28,6 +28,7 @@ static inline uint32_t current_processor_id(void) {
 extern void boot_all_aps(uint8_t* core_apic_ids, int count);
 extern void gdt_init();
 extern void enable_umip(void);
+extern void enable_sse(void);
 extern void init_syscall();
 
 static inline uint64_t save_interrupts(void) {

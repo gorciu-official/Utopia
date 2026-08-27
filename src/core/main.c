@@ -1,4 +1,3 @@
-#include <lib/string.h>
 #include <types.h> 
 #include <lib/screen.h>
 #include <drivers/acpi.h>
@@ -11,117 +10,29 @@
 #include <drivers/pci.h>
 #include <scheduler.h>
 #include <process.h>
-#include <constants.h>
 #include <panic.h>
 
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-#include <boot/multiboot1.h>
-#endif
-
-#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
-#include <boot/limine.h>
-#endif
+#include <boot/common.h>
 
 static inline void cpu_main() {
     while (true) continue;
 }
 
-void enable_sse(void) {
-    uint64_t cr0 = read_cr0();
-    cr0 |= (1ULL << 1);
-    cr0 &= ~(1ULL << 2);
-    cr0 &= ~(1ULL << 3);
-
-    write_cr0(cr0);
-
-    uint64_t cr4 = read_cr4();
-    cr4 |= (1ULL << 9);
-    cr4 |= (1ULL << 10);
-
-    write_cr4(cr4);
-}
-
-// TODO: this function (kmain) needs a refactor.
-//       it is too bootloader-dependent, a bootloader-specific
-//       function should set up an common structure and then 
-//       pass it as an argument to kmain
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-void kmain(multiboot_info_t* mbd) {
-    framebuffer_init(mbd);
-    char* initram_fs_addr = NULL;
-    size_t initram_fs_size = 0;
-    char* font_addr = NULL;
-    size_t font_size = 0;
-
-    if (mbd->mods_count > 0) {
-        uint32_t count = mbd->mods_count;
-        multiboot_module_t* mods = phys_to_virt((uintptr_t)mbd->mods_addr);
-
-        for (unsigned int i = 0; i < count; i++) {
-            multiboot_module_t mod = mods[i];
-
-            if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
-                initram_fs_addr = phys_to_virt((uintptr_t)mod.mod_start);
-                initram_fs_size = mod.mod_end - mod.mod_start;
-            } else if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "font.psf1") == 0) {
-                font_addr = phys_to_virt((uintptr_t)mod.mod_start);
-                font_size = mod.mod_end - mod.mod_start;
-            }
-        }
-    }
-#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_framebuffer_request framebuffer_request = {
-    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_module_request module_request = {
-    .id = LIMINE_MODULE_REQUEST_ID,
-    .revision = 0
-};
-
-void kmain() {
-    struct limine_framebuffer* framebuffer = framebuffer_request.response->framebuffers[0];
-    framebuffer_init(framebuffer);
-
-    char* initram_fs_addr = NULL;
-    size_t initram_fs_size = 0;
-    char* font_addr = NULL;
-    size_t font_size = 0;
-
-    if (module_request.response) {
-        uint64_t module_count = module_request.response->module_count;
-        struct limine_file** modules = module_request.response->modules;
-    
-        for (uint64_t i = 0; i < module_count; i++) {
-            struct limine_file* mod = modules[i];
-            if (strcmp(mod->path, "/initramfs.tar") == 0) {
-                initram_fs_addr = mod->address;
-                initram_fs_size = mod->size;
-            } else if (strcmp(mod->path, "/font.psf1") == 0) {
-                font_addr = mod->address;
-                font_size = mod->size;
-            }
-        }
-    }
-#endif
+void kmain(common_boot_structure_t* cbs) {
+    framebuffer_init(
+        cbs->framebuffer.addr,
+        cbs->framebuffer.width, cbs->framebuffer.height,
+        cbs->framebuffer.pitch, cbs->framebuffer.bpp
+    );
 
     printk("Core", "Utopia %s", UTOPIA_VERSION);
     printk("Core", "  Source code: https://github.com/gorciu-official/Utopia");
     printk("Core", "  Licensed under GPL-v3.0");
     printk("Core", "---");
 
-    if (font_addr != NULL) {
-        framebuffer_switch_font((psf1_header_t*)font_addr, font_size);
+    if (cbs->modules.font_addr != NULL) {
+        framebuffer_switch_font((psf1_header_t*)cbs->modules.font_addr, cbs->modules.font_size);
     }
-
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    char* cmdline = phys_to_virt((uintptr_t) mbd->cmdline);
-    bool cmdline_is_empty = strlen(cmdline) == 0;
-    printk("Core", "Kernel command line: %s", cmdline_is_empty ? "<EMPTY>" : cmdline);
-#endif
     
     // cpu init
     enable_sse();
@@ -133,12 +44,21 @@ void kmain() {
     init_syscall();
 
     // misc init 
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    memory_init_base(mbd);
-#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-    memory_init_base();
-#endif
-    memory_reserve_range((uintptr_t)initram_fs_addr, (uintptr_t)((char*)initram_fs_addr + initram_fs_size));
+    #if BOOTLOADER == BOOTLOADER_CODE_GRUB
+        memory_init_base(cbs->plain_mbd);
+    #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+        memory_init_base();
+    #endif
+    if (cbs->modules.initramfs_addr != NULL)
+        memory_reserve_range(
+            (uintptr_t)cbs->modules.initramfs_addr, 
+            (uintptr_t)((char*)cbs->modules.initramfs_addr + cbs->modules.initramfs_size)
+        );
+    if (cbs->modules.font_addr != NULL)
+        memory_reserve_range(
+            (uintptr_t)cbs->modules.font_addr, 
+            (uintptr_t)((char*)cbs->modules.font_addr + cbs->modules.font_size)
+        );
     memory_init();
     framebuffer_enable_backbuffer();
     acpi_init();
@@ -157,30 +77,16 @@ void kmain() {
 
     // init pci
     pci_scan_bus();
-    
-#ifdef WE_YALL_LOVE_C
-    #define MAKE_THIS_AN_3D_ARRAY_BROTHER [26][256][20000000]
-    #define DECLARE_VOLATILE_INTEGER volatile int
-    #define DECLARE_THAT_VOID const void *
-    #define DECLARE_THAT_SLOP(___s) DECLARE_VOLATILE_INTEGER (*(* const * const (* const ___s)MAKE_THIS_AN_3D_ARRAY_BROTHER)(DECLARE_THAT_VOID))[3]
-    #define SEMAJKOLON ;
-    #define ZNAK_ROWNOSCI_LEWICOWY_TAKI_FAJNY =
-    #define WCALE_NIE_SLOP {0}
-    #define KURWA(___s) DECLARE_THAT_SLOP(___s) ZNAK_ROWNOSCI_LEWICOWY_TAKI_FAJNY WCALE_NIE_SLOP SEMAJKOLON
-    #define KURWA_MAC KURWA(JA_PIERDOLE) KURWA(KOCHAM_C)
-    KURWA_MAC
-#endif
 
     // init filesystem
     vfs_init();
     vfs_register_driver(&ramfs_driver);
     vfs_register_driver(&tarfs_driver);
-    if (initram_fs_addr != NULL) {
-        tarfs_set_image(initram_fs_addr, initram_fs_size);
+    if (cbs->modules.initramfs_addr != NULL) {
+        tarfs_set_image(cbs->modules.initramfs_addr, cbs->modules.initramfs_size);
         vfs_mount("tarfs", 0, "/");
-    } else {
+    } else 
         vfs_mount("ramfs", 0, "/");
-    }
 
     // run base tasks
     vnode_t* init_file = 0;
@@ -201,9 +107,9 @@ void kmain() {
     }
 
     // suspend console output 
-#if UTOPIA_DEBUG == 0
-    printk_suspend_console();
-#endif
+    #if UTOPIA_DEBUG == 0
+        printk_suspend_console();
+    #endif
 
     cpu_main();
 }

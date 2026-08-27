@@ -100,42 +100,20 @@ static int init_serial() {
     return 0;
 }
 
-#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+void framebuffer_init(
+    uintptr_t addr,
+    uint32_t width, uint32_t height,
+    uint32_t pitch, uint8_t  bpp
+) {
+    if (!addr) 
+        return printk("Framebuffer", "No framebuffer information provided by bootloader");
 
-void framebuffer_init(multiboot_info_t* mbd) {
-    if (!(mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER)) {
-        printk("Framebuffer", "Framebuffer not available in Multiboot info");
-        return;
-    }
-
-    if (mbd->framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-        printk("Framebuffer", "Framebuffer is not RGB mode (type: %d)", mbd->framebuffer_type);
-        return;
-    }
-
-    fb_addr = phys_to_virt((uintptr_t)mbd->framebuffer_addr);
-    fb_width = mbd->framebuffer_width;
-    fb_height = mbd->framebuffer_height;
-    fb_pitch = mbd->framebuffer_pitch;
-    fb_bpp = mbd->framebuffer_bpp;
+    fb_addr     = (uint32_t*)addr;
+    fb_width    = width;
+    fb_height   = height;
+    fb_pitch    = pitch;
+    fb_bpp      = bpp;
 }
-
-#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-
-void framebuffer_init(struct limine_framebuffer* framebuffer) {
-    if (framebuffer == NULL) {
-        printk("Framebuffer", "Framebuffer request not available");
-        return;
-    }
-
-    fb_addr = (uint32_t*)framebuffer->address;
-    fb_width = framebuffer->width;
-    fb_height = framebuffer->height;
-    fb_pitch = framebuffer->pitch;
-    fb_bpp = framebuffer->bpp;
-}
-
-#endif
 
 void framebuffer_flush(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     if (!fb_addr || !backbuffer)

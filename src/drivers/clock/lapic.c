@@ -2,6 +2,7 @@
 #include <types.h>
 #include <scheduler.h>
 #include <lib/screen.h>
+#include <memory.h>
 
 extern uint64_t tsc_get_ns_time();
 extern bool has_invariant_tsc();
@@ -22,16 +23,20 @@ extern bool has_invariant_tsc();
 #define TIMER_HZ         1000
 #define TIMER_DIVIDE     16
 
-volatile uint32_t *lapic = (volatile uint32_t *)LAPIC_BASE;
+volatile uint32_t* lapic = (volatile uint32_t *)LAPIC_BASE;
 
 static uint64_t lapic_ticks_per_second;
 
+static inline volatile uint32_t* lapic_reg(uint32_t reg) {
+    return (volatile uint32_t*)phys_to_virt(LAPIC_BASE + reg);
+}
+
 static inline void lapic_write(uint32_t reg, uint32_t value) {
-    lapic[reg / 4] = value;
+    *lapic_reg(reg) = value;
 }
 
 static inline uint32_t lapic_read(uint32_t reg) {
-    return lapic[reg / 4];
+    return *lapic_reg(reg);
 }
 
 static uint64_t lapic_calibrate(void) {
