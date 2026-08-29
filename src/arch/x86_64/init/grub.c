@@ -15,6 +15,17 @@ void kinit(multiboot_info_t* mbd) {
     // TODO: this is temporary. it should be removed after memory map porting
     cbs.plain_mbd = mbd;
 
+    if (
+        mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER 
+        && mbd->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB
+    ) {
+        cbs.framebuffer.addr = (uintptr_t)phys_to_virt(mbd->framebuffer_addr);
+        cbs.framebuffer.width = mbd->framebuffer_width;
+        cbs.framebuffer.height = mbd->framebuffer_height;
+        cbs.framebuffer.pitch = mbd->framebuffer_pitch;
+        cbs.framebuffer.bpp = mbd->framebuffer_bpp;
+    }
+
     if (mbd->mods_count > 0) {
         uint32_t count = mbd->mods_count;
         multiboot_module_t* mods = phys_to_virt((uintptr_t)mbd->mods_addr);
