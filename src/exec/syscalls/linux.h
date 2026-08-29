@@ -43,6 +43,14 @@ struct stat {
     int64_t  __unused[3];
 }__attribute__((packed));
 
+struct linux_dirent64 {
+    uint64_t        d_ino;
+    int64_t         d_off;
+    unsigned short  d_reclen;
+    unsigned char   d_type;
+    char            d_name[];
+};
+
 #define POLLIN    0x001
 #define POLLPRI   0x002
 #define POLLOUT   0x004
@@ -63,10 +71,21 @@ struct stat {
 #define AT_FDCWD -100
 #define AT_SYMLINK_NOFOLLOW 0x100
 
+#define ENOENT    2
 #define EBADF     9
 #define ENOMEM    12
 #define EACCES    13
 #define EFAULT    14
+#define ENOTDIR   20
 #define EINVAL    22
 #define EMFILE    24
 #define ENOSYS    38
+
+#define DT_UNKNOWN  0
+#define DT_FIFO     1
+#define DT_CHR      2
+#define DT_DIR      4
+#define DT_BLK      6
+#define DT_REG      8
+#define DT_LNK      10
+#define DT_SOCK     12

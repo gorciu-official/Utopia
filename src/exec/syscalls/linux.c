@@ -666,6 +666,76 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
     return 0;
 }
 
+SYSCALL_DEFINE_LINUX(getdents64) {
+    (void)thread;
+
+    if (!process)
+        return -EINVAL;
+
+    int fd = (int)regs->arg1;
+    void* user_buf = (void*)regs->arg2;
+    size_t count = (size_t)regs->arg3;
+
+    if (!user_buf) return -EFAULT;
+    if (count == 0) return 0;
+
+    vnode_t* dir = process->fds[fd].vnode;
+    if (!dir) return -EBADF;
+    if (dir->type != VNODE_TYPE_DIR) return -ENOTDIR;
+    if (!dir->ops || !dir->ops->readdir) return -ENOTDIR;
+
+    size_t written = 0;
+    uint64_t index = process->fds[fd].offset;
+
+    while (written < count) {
+        vfs_dirent_t entry;
+
+        int res = dir->ops->readdir(dir, index, &entry);
+
+        if (res == -ENOENT)
+            break;
+
+        if (res < 0) 
+            break;
+
+        size_t name_len = strlen(entry.name);
+
+        size_t reclen =
+            (sizeof(uint64_t) +
+             sizeof(int64_t) +
+             sizeof(uint16_t) +
+             sizeof(uint8_t) +
+             name_len + 1 + 7) & ~7ULL;
+
+        if (reclen > count - written) break;
+
+        struct linux_dirent64 *d = (struct linux_dirent64 *)((uint8_t *)user_buf + written);
+
+        d->d_ino = entry.ino;
+        d->d_off = (int64_t)(index + 1);
+        d->d_reclen = (unsigned short)reclen;
+        d->d_type = entry.type;
+        memcpy(d->d_name, entry.name, name_len);
+        d->d_name[name_len] = '\0';
+
+        size_t used =
+            sizeof(uint64_t) +
+            sizeof(int64_t) +
+            sizeof(uint16_t) +
+            sizeof(uint8_t) +
+            name_len + 1;
+
+        if (reclen > used) memset((uint8_t *)d + used, 0, reclen - used);
+
+        written += reclen;
+        index++;
+    }
+
+    process->fds[fd].offset = index;
+
+    return (int)written; 
+}
+
 SYSCALL_DEFINE_LINUX(set_tid_address) {
     (void) process;
 
@@ -714,6 +784,7 @@ static const syscall_fn_t syscall_linux_table[] = {
                                               // this returns 0 and 0 means root
     [158] = syscall_linux_arch_prctl,
     [202] = syscall_linux_stub_unimplemented,
+    [217] = syscall_linux_getdents64,
     [218] = syscall_linux_set_tid_address,
     [231] = syscall_linux_exit,
     [257] = syscall_linux_openat,

@@ -74,6 +74,65 @@ static int tarfs_block_is_zero(const uint8_t* block) {
     return 1;
 }
 
+static tarfs_node_t* vnode_to_tarfs(vnode_t* v) {
+    return (tarfs_node_t*)v;
+}
+
+static int tarfs_readdir(vnode_t* node, uint64_t index, vfs_dirent_t* entry) {
+    if (!node || !entry)
+        return -1;
+
+    tarfs_node_t* dir = vnode_to_tarfs(node);
+
+    if (dir->vnode.type != VNODE_TYPE_DIR)
+        return -1;
+
+    if (index == 0) {
+        entry->ino = (uint64_t)(uintptr_t)dir;
+        entry->off = 1;
+        entry->type = 4;
+        entry->name = ".";
+        return 0;
+    }
+
+    if (index == 1) {
+        tarfs_node_t* parent = dir->parent;
+
+        entry->ino = parent
+            ? (uint64_t)(uintptr_t)parent
+            : (uint64_t)(uintptr_t)dir;
+
+        entry->off = 2;
+        entry->type = 4;
+        entry->name = "..";
+        return 0;
+    }
+
+    tarfs_node_t* child = dir->children;
+
+    uint64_t child_index = index - 2;
+
+    while (child && child_index > 0) {
+        child = child->next;
+        child_index--;
+    }
+
+    if (!child)
+        return -1;
+
+    entry->ino = (uint64_t)(uintptr_t)child;
+    entry->off = index + 1;
+
+    if (child->vnode.type == VNODE_TYPE_DIR)
+        entry->type = 4;
+    else
+        entry->type = 8;
+
+    entry->name = child->name;
+
+    return 0;
+}
+
 static tarfs_node_t* tarfs_create_node(const char* name, vnode_type_t type) {
     if (!name) return 0;
 
@@ -118,10 +177,6 @@ static void tarfs_add_child(tarfs_node_t* parent, tarfs_node_t* child) {
 
 static vnode_t* tarfs_to_vnode(tarfs_node_t* node) {
     return (vnode_t*)node;
-}
-
-static tarfs_node_t* vnode_to_tarfs(vnode_t* v) {
-    return (tarfs_node_t*)v;
 }
 
 static tarfs_node_t* tarfs_resolve_dir_path(tarfs_node_t* root, const char* path, int path_len) {
@@ -205,11 +260,12 @@ static int tarfs_write(vnode_t* node, const void* buffer, uint64_t size, uint64_
 }
 
 static vnode_ops_t tarfs_ops = {
-    .lookup = tarfs_lookup,
-    .create = tarfs_create,
-    .mkdir  = tarfs_mkdir,
-    .read   = tarfs_read,
-    .write  = tarfs_write
+    .lookup  = tarfs_lookup,
+    .create  = tarfs_create,
+    .mkdir   = tarfs_mkdir,
+    .read    = tarfs_read,
+    .write   = tarfs_write,
+    .readdir = tarfs_readdir
 };
 
 static int tarfs_build_path(const tar_header_t* hdr, char* out, int out_cap) {

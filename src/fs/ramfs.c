@@ -44,6 +44,65 @@ static ramfs_node_t* ramfs_create_node(const char* name, vnode_type_t type) {
     return node;
 }
 
+static ramfs_node_t* vnode_to_ramfs(vnode_t* v) {
+    return (ramfs_node_t*)v;
+}
+
+static int ramfs_readdir(vnode_t* node, uint64_t index, vfs_dirent_t* entry) {
+    if (!node || !entry)
+        return -1;
+
+    ramfs_node_t* dir = vnode_to_ramfs(node);
+
+    if (dir->vnode.type != VNODE_TYPE_DIR)
+        return -1;
+
+    if (index == 0) {
+        entry->ino = (uint64_t)(uintptr_t)dir;
+        entry->off = 1;
+        entry->type = 4;
+        entry->name = ".";
+        return 0;
+    }
+
+    if (index == 1) {
+        ramfs_node_t* parent = dir->parent;
+
+        entry->ino = parent
+            ? (uint64_t)(uintptr_t)parent
+            : (uint64_t)(uintptr_t)dir;
+
+        entry->off = 2;
+        entry->type = 4; 
+        entry->name = "..";
+        return 0;
+    }
+
+    ramfs_node_t* child = dir->children;
+
+    uint64_t child_index = index - 2;
+
+    while (child && child_index > 0) {
+        child = child->next;
+        child_index--;
+    }
+
+    if (!child)
+        return -1;
+
+    entry->ino = (uint64_t)(uintptr_t)child;
+    entry->off = index + 1;
+
+    if (child->vnode.type == VNODE_TYPE_DIR)
+        entry->type = 4;
+    else
+        entry->type = 8; 
+
+    entry->name = child->name;
+
+    return 0;
+}
+
 static ramfs_node_t* ramfs_find_child(ramfs_node_t* parent, const char* name) {
     if (!parent || !name) return 0;
     ramfs_node_t* cur = parent->children;
@@ -66,10 +125,6 @@ static void ramfs_add_child(ramfs_node_t* parent, ramfs_node_t* child) {
 
 static vnode_t* ramfs_to_vnode(ramfs_node_t* node) {
     return (vnode_t*)node;
-}
-
-static ramfs_node_t* vnode_to_ramfs(vnode_t* v) {
-    return (ramfs_node_t*)v;
 }
 
 static int ramfs_lookup(vnode_t* parent, const char* name, vnode_t** result) {
@@ -175,11 +230,12 @@ static int ramfs_write(vnode_t* node, const void* buffer, uint64_t size, uint64_
 }
 
 static vnode_ops_t ramfs_ops = {
-    .lookup = ramfs_lookup,
-    .create = ramfs_create,
-    .mkdir  = ramfs_mkdir,
-    .read   = ramfs_read,
-    .write  = ramfs_write
+    .lookup  = ramfs_lookup,
+    .create  = ramfs_create,
+    .mkdir   = ramfs_mkdir,
+    .read    = ramfs_read,
+    .write   = ramfs_write,
+    .readdir = ramfs_readdir
 };
 
 static vnode_t* ramfs_root_to_vnode(ramfs_node_t* root) {

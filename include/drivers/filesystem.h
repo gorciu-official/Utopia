@@ -20,12 +20,20 @@ typedef enum {
 
 struct vnode;
 
+typedef struct vfs_dirent {
+    uint64_t ino;
+    uint64_t off;
+    uint8_t type;
+    const char *name;
+} vfs_dirent_t;
+
 typedef struct vnode_ops {
     int (*lookup)(struct vnode *parent, const char *name, struct vnode **result);
     int (*create)(struct vnode *parent, const char *name, struct vnode **result);
     int (*mkdir)(struct vnode *parent, const char *name, struct vnode **result);
     int (*read)(struct vnode *node, void *buffer, uint64_t size, uint64_t offset, uint64_t *bytes_read);
     int (*write)(struct vnode *node, const void *buffer, uint64_t size, uint64_t offset, uint64_t *bytes_written);
+    int (*readdir)(struct vnode *node, uint64_t index, vfs_dirent_t *entry);
 } vnode_ops_t;
 
 typedef struct vnode {
