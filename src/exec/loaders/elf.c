@@ -71,12 +71,15 @@ static uint64_t* elf_walk_pte_slot(uint64_t *l4_table, uint64_t vaddr) {
 }
 
 static const void* elf_vaddr_to_fileptr(
-    const uint8_t* image, uint64_t image_size, 
-    const uint8_t* phdr_base, uint16_t phnum, uint16_t phentsize, 
+    const elf_image_t* img, 
     uint64_t vaddr, uint64_t need_size
 ) {
-    for (uint16_t i = 0; i < phnum; i++) {
-        const elf64_phdr_t* ph = (const elf64_phdr_t *)(phdr_base + (uint64_t)i * phentsize);
+    for (uint16_t i = 0; i < img->phnum; i++) {
+        const elf64_phdr_t* ph =
+            (const elf64_phdr_t *)(
+                (const uint8_t *)img->phdrs +
+                (uint64_t)i * img->phentsize
+            );
         if (ph->p_type != PT_LOAD) continue;
 
         uint64_t p_vaddr = ph->p_vaddr;
@@ -85,25 +88,22 @@ static const void* elf_vaddr_to_fileptr(
             uint64_t offset_in_phdr = vaddr - p_vaddr;
             if (need_size <= ph->p_filesz - offset_in_phdr) {
                 uint64_t off = ph->p_offset + offset_in_phdr;
-                if (off + need_size <= image_size) {
-                    return image + off;
-                }
+                if (off + need_size <= img->size) 
+                    return img->data + off;
             }
         }
     }
-
 
     return NULL;
 }
 
 static const char* elf_symbol_name_raw(
-        const uint8_t* image, uint64_t image_size, const uint8_t *phdr_base,
-        uint16_t phnum, uint16_t phentsize,
-        uint64_t strtab_vaddr, uint64_t strtab_size, uint32_t st_name
+    const elf_image_t* img, 
+    uint64_t strtab_vaddr, uint64_t strtab_size, uint32_t st_name
 ) {
     if (!strtab_vaddr || st_name >= strtab_size) return NULL;
-    return (const char*)elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize,
-                                               strtab_vaddr + st_name, 1);
+
+    return (const char*)elf_vaddr_to_fileptr(img, strtab_vaddr + st_name, 1);
 }
 
 static bool elf_streq(const char* a, const char *b) {
@@ -114,19 +114,18 @@ static bool elf_streq(const char* a, const char *b) {
     return false;
 }
 
-static bool elf_module_find_symbol(const elf_module_t* mod, const char *name, uint64_t *out_value) {
+static bool elf_module_find_symbol(const elf_object_t* mod, const char *name, uint64_t *out_value) {
     if (!mod->symtab_vaddr || !mod->strtab_vaddr || mod->sym_count == 0) return false;
 
     for (uint64_t i = 1; i < mod->sym_count; i++) { // index 0 is always the null symbol
         const elf64_sym_t* sym = (const elf64_sym_t *)elf_vaddr_to_fileptr(
-            mod->image, mod->image_size, mod->phdr_base, mod->phnum, mod->phentsize,
-            mod->symtab_vaddr + i * sizeof(elf64_sym_t), sizeof(elf64_sym_t));
+            &mod->image,
+            mod->symtab_vaddr + i * sizeof(elf64_sym_t), sizeof(elf64_sym_t)
+        );
         if (!sym) break;
         if (sym->st_name == 0 || sym->st_shndx == SHN_UNDEF) continue; // not defined here either
 
-        const char* cand = elf_symbol_name_raw(mod->image, mod->image_size, mod->phdr_base,
-                                                mod->phnum, mod->phentsize,
-                                                mod->strtab_vaddr, mod->strtab_size, sym->st_name);
+        const char* cand = elf_symbol_name_raw(&mod->image, mod->strtab_vaddr, mod->strtab_size, sym->st_name);
         if (!cand) continue;
 
         if (elf_streq(cand, name)) {
@@ -137,7 +136,7 @@ static bool elf_module_find_symbol(const elf_module_t* mod, const char *name, ui
     return false;
 }
 
-static bool elf_resolve_external_symbol(const elf_module_t* modules, int module_count, const char *name, uint64_t *out_value) {
+static bool elf_resolve_external_symbol(const elf_object_t* modules, int module_count, const char *name, uint64_t *out_value) {
     for (int i = 0; i < module_count; i++) {
         if (elf_module_find_symbol(&modules[i], name, out_value)) return true;
     }
@@ -145,15 +144,15 @@ static bool elf_resolve_external_symbol(const elf_module_t* modules, int module_
 }
 
 static int elf_apply_rela_table(
-        const uint8_t* image, uint64_t image_size, const uint8_t *phdr_base, uint16_t phnum, uint16_t phentsize, uint64_t *l4_table,
-        uint64_t load_bias, uint64_t table_vaddr, uint64_t table_size, uint64_t entsize, uint64_t symtab_vaddr,
-        uint64_t strtab_vaddr, uint64_t strtab_size,
-        const elf_module_t* ext_modules, int ext_module_count
+    const elf_image_t* img, uint64_t *l4_table,
+    uint64_t load_bias, uint64_t table_vaddr, uint64_t table_size, uint64_t entsize, uint64_t symtab_vaddr,
+    uint64_t strtab_vaddr, uint64_t strtab_size,
+    const elf_object_t* ext_modules, int ext_module_count
 ) {
     if (entsize == 0) entsize = sizeof(elf64_rela_t);
     uint64_t count = table_size / entsize;
 
-    const uint8_t* table = (const uint8_t*)elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize, table_vaddr, table_size);
+    const uint8_t* table = (const uint8_t*)elf_vaddr_to_fileptr(img, table_vaddr, table_size);
 
     if (!table) {
         return -1;
@@ -169,45 +168,44 @@ static int elf_apply_rela_table(
             return -2; // relocation target isn't in any mapped PT_LOAD segment
 
         switch (type) {
-            case R_X86_64_RELATIVE:
-                *(uint64_t *)dst = load_bias + (uint64_t)rel->r_addend;
-                break;
+        case R_X86_64_RELATIVE:
+            *(uint64_t *)dst = load_bias + (uint64_t)rel->r_addend;
+            break;
 
-            case R_X86_64_64:
-            case R_X86_64_GLOB_DAT:
-            case R_X86_64_JUMP_SLOT: {
-                if (symtab_vaddr == 0) break;
-                const elf64_sym_t* sym = (const elf64_sym_t *)elf_vaddr_to_fileptr(
-                    image, image_size, phdr_base, phnum, phentsize,
-                    symtab_vaddr + sym_idx * sizeof(elf64_sym_t), sizeof(elf64_sym_t));
-                if (!sym) break;
+        case R_X86_64_64:
+        case R_X86_64_GLOB_DAT:
+        case R_X86_64_JUMP_SLOT: {
+            if (symtab_vaddr == 0) break;
+            const elf64_sym_t* sym = (const elf64_sym_t *)elf_vaddr_to_fileptr(
+                img, symtab_vaddr + sym_idx * sizeof(elf64_sym_t), sizeof(elf64_sym_t)
+            );
+            if (!sym) break;
 
-                if (sym->st_shndx == SHN_UNDEF) {
-                    const char* name = elf_symbol_name_raw(image, image_size, phdr_base, phnum, phentsize,
-                                                             strtab_vaddr, strtab_size, sym->st_name);
+            if (sym->st_shndx == SHN_UNDEF) {
+                const char* name = elf_symbol_name_raw(img, strtab_vaddr, strtab_size, sym->st_name);
 
-                    uint64_t resolved;
-                    if (!name || !ext_modules || ext_module_count == 0 ||
-                        !elf_resolve_external_symbol(ext_modules, ext_module_count, name, &resolved)) {
-                        break;
-                    }
-
-                    if (type == R_X86_64_64) resolved += (uint64_t)rel->r_addend;
-                    *(uint64_t *)dst = resolved;
+                uint64_t resolved;
+                if (!name || !ext_modules || ext_module_count == 0 ||
+                    !elf_resolve_external_symbol(ext_modules, ext_module_count, name, &resolved)) {
                     break;
                 }
 
-                uint64_t value = load_bias + sym->st_value;
-                if (type == R_X86_64_64) value += (uint64_t)rel->r_addend;
-                *(uint64_t *)dst = value;
+                if (type == R_X86_64_64) resolved += (uint64_t)rel->r_addend;
+                *(uint64_t *)dst = resolved;
                 break;
             }
 
-            case R_X86_64_NONE:
-                break;
+            uint64_t value = load_bias + sym->st_value;
+            if (type == R_X86_64_64) value += (uint64_t)rel->r_addend;
+            *(uint64_t *)dst = value;
+            break;
+        }
 
-            default:
-                break;
+        case R_X86_64_NONE:
+            break;
+
+        default:
+            break;
         }
     }
 
@@ -215,15 +213,15 @@ static int elf_apply_rela_table(
 }
 
 static int elf_apply_relr_table(
-        const uint8_t* image, uint64_t image_size, const uint8_t *phdr_base,
-        uint16_t phnum, uint16_t phentsize, uint64_t* l4_table,
-        uint64_t load_bias, uint64_t table_vaddr, uint64_t table_size, uint64_t entsize
+    const elf_image_t* img, uint64_t* l4_table,
+    uint64_t load_bias, uint64_t table_vaddr, uint64_t table_size, uint64_t entsize
 ) {
     if (entsize == 0) entsize = sizeof(uint64_t);
     uint64_t count = table_size / entsize;
 
     const uint8_t* table = (const uint8_t *)elf_vaddr_to_fileptr(
-        image, image_size, phdr_base, phnum, phentsize, table_vaddr, table_size);
+        img, table_vaddr, table_size
+    );
     if (!table) return -1;
 
     const uint64_t* entries = (const uint64_t *)table;
@@ -257,11 +255,9 @@ static int elf_apply_relr_table(
 }
 
 static bool elf_gnu_hash_symcount(
-        const uint8_t* image, uint64_t image_size, const uint8_t *phdr_base,
-        uint16_t phnum, uint16_t phentsize, uint64_t gnu_hash_vaddr, uint64_t *out_count
+    const elf_image_t* img, uint64_t gnu_hash_vaddr, uint64_t *out_count
 ) {
-    const void* hp = elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize,
-                                           gnu_hash_vaddr, 4 * sizeof(uint32_t));
+    const void* hp = elf_vaddr_to_fileptr(img, gnu_hash_vaddr, 4 * sizeof(uint32_t));
     if (!hp) return false;
 
     const uint32_t* header = (const uint32_t *)hp;
@@ -276,8 +272,7 @@ static bool elf_gnu_hash_symcount(
 
     uint64_t buckets_vaddr = gnu_hash_vaddr + 4 * sizeof(uint32_t) + (uint64_t)bloom_size * sizeof(uint64_t);
 
-    const void* bp = elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize,
-                                           buckets_vaddr, (uint64_t)nbucket * sizeof(uint32_t));
+    const void* bp = elf_vaddr_to_fileptr(img, buckets_vaddr, (uint64_t)nbucket * sizeof(uint32_t));
     if (!bp) return false;
     const uint32_t* buckets = (const uint32_t *)bp;
 
@@ -296,8 +291,7 @@ static bool elf_gnu_hash_symcount(
     uint64_t count = max_idx;
 
     for (uint64_t guard = 0; guard < 1000000; guard++) {
-        const void* cp = elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize,
-                                               chain_vaddr + chain_idx * sizeof(uint32_t), sizeof(uint32_t));
+        const void* cp = elf_vaddr_to_fileptr(img, chain_vaddr + chain_idx * sizeof(uint32_t), sizeof(uint32_t));
         if (!cp) return false;
         uint32_t h = *(const uint32_t *)cp;
         count++;
@@ -310,13 +304,12 @@ static bool elf_gnu_hash_symcount(
 }
 
 static elf_load_status_t elf_process_dynamic(
-        const uint8_t* image, uint64_t image_size, const uint8_t *phdr_base, uint16_t phnum,
-        uint16_t phentsize, uint64_t* l4_table, uint64_t load_bias, const elf64_phdr_t *dyn_ph,
-        const elf_module_t* ext_modules, int ext_module_count, elf_load_result_t *result
+    const elf_image_t* img, uint64_t* l4_table, uint64_t load_bias, const elf64_phdr_t *dyn_ph,
+    const elf_object_t* ext_modules, int ext_module_count, elf_load_result_t *result
 ) {
-    if (dyn_ph->p_offset + dyn_ph->p_filesz > image_size) return ELF_ERR_TRUNCATED;
+    if (dyn_ph->p_offset + dyn_ph->p_filesz > img->size) return ELF_ERR_TRUNCATED;
 
-    const elf64_dyn_t* dyn = (const elf64_dyn_t *)(image + dyn_ph->p_offset);
+    const elf64_dyn_t* dyn = (const elf64_dyn_t *)(img->data + dyn_ph->p_offset);
     uint64_t dyn_count = dyn_ph->p_filesz / sizeof(elf64_dyn_t);
 
     uint64_t rela_off = 0, rela_size = 0, rela_ent = sizeof(elf64_rela_t);
@@ -366,19 +359,19 @@ done_scanning:
 
     if (gnu_hash_off) {
         uint64_t count = 0;
-        if (elf_gnu_hash_symcount(image, image_size, phdr_base, phnum, phentsize, gnu_hash_off, &count)) {
+        if (elf_gnu_hash_symcount(img, gnu_hash_off, &count)) {
             result->sym_count = count;
         }
     }
     if (result->sym_count == 0 && hash_off) {
-        const void* hp = elf_vaddr_to_fileptr(image, image_size, phdr_base, phnum, phentsize, hash_off, 2 * sizeof(uint32_t));
+        const void* hp = elf_vaddr_to_fileptr(img, hash_off, 2 * sizeof(uint32_t));
         if (hp) {
             result->sym_count = ((const uint32_t *)hp)[1];
         }
     }
 
     if (rela_off && rela_size) {
-        int rc = elf_apply_rela_table(image, image_size, phdr_base, phnum, phentsize, l4_table, load_bias,
+        int rc = elf_apply_rela_table(img, l4_table, load_bias,
                                        rela_off, rela_size, rela_ent, symtab_off,
                                        strtab_off, strtab_size, ext_modules, ext_module_count);
         if (rc == -1) return ELF_ERR_DYNTABLE_NOT_FOUND;
@@ -386,16 +379,13 @@ done_scanning:
     }
 
     if (jmprel_off && jmprel_size && pltrel_type == DT_RELA) {
-        if (elf_apply_rela_table(image, image_size, phdr_base, phnum, phentsize,
-                                  l4_table, load_bias, jmprel_off, jmprel_size, sizeof(elf64_rela_t),
-                                  symtab_off, strtab_off, strtab_size, ext_modules, ext_module_count) != 0) {
+        if (elf_apply_rela_table(img, l4_table, load_bias, jmprel_off, jmprel_size, sizeof(elf64_rela_t), symtab_off, strtab_off, strtab_size, ext_modules, ext_module_count) != 0) {
             return ELF_ERR_RELOC_TARGET_UNMAPPED;
         }
     }
 
     if (relr_off && relr_size) {
-        if (elf_apply_relr_table(image, image_size, phdr_base, phnum, phentsize,
-                                  l4_table, load_bias, relr_off, relr_size, relr_ent) != 0) {
+        if (elf_apply_relr_table(img, l4_table, load_bias, relr_off, relr_size, relr_ent) != 0) {
             return ELF_ERR_RELOC_TARGET_UNMAPPED;
         }
     }
@@ -403,17 +393,19 @@ done_scanning:
     return ELF_OK;
 }
 
-elf_load_result_t elf_load(const uint8_t* image, uint64_t image_size,
-                            uint64_t* l4_table, uint64_t load_bias,
-                            const elf_module_t* ext_modules, int ext_module_count) {
+elf_load_result_t elf_load(
+    const uint8_t* image, uint64_t image_size,
+    uint64_t* l4_table, uint64_t load_bias,
+    const elf_object_t* ext_modules, int ext_module_count
+) {
     elf_load_result_t result = {0};
 
-    if (image_size < sizeof(elf64_ehdr)) {
+    if (image_size < sizeof(elf64_ehdr_t)) {
         result.status = ELF_ERR_TRUNCATED;
         return result;
     }
 
-    const elf64_ehdr* ehdr = (const elf64_ehdr *)image;
+    const elf64_ehdr_t* ehdr = (const elf64_ehdr_t *)image;
 
     if (ehdr->e_ident[0] != ELF_MAG0 || ehdr->e_ident[1] != ELF_MAG1 ||
         ehdr->e_ident[2] != ELF_MAG2 || ehdr->e_ident[3] != ELF_MAG3) {
@@ -569,9 +561,14 @@ elf_load_result_t elf_load(const uint8_t* image, uint64_t image_size,
     }
 
     if (dyn_ph) {
-        elf_load_status_t dyn_status = elf_process_dynamic(
-            image, image_size, phdr_base, ehdr->e_phnum, ehdr->e_phentsize,
-            l4_table, load_bias, dyn_ph, ext_modules, ext_module_count, &result);
+        elf_image_t img = {
+            .data      = image,
+            .size      = image_size,
+            .phdrs     = (elf64_phdr_t*)phdr_base,
+            .phnum     = ehdr->e_phnum,
+            .phentsize = ehdr->e_phentsize
+        };
+        elf_load_status_t dyn_status = elf_process_dynamic(&img, l4_table, load_bias, dyn_ph, ext_modules, ext_module_count, &result);
         if (dyn_status != ELF_OK) {
             result.status = dyn_status;
             return result;
@@ -581,6 +578,7 @@ elf_load_result_t elf_load(const uint8_t* image, uint64_t image_size,
     result.status = ELF_OK;
     return result;
 }
+
 // TODO: let's move this vibecoded shit
 static int elf_vfs_read_whole(const char* path, uint8_t **out_buf, uint64_t *out_size) {
     vnode_t* node = NULL;
@@ -613,14 +611,17 @@ static int elf_vfs_read_whole(const char* path, uint8_t **out_buf, uint64_t *out
 }
 
 int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table, elf_load_result_t *out_main, elf_auxv_info_t *out_auxv, uint64_t *out_entry) {
-    if (image_size < sizeof(elf64_ehdr)) return -1;
-    const elf64_ehdr* peek = (const elf64_ehdr *)image;
+    if (image_size < sizeof(elf64_ehdr_t)) return -1;
+    const elf64_ehdr_t* peek = (const elf64_ehdr_t *)image;
 
     uint64_t bias = (peek->e_type == ET_DYN) ? ELF_PIE_BASE : 0;
 
     elf_load_result_t main_res = elf_load(image, image_size, l4_table, bias, NULL, 0);
     if (out_main) *out_main = main_res;
-    if (main_res.status != ELF_OK) return -1;
+    if (main_res.status != ELF_OK) {
+        printk("ELF Loader", "Failed to load main ELF image, status %d", main_res.status);
+        return -1;
+    }
 
     elf_auxv_info_t auxv = {0};
     auxv.at_entry = main_res.entry;
@@ -640,14 +641,18 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     uint64_t interp_size = 0;
     if (elf_vfs_read_whole(main_res.interp_path, &interp_buf, &interp_size) != 0) {
         printk("ELF Loader", "Failed to load an ELF interpretter");
-        return -2; // ELF_ERR_INTERP_NOT_FOUND
+        return ELF_ERR_INTERP_LOAD_FAILED;
     }
-    elf_module_t main_module = {
-        .image        = image,
-        .image_size   = image_size,
-        .phdr_base    = image + ((const elf64_ehdr *)image)->e_phoff,
-        .phnum        = main_res.phnum,
-        .phentsize    = main_res.phentsize,
+    elf_image_t main_img = {
+        .data      = image,
+        .size      = image_size,
+        .phdrs     = (elf64_phdr_t*)(image + ((const elf64_ehdr_t*)image)->e_phoff),
+        .phnum     = main_res.phnum,
+        .phentsize = main_res.phentsize,
+        .ehdr      = (const elf64_ehdr_t *)image
+    };
+    elf_object_t main_object = {
+        .image        = main_img,
         .load_bias    = main_res.load_bias,
         .symtab_vaddr = main_res.symtab_vaddr,
         .strtab_vaddr = main_res.strtab_vaddr,
@@ -655,11 +660,11 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
         .sym_count    = main_res.sym_count,
     };
 
-    elf_load_result_t interp_res = elf_load(interp_buf, interp_size, l4_table, ELF_INTERP_BASE, &main_module, 1);
+    elf_load_result_t interp_res = elf_load(interp_buf, interp_size, l4_table, ELF_INTERP_BASE, &main_object, 1);
 
     if (interp_res.status != ELF_OK) {
         printk("ELF Loader", "Could not load ELF program interpretter, error: %d", interp_res.status);
-        return -3; // ELF_ERR_INTERP_LOAD_FAILED
+        return ELF_ERR_INTERP_LOAD_FAILED;
     }
 
     auxv.at_base = interp_res.load_bias;

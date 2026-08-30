@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <types.h>
+#include "elf_constants.h"
 
 typedef struct {
     uint8_t  e_ident[16];
@@ -17,7 +18,7 @@ typedef struct {
     uint16_t e_shentsize;
     uint16_t e_shnum;
     uint16_t e_shstrndx;
-} __attribute__((packed)) elf64_ehdr;
+} __attribute__((packed)) elf64_ehdr_t;
 
 typedef struct {
     uint32_t p_type;
@@ -52,6 +53,16 @@ typedef struct {
     uint64_t st_value;
     uint64_t st_size;
 } __attribute__((packed)) elf64_sym_t;
+
+typedef struct {
+    const uint8_t *data;
+    uint64_t size;
+
+    const elf64_ehdr_t *ehdr;
+    const elf64_phdr_t *phdrs;
+    uint16_t phnum;
+    uint16_t phentsize;
+} elf_image_t;
 
 typedef enum {
     ELF_OK = 0,
@@ -94,15 +105,12 @@ typedef struct {
 } elf_load_result_t;
 
 typedef struct {
-    const uint8_t* image;
-    uint64_t       image_size;
-    const uint8_t* phdr_base;
-    uint16_t       phnum;
-    uint16_t       phentsize;
-    uint64_t       load_bias;
+    elf_image_t image;
 
-    uint64_t symtab_vaddr; 
+    uint64_t load_bias;
+
+    uint64_t symtab_vaddr;
     uint64_t strtab_vaddr;
-    uint64_t strtab_size;  
-    uint64_t sym_count;   
-} elf_module_t;
+    uint64_t strtab_size;
+    uint64_t sym_count;
+} elf_object_t;
