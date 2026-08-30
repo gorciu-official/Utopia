@@ -63,3 +63,17 @@
 #define ELF_PIE_BASE     0x555555554000ULL
 #define ELF_INTERP_BASE  0x7f0000000000ULL
 #define ELF_INTERP_PATH_MAX 256
+
+#define AT_NULL     0
+#define AT_PHDR     3
+#define AT_PHENT    4
+#define AT_PHNUM    5
+#define AT_PAGESZ    6
+#define AT_BASE     7
+#define AT_ENTRY    9
+#define AT_RANDOM   25
+#define AT_EXECFN 31
+
+#define ELF_PUSH_STACK(sp, value) \
+    *sp -= 8; \
+    *(uint64_t*)(*sp) = value; 

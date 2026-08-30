@@ -683,7 +683,69 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
         return rc;
     }
 
-    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, NULL, 3, &auxv);
+    // TODO: this isn't a good idea either but theoretically it works
+    size_t stack_size = 8192 * 1024;
+    void* stack_base = page_alloc(stack_size / 0x1000);
+    if (!stack_base) {
+        printk("ELF Loader", "Failed to allocate stack for process thread!");
+        free(stack_base);
+        free_page_table(proc_l4);
+        return -1;
+    }
+    
+    uint64_t sp = (uint64_t)stack_base + stack_size;
+    sp &= ~0xFULL;
+    sp -= 16;
+    uint64_t random_addr = sp;
+    
+    uint8_t rand_buf[16];
+    for (int i = 0; i < 16; i++) {
+        rand_buf[i] = (uint8_t)(i ^ 0x42); 
+    }
+    
+    for (int i = 0; i < 16; i++) {
+        ((uint8_t*)random_addr)[i] = rand_buf[i];
+    }
+
+    ELF_PUSH_STACK(&sp, 0);
+    ELF_PUSH_STACK(&sp, AT_NULL);
+    
+    if (auxv.at_entry) {
+        ELF_PUSH_STACK(&sp, auxv.at_entry);
+        ELF_PUSH_STACK(&sp, AT_ENTRY);
+    }
+    
+    if (auxv.at_phdr) {
+        ELF_PUSH_STACK(&sp, auxv.at_phdr);
+        ELF_PUSH_STACK(&sp, AT_PHDR);
+    }
+    
+    ELF_PUSH_STACK(&sp, random_addr);
+    ELF_PUSH_STACK(&sp, AT_RANDOM);
+    
+    ELF_PUSH_STACK(&sp, 4096);
+    ELF_PUSH_STACK(&sp, AT_PAGESZ);
+    
+    ELF_PUSH_STACK(&sp, auxv.at_phent);
+    ELF_PUSH_STACK(&sp, AT_PHENT);
+    
+    ELF_PUSH_STACK(&sp, auxv.at_phnum);
+    ELF_PUSH_STACK(&sp, AT_PHNUM);
+    
+    ELF_PUSH_STACK(&sp, auxv.has_interp ? auxv.at_base : 0);
+    ELF_PUSH_STACK(&sp, AT_BASE);
+    
+    ELF_PUSH_STACK(&sp, 0);
+
+    ELF_PUSH_STACK(&sp, 0); 
+    
+    ELF_PUSH_STACK(&sp, 0); 
+
+    ELF_PUSH_STACK(&sp, 1); 
+    
+    sp &= ~0xFULL;
+
+    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, NULL, 3, (uintptr_t)stack_base, sp, stack_size);
     if (!proc) {
         free_page_table(proc_l4);
         return -1;
