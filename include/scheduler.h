@@ -17,12 +17,13 @@ typedef struct thread {
     uint32_t id;
     char name[32];
     thread_state_t state;
-    registers_t* stack_ptr; 
+    void* stack_ptr; 
     void* stack_base;
     size_t stack_size;
     struct thread* next;
     int ring;
-    struct process* process; 
+    struct process* process;
+    registers_t* regs;
 } thread_t;
 
 typedef struct {

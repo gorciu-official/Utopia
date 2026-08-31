@@ -116,10 +116,9 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     t->next = NULL;
     t->process = NULL;
 
-    registers_t* regs =
-        (registers_t*)(sp - sizeof(registers_t));
-
+    registers_t* regs = malloc(sizeof(registers_t));
     memset(regs, 0, sizeof(registers_t));
+    t->regs = regs;
 
     regs->rip = (uint64_t)entry_point;
 
@@ -136,7 +135,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     regs->ss = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
     regs->rsp = sp;
-    t->stack_ptr = regs;
+    t->stack_ptr = (void*)stack_base;
 
     return t;
 }
@@ -162,7 +161,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
         garbage = next_garbage;
     }
 
-    curr->stack_ptr = regs;
+    curr->regs = regs;
 
     if (curr->state == THREAD_STATE_RUNNING && curr != idle_threads[cpu_id]) {
         curr->state = THREAD_STATE_READY;
@@ -187,7 +186,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
         write_cr3(hhdm_virt_to_phys(next->process->page_table));
     }
 
-    return next->stack_ptr;
+    return next->regs;
 }
 
 void thread_yield(void) {
