@@ -1,18 +1,30 @@
 # makefile adapted from https://github.com/Interpuce/AurorOS/blob/main/Makefile
+# TODO: rewrite to nob.c
 
 ROOT_DIR  := .
 
-BOOTLOADER     ?= limine
+BOOTLOADER            ?= limine
 SUPPORTED_BOOTLOADERS := limine grub
+
+ARCH                    ?= x86_64
+SUPPORTED_ARCHITECTURES := x86_64 riscv64
 
 ifeq ($(filter $(BOOTLOADER),$(SUPPORTED_BOOTLOADERS)),)
 $(error Unsupported BOOTLOADER='$(BOOTLOADER)'. Supported values: $(SUPPORTED_BOOTLOADERS))
 endif
 
+ifeq ($(filter $(ARCH),$(SUPPORTED_ARCHITECTURES)),)
+$(error Unsupported ARCH='$(ARCH)'. Supported values: $(SUPPORTED_ARCHITECTURES))
+endif
+
+ifeq ($(ARCH),riscv64)
+    $(warning RISC-V 64 support in Utopia is extremelly experimental and WILL break)
+endif 
+
 SRC_DIR        := $(ROOT_DIR)/src
 
 # binary dirs
-TARGET_DIR     := $(ROOT_DIR)/target/kernel.x86_64.$(BOOTLOADER)
+TARGET_DIR     := $(ROOT_DIR)/target/kernel.$(ARCH).$(BOOTLOADER)
 OBJ_DIR        := $(TARGET_DIR)/obj
 ISO_DIR        := $(TARGET_DIR)/iso
 BOOT_DIR       := $(ISO_DIR)/boot
@@ -34,11 +46,53 @@ endif
 GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
 LIMINE_CONFIG  := $(SRC_DIR)/build/limine.conf
 
-C_SOURCES      := $(shell find $(SRC_DIR) -type f -name '*.c' ! -name '*.excluded.c')
-ifeq ($(BOOTLOADER),limine)
-ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm' ! -name 'grub-preinit.asm')
+CC             ?= cc 
+AS             ?= nasm
+LD             ?= ld
+
+ifeq ($(AS),nasm)
+    ifneq ($(ARCH),x86_64)
+        $(error NASM is great, but incompatibile with other than x86_64 architectures supported by Utopia. Please choose a different assembler)
+    endif
 else 
-ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm')
+    ifeq ($(ARCH),x86_64)
+        ifeq (,$(findstring nasm,$(AS)))
+            ifeq ($(shell command -v nasm 2>/dev/null),)
+                $(error Compiling Utopia for x86_64 architecture requires NASM assembler. No command nasm exists and nasm is not the AS)
+            else
+                AS := nasm
+            endif
+        endif
+    endif
+endif
+
+CFLAGS         := $(shell tr '\n' ' ' < compile_flags.txt)
+ASFLAGS        :=
+LDFLAGS        := -T $(LINKER_SCRIPT)
+
+ifeq ($(ARCH),x86_64)
+    CFLAGS += -m64 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -DARCHITECTURE=1
+    ASFLAGS += -f elf64
+    LDFLAGS += -m elf_x86_64 
+endif
+ifeq ($(ARCH),riscv64)
+    CFLAGS += -march=rv64gc -mabi=lp64d -DARCHITECTURE=2
+    ASFLAGS += -march=rv64gc
+    LDFLAGS += -m elf64lriscv 
+endif
+
+C_SOURCES := $(shell find $(SRC_DIR) -type f -name '*.c' ! -name '*.excluded.c' ! -path '$(SRC_DIR)/arch/*')
+ifeq ($(BOOTLOADER),limine)
+ASM_SOURCES := $(shell find $(SRC_DIR) -type f \( -name '*.asm' -o -name '*.S' \) ! -path '$(SRC_DIR)/arch/*')
+else
+ASM_SOURCES := $(shell find $(SRC_DIR) -type f \( -name '*.asm' -o -name '*.S' \) ! -path '$(SRC_DIR)/arch/*')
+endif
+
+C_SOURCES   += $(shell find $(SRC_DIR)/arch/$(ARCH) -type f -name '*.c')
+ifeq ($(BOOTLOADER),limine)
+ASM_SOURCES := $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \) ! -name 'grub-preinit.asm')
+else
+ASM_SOURCES := $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \))
 endif
 
 C_OBJECTS      := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SOURCES))
@@ -84,12 +138,12 @@ endif
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@gcc -O0 -g $(shell tr '\n' ' ' < compile_flags.txt) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
+	@$(CC) -O0 -g $(CFLAGS) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@nasm -g -f elf64 $< -o $@
+	@$(AS) -g -f elf64 $< -o $@
 
 build_deps:
 	@chmod +x scripts/mk_bootloader_cfg.sh && ./scripts/mk_bootloader_cfg.sh -e
@@ -98,7 +152,7 @@ build_deps:
 
 build_kernel: $(OBJECTS)
 	@echo -e "\033[1;33m[*]\033[0m Linking objects -> kernel binary"
-	@ld -m elf_x86_64 -T $(LINKER_SCRIPT) -o $(KERNEL_BIN) $(OBJECTS)
+	@$(LD) $(LDFLAGS) -o $(KERNEL_BIN) $(OBJECTS)
 
 ifeq ($(BOOTLOADER),grub)
 build_iso: build_kernel
