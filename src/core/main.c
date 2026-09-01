@@ -1,21 +1,25 @@
+#include "arch/x86_64/common.h"
 #include <types.h> 
 #include <lib/screen.h>
 #include <drivers/acpi.h>
-#include <arch/x86_64/common.h>
-#include <drivers/idt.h>
+#include <arch/common.h>
 #include <memory.h>
 #include <drivers/framebuffer.h>
 #include <drivers/filesystem.h>
-#include <drivers/timer.h>
 #include <drivers/pci.h>
 #include <scheduler.h>
 #include <process.h>
 #include <panic.h>
-
 #include <boot/common.h>
+#include <constants.h>
 
 static inline void cpu_main() {
-    while (true) continue;
+    while (true)
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+        asm volatile("hlt");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+        asm volatile("ebreak");
+#endif
 }
 
 void kmain(common_boot_structure_t* cbs) {
@@ -35,13 +39,7 @@ void kmain(common_boot_structure_t* cbs) {
     }
     
     // cpu init
-    enable_sse();
-    gdt_init();
-    pic_remap(0x20, 0x28);
-    idt_init();
-    timer_init(100);
-    enable_umip();
-    init_syscall();
+    arch_early_init();
 
     // misc init 
     #if BOOTLOADER == BOOTLOADER_CODE_GRUB
@@ -73,7 +71,7 @@ void kmain(common_boot_structure_t* cbs) {
 
     if (cpu_count < 1) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
     else if (cpu_count == 1) printk("Core", "One CPU detected, skipping SMP initialization.");
-    else boot_all_aps(cpu_apic_id, cpu_count);
+    else arch_boot_aps(cpu_apic_id, cpu_count);
 
     // init pci
     pci_scan_bus();
@@ -119,12 +117,8 @@ extern uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
 void ap_main() {
     uint32_t id = current_processor_id();
     ap_alive_table[id] = 1;
-    enable_sse();
-    idt_init();
-    gdt_init();
-    timer_init(100);
-    enable_umip();
-    init_syscall();
+
+    arch_ap_init();
 
     printk("Core", "CPU APIC ID %d fully ready, handing control to the scheduler.", id);
     

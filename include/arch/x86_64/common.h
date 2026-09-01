@@ -1,8 +1,7 @@
 #pragma once
 
 #include <types.h>
-
-#define CPU_ARCH_MAX_CPUS 256
+#include <arch/common.h>
 
 #define __cpuid(level, a, b, c, d) \
     __asm__ volatile ("cpuid" \
@@ -19,17 +18,13 @@ static inline void __cpuid_count(unsigned int level, unsigned int count,
         : "a" (level), "c" (count));
 }
 
-static inline uint32_t current_processor_id(void) {
-    uint32_t eax, ebx, ecx, edx;
-    __cpuid(1, eax, ebx, ecx, edx);
-    return (ebx >> 24);
-}
-
 extern void boot_all_aps(uint8_t* core_apic_ids, int count);
 extern void gdt_init();
 extern void enable_umip(void);
 extern void enable_sse(void);
 extern void init_syscall();
+extern void idt_init();
+extern void pic_remap(int offset1, int offset2);
 
 static inline uint64_t save_interrupts(void) {
     uint64_t rflags;
@@ -45,12 +40,6 @@ static inline void restore_interrupts(uint64_t rflags) {
 }
 
 #define CPU_CR4_UMIP (1UL << 11)
-
-static inline uintptr_t read_cr2(void) {
-    uintptr_t value;
-    __asm__ volatile ("mov %%cr2, %0" : "=r"(value));
-    return value;
-}
 static inline unsigned long read_cr4(void) {
     unsigned long val;
     asm volatile ("mov %%cr4, %0" : "=r"(val));

@@ -8,7 +8,7 @@
 #include <arch/x86_64/registers.h>
 #include <arch/x86_64/msr.h>
 #include <memory.h>
-#include <string.h>
+#include <lib/string.h>
 
 #include "linux.h"
 #include "common.h"
