@@ -10,19 +10,27 @@ $(error Unsupported BOOTLOADER='$(BOOTLOADER)'. Supported values: $(SUPPORTED_BO
 endif
 
 SRC_DIR        := $(ROOT_DIR)/src
-BIN_DIR        := $(ROOT_DIR)/bin/kernel.x86_64.$(BOOTLOADER)
-ISO_DIR        := $(ROOT_DIR)/iso
+
+# binary dirs
+TARGET_DIR     := $(ROOT_DIR)/target/kernel.x86_64.$(BOOTLOADER)
+OBJ_DIR        := $(TARGET_DIR)/obj
+ISO_DIR        := $(TARGET_DIR)/iso
 BOOT_DIR       := $(ISO_DIR)/boot
 GRUB_DIR       := $(BOOT_DIR)/grub
 
-KERNEL_BIN     := $(ROOT_DIR)/kernel.bin
-ISO_FILE       := $(ROOT_DIR)/Utopia.iso
+# final outputs
+KERNEL_BIN     := $(TARGET_DIR)/Utopia.bin
+ISO_FILE       := $(TARGET_DIR)/Utopia.iso
+
+# linker scripts
 ifeq ($(BOOTLOADER),limine)
 LINKER_SCRIPT  := $(SRC_DIR)/build/linker-limine.ld
 endif
 ifeq ($(BOOTLOADER),grub)
 LINKER_SCRIPT  := $(SRC_DIR)/build/linker-grub.ld
 endif
+
+# bootloader config
 GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
 LIMINE_CONFIG  := $(SRC_DIR)/build/limine.conf
 
@@ -33,8 +41,8 @@ else
 ASM_SOURCES    := $(shell find $(SRC_DIR) -type f -name '*.asm')
 endif
 
-C_OBJECTS      := $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.o,$(C_SOURCES))
-ASM_OBJECTS    := $(patsubst $(SRC_DIR)/%.asm,$(BIN_DIR)/%.o,$(ASM_SOURCES))
+C_OBJECTS      := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SOURCES))
+ASM_OBJECTS    := $(patsubst $(SRC_DIR)/%.asm,$(OBJ_DIR)/%.o,$(ASM_SOURCES))
 
 OBJECTS        := $(C_OBJECTS) $(ASM_OBJECTS)
 
@@ -73,20 +81,20 @@ else
 BOOTLOADER_VAL := 2
 endif
 
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.c
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@gcc -O0 -g $(shell tr '\n' ' ' < compile_flags.txt) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
 
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.asm
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@nasm -g -f elf64 $< -o $@
 
 build_deps:
 	@chmod +x scripts/mk_bootloader_cfg.sh && ./scripts/mk_bootloader_cfg.sh -e
-	@if [ -d initramfs ]; then tar --format=ustar -cf iso/initramfs.tar -C $(ROOT_DIR)/initramfs . ; fi
-	@if [ -f font.psf1 ]; then cp font.psf1 iso/ ; fi
+	@if [ -d initramfs ]; then tar --format=ustar -cf $(ISO_DIR)/initramfs.tar -C $(ROOT_DIR)/initramfs . ; fi
+	@if [ -f font.psf1 ]; then cp font.psf1 $(ISO_DIR)/ ; fi
 
 build_kernel: $(OBJECTS)
 	@echo -e "\033[1;33m[*]\033[0m Linking objects -> kernel binary"
@@ -97,7 +105,7 @@ build_iso: build_kernel
 	@echo -e "\033[1;33m[*]\033[0m Creating ISO directory structure"
 	@mkdir -p $(GRUB_DIR)
 	@make build_deps
-	@cp $(KERNEL_BIN) $(BOOT_DIR)
+	@cp $(KERNEL_BIN) $(BOOT_DIR)/kernel.bin
 	@cp $(SRC_DIR)/build/grub.cfg $(GRUB_DIR)/grub.cfg
 	@echo -e "\033[1;33m[*]\033[0m Generating ISO with GRUB"
 	@grub-mkrescue -o $(ISO_FILE) $(ISO_DIR)
@@ -109,7 +117,7 @@ build_iso: build_kernel $(LIMINE_DIR)/limine
 	@rm -rf $(ISO_DIR)
 	@mkdir -p $(ISO_DIR)
 	@make build_deps
-	@cp $(KERNEL_BIN) $(ISO_DIR)/
+	@cp $(KERNEL_BIN) $(ISO_DIR)/kernel.bin
 	@cp $(LIMINE_CONFIG) $(ISO_DIR)/limine.conf
 	@cp $(LIMINE_DIR)/limine-bios.sys $(ISO_DIR)/
 	@cp $(LIMINE_DIR)/limine-bios-cd.bin $(ISO_DIR)/
@@ -126,7 +134,7 @@ endif
 
 clean:
 	@echo -e "\033[1;33m[*]\033[0m Cleaning..."
-	@rm -rf $(BIN_DIR) $(ISO_DIR) $(KERNEL_BIN) $(ISO_FILE)
+	@rm -rf $(TARGET_DIR)
 
 run: all
 	qemu-system-x86_64 $(QEMU_FLAGS)

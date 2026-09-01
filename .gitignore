@@ -1,9 +1,13 @@
-bin
-kernel.bin
-Utopia.iso
-iso
-limine
+# user-generated content
 initramfs
+font.psf1
+
+# external dependencies
+limine
+
+# target dir 
+target
+
+# bootloader configurations
 src/build/grub.cfg
 src/build/limine.conf
-font.psf1
