@@ -25,7 +25,7 @@ static inline uint32_t current_processor_id(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/registers.h>
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-// TODO: put something here
+#include <arch/riscv64/registers.h>
 #endif
 
 static inline uintptr_t read_pf_addr(void) {
