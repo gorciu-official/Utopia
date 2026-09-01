@@ -4,7 +4,7 @@ Utopia is a (probably good) x86_64 operating system kernel.
 
 <div align="center">
     <a href="https://github.com/gorciu-official/Utopia/releases/latest">
-        <img src="https://github.com/gorciu-official/Utopia/blob/main/assets/screenshot.png?raw=true">
+        <img src="https://github.com/gorciu-official/Utopia/blob/main/docs/assets/screenshot.png?raw=true">
     </a>
 </div>
 
