@@ -103,6 +103,7 @@ build_kernel: $(OBJECTS)
 ifeq ($(BOOTLOADER),grub)
 build_iso: build_kernel
 	@echo -e "\033[1;33m[*]\033[0m Creating ISO directory structure"
+	@rm -rf $(ISO_DIR)
 	@mkdir -p $(GRUB_DIR)
 	@make build_deps
 	@cp $(KERNEL_BIN) $(BOOT_DIR)/kernel.bin
