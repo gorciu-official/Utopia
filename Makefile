@@ -142,6 +142,6 @@ run: all
 
 run_dbg: all
 	@chmod +x scripts/run_debug_mode.sh 
-	./scripts/run_debug_mode.sh $(QEMU_FLAGS)
+	./scripts/run_debug_mode.sh $(KERNEL_BIN) $(QEMU_FLAGS)
 
 recompile: clean all
