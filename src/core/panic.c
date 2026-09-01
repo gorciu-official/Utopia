@@ -1,12 +1,36 @@
 #include <types.h>
-#include <arch/x86_64/common.h>
-#include <arch/x86_64/registers.h>
 #include <lib/screen.h>
+#include <constants.h>
+#include <arch/common.h>
 
 static uint32_t invoker = 0;
 static bool panicked = false;
 
 static const char* cpu_exception_name(uintptr_t int_no) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    static const char* exceptions[] = {
+        "Instruction address misaligned",
+        "Instruction access fault",
+        "Illegal instruction",
+        "Breakpoint",
+        "Load address misaligned",
+        "Load access fault",
+        "Store/AMO address misaligned",
+        "Store/AMO access fault",
+        "Environment call from U-mode",
+        "Environment call from S-mode",
+        "Reserved",
+        "Reserved",
+        "Instruction page fault",
+        "Load page fault",
+        "Reserved",
+        "Store/AMO page fault",
+        "Reserved",
+        "Reserved",
+        "Software check",
+        "Hardware error"
+    };
+#elif ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     static const char* exceptions[] = {
         "Divide Error",
         "Debug",
@@ -41,6 +65,7 @@ static const char* cpu_exception_name(uintptr_t int_no) {
         "Security Exception",
         "Reserved"
     };
+#endif
 
     if (int_no < 32) {
         return exceptions[int_no];
@@ -59,12 +84,12 @@ void panic(const char* reason, registers_t* regs) {
         printk("Core", "  - Basic info:    interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
         printk("Core", "  - Registers:     rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
         printk("Core", "  - Registers:     rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
-        printk("Core", "  - Registers:     cr2=%p  rip=%p", read_cr2(), regs->rip);
+        printk("Core", "  - Registers:     cr2=%p  rip=%p", read_pf_addr(), regs->rip);
 
         if (regs->int_no == 14) {
             printk(
                 "Core", "  - Page fault:    %s mode, %s %p", (regs->err_code & (1 << 2)) ? "user" : "kernel",
-                (regs->err_code & (1 << 1)) ? "writing to" : "reading", read_cr2()
+                (regs->err_code & (1 << 1)) ? "writing to" : "reading", read_pf_addr()
             );
         } 
     } else {

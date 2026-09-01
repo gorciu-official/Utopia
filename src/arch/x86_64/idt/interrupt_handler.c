@@ -17,7 +17,7 @@ registers_t* isr_handler(registers_t* regs) {
             printf(
                 "Segmentation fault at %p (%s %p; %s)\n", regs->rip,
                 (regs->err_code & (1 << 1)) ? "writing to" : "reading", 
-                read_cr2(), 
+                read_pf_addr(), 
                 (regs->err_code & (1 << 0)) ? "protection violation" : "non-present"
             );
             thread_exit();
