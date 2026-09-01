@@ -1,6 +1,6 @@
 # Utopia
 
-Utopia is a (probably good) x86_64 operating system kernel.
+Utopia is a (probably good) 64-bit operating system kernel.
 
 <div align="center">
     <a href="https://github.com/gorciu-official/Utopia/releases/latest">
@@ -18,9 +18,22 @@ That's it lol. Please note that this is an hobbyist operating system and probabl
 
 ## System requirements
 
-Have a working x86_64 machine (kinda).
+Have a working `x86_64`/`RISC-V 64` machine (kinda).
 
-Jokes aside but should work everywhere if you have an x86_64 processor. Tested on my machine or in QEMU and everything mostly behaves as it should. 
+Jokes aside but should work everywhere (with a few exceptions of course). Tested on my machine or in QEMU and everything mostly behaves as it should. 
+
+RISC-V support is experimental, so don't mind something not working.
+
+### Support levels
+
+| Architecture | Boot protocol | Support level | Note                                              |
+| ------------ | ------------- | ------------- | ------------------------------------------------- |
+| x86_64       | Limine        | Full          | Dev time mostly focused on this build.            |
+| x86_64       | Multiboot1    | Partial       | Only on machines with one CPU.                    |
+| RISC-V 64    | Limine        | Bad           | Development of this build started kinda recently. |
+| RISC-V 64    | Multiboot1    | Unsupported   | Trying to get Limine version to boot first.       |
+
+I copied the idea of this table from [here](https://git.evalyngoemer.com/evalynOS/evalynOS).
 
 ## Building and testing 
 
