@@ -37,3 +37,20 @@ static inline uintptr_t read_pf_addr(void) {
     return 0;
 #endif
 }
+
+static inline uint64_t arch_save_interrupts(void) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    uint64_t flags;
+    __asm__ volatile("pushfq; pop %0" : "=r"(flags) :: "memory");
+    __asm__ volatile("cli" ::: "memory");
+    return flags;
+#endif
+}
+
+static inline void arch_restore_interrupts(uint64_t flags) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    if (flags & (1 << 9)) {
+        __asm__ volatile("sti" ::: "memory");
+    }
+#endif
+}
