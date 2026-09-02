@@ -16,7 +16,9 @@ static thread_t* garbage_list = NULL;
 static uint32_t next_thread_id = 0;
 
 static inline void write_cr3(uint64_t val) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
+#endif
 }
 
 void scheduler_enqueue(thread_t* t) {
