@@ -1,6 +1,6 @@
 #pragma once
 
-#include <arch/x86_64/registers.h>
+#include <arch/common.h>
 #include <types.h>
 #include <process.h>
 

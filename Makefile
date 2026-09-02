@@ -76,8 +76,8 @@ ifeq ($(ARCH),x86_64)
     LDFLAGS += -m elf_x86_64 
 endif
 ifeq ($(ARCH),riscv64)
-    CFLAGS += -march=rv64gc -mabi=lp64d -DARCHITECTURE=2
-    ASFLAGS += -march=rv64gc
+    CFLAGS += -march=rv64gc_zihintpause -mabi=lp64d -DARCHITECTURE=2
+    ASFLAGS += -march=rv64gc_zihintpause
     LDFLAGS += -m elf64lriscv 
 endif
 

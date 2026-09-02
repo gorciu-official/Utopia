@@ -1,7 +1,7 @@
 #include <scheduler.h>
 #include <process.h>
 #include <memory.h>
-#include <arch/x86_64/common.h>
+#include <arch/common.h>
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <lib/spinlock.h>
@@ -92,7 +92,7 @@ void scheduler_ap_init(void) {
     idle_threads[cpu_id] = ap_thread;
 }
 
-thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg, int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
+thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
     thread_t* t = (thread_t*)malloc(sizeof(thread_t));
     if (!t) {
         printk("Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
@@ -120,22 +120,14 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), void* arg,
     memset(regs, 0, sizeof(registers_t));
     t->regs = regs;
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     regs->rip = (uint64_t)entry_point;
-
-    if (ring == 3) {
-        regs->rdi = 0;
-        regs->rsi = 0;
-        regs->rdx = 0;
-    }
-    else {
-        regs->rdi = (uint64_t)arg;
-    }
-
     regs->cs = ring == 0 ? 0x08 : (0x28 | 3);
     regs->ss = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
     regs->rsp = sp;
     t->stack_ptr = (void*)stack_base;
+#endif
 
     return t;
 }
@@ -183,6 +175,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
     // TODO: this is generally a bad idea since kernel pages are mapped but 
     //       theoretically should work since it clears only lower-half
     if (next->process) {
+        void write_cr3(uintptr_t cr3);
         write_cr3(hhdm_virt_to_phys(next->process->page_table));
     }
 
@@ -190,7 +183,11 @@ registers_t* scheduler_schedule(registers_t* regs) {
 }
 
 void thread_yield(void) {
-    asm volatile("int $32");
+#if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    asm volatile("ebreak");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    asm volatile("int 0x32");
+#endif
 }
 
 void thread_exit(void) {
@@ -217,7 +214,11 @@ void thread_exit(void) {
     thread_yield();
 
     while (true) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         asm volatile("hlt");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+        asm volatile("ebreak");
+#endif
     }
 }
 

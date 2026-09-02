@@ -2,7 +2,7 @@
 #include <scheduler.h>
 #include <process.h>
 #include <lib/screen.h>
-#include <arch/x86_64/registers.h>
+#include <arch/common.h>
 
 #include "common.h"
 
