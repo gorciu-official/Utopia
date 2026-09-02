@@ -34,13 +34,8 @@ GRUB_DIR       := $(BOOT_DIR)/grub
 KERNEL_BIN     := $(TARGET_DIR)/Utopia.bin
 ISO_FILE       := $(TARGET_DIR)/Utopia.iso
 
-# linker scripts
-ifeq ($(BOOTLOADER),limine)
-LINKER_SCRIPT  := $(SRC_DIR)/build/linker-limine.ld
-endif
-ifeq ($(BOOTLOADER),grub)
-LINKER_SCRIPT  := $(SRC_DIR)/build/linker-grub.ld
-endif
+# linker script
+LINKER_SCRIPT  := $(SRC_DIR)/build/linker-$(ARCH)-$(BOOTLOADER).ld
 
 # bootloader config
 GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
@@ -90,13 +85,15 @@ endif
 
 C_SOURCES   += $(shell find $(SRC_DIR)/arch/$(ARCH) -type f -name '*.c')
 ifeq ($(BOOTLOADER),limine)
-ASM_SOURCES := $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \) ! -name 'grub-preinit.asm')
+ASM_SOURCES += $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \) ! -name 'grub-preinit.asm')
 else
-ASM_SOURCES := $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \))
+ASM_SOURCES += $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \))
 endif
 
 C_OBJECTS      := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SOURCES))
-ASM_OBJECTS    := $(patsubst $(SRC_DIR)/%.asm,$(OBJ_DIR)/%.o,$(ASM_SOURCES))
+ASM_OBJECTS := \
+	$(patsubst $(SRC_DIR)/%.asm,$(OBJ_DIR)/%.o,$(filter %.asm,$(ASM_SOURCES))) \
+	$(patsubst $(SRC_DIR)/%.S,$(OBJ_DIR)/%.o,$(filter %.S,$(ASM_SOURCES)))
 
 OBJECTS        := $(C_OBJECTS) $(ASM_OBJECTS)
 
@@ -140,10 +137,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(CC) -O0 -g $(CFLAGS) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm $(SRC_DIR)/%.S
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@$(AS) -g -f elf64 $< -o $@
+	@$(AS) $(ASFLAGS) -g $< -o $@
 
 build_deps:
 	@chmod +x scripts/mk_bootloader_cfg.sh && ./scripts/mk_bootloader_cfg.sh -e
