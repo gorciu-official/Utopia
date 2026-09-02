@@ -3,7 +3,7 @@
 #include <lib/screen.h>
 #include <drivers/framebuffer.h>
 #include <arch/x86_64/common.h>
-#include <arch/x86_64/io.h>
+#include <arch/x86_64/pmio.h>
 
 // keymaps copied from https://github.com/Interpuce/AurorOS/blob/main/src/drivers/keyboard/input.c 
 // some code was adapted from there as well 
@@ -28,10 +28,10 @@ static uint8_t SHIFT_LEFT_PRESSED = 0;
 static uint8_t SHIFT_RIGHT_PRESSED = 0;
 
 static uint8_t read_scancode() {
-    if (!(inb(0x64) & 0x01)) {
+    if (!(arch_inb(0x64) & 0x01)) {
         return 0; 
     }
-    return inb(0x60);
+    return arch_inb(0x60);
 }
 
 volatile uint64_t   positions[CPU_ARCH_MAX_CPUS] = {0};
@@ -50,8 +50,8 @@ int ps2_read(char* buffer, uint64_t size) {
     while (!finished[processor]) 
         asm volatile ("pause");
 
-    while (inb(0x64) & 0x01) {
-        (void)inb(0x60); // flush stale byte
+    while (arch_inb(0x64) & 0x01) {
+        (void)arch_inb(0x60); // flush stale byte
     }
 
     // i think we can leave garbage in arrays, since finished is true and it wont matter anyways 

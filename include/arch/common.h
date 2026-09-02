@@ -54,3 +54,6 @@ static inline void arch_restore_interrupts(uint64_t flags) {
     }
 #endif
 }
+
+int arch_init_serial();
+void arch_serial_putchar(char c);

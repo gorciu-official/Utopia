@@ -2,12 +2,10 @@
 #include <drivers/framebuffer.h>
 #include <lib/screen.h>
 #include <memory.h>
-#include <arch/x86_64/io.h>
 #include <lib/string.h>
+#include <arch/common.h>
 
 #include "font-8x8.h"
-
-#define COM1 0x3F8
 
 #define PSF1_MAGIC0 0x36
 #define PSF1_MAGIC1 0x04
@@ -77,27 +75,6 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
 
     if (cursor_y >= fb_height)
         cursor_y = 0;
-}
-
-static int init_serial() {
-    outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x80);
-    outb(COM1 + 0, 0x03);
-    outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x03);
-    outb(COM1 + 2, 0xC7);
-    outb(COM1 + 4, 0x0B);
-
-    outb(COM1 + 4, 0x1E);
-    outb(COM1, 0xAE);
-
-    if (inb(COM1) != 0xAE)
-        return 1;
-
-    outb(COM1 + 4, 0x0F);
-
-    serial_used = true;
-    return 0;
 }
 
 void framebuffer_init(
@@ -382,13 +359,10 @@ void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t
 
 void framebuffer_putchar(char c, uint32_t fg, uint32_t bg) {
     if (!serial_used)
-        init_serial();
+        arch_init_serial();
 
-    if (serial_used) {
-        while ((inb(COM1 + 5) & 0x20) == 0);
-
-        outb(COM1, c);
-    }
+    if (serial_used)
+        arch_serial_putchar(c);
 
     uint32_t font_height = framebuffer_font_height();
 

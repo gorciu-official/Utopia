@@ -1,6 +1,6 @@
 #include <arch/x86_64/common.h>
 #include <types.h>
-#include <arch/x86_64/io.h>
+#include <arch/x86_64/pmio.h>
 #include <lib/screen.h>
 
 bool used_before = false;
@@ -14,9 +14,9 @@ void timer_init(uint32_t frequency) {
 
         uint32_t divisor = 1193180 / frequency;
 
-        outb(0x43, 0x36);
-        outb(0x40, (uint8_t)(divisor & 0xFF));
-        outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
+        arch_outb(0x43, 0x36);
+        arch_outb(0x40, (uint8_t)(divisor & 0xFF));
+        arch_outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
 
         void tsc_init();
         tsc_init();
