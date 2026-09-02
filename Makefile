@@ -137,7 +137,12 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(CC) -O0 -g $(CFLAGS) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm $(SRC_DIR)/%.S
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm
+	@mkdir -p $(dir $@)
+	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
+	@$(AS) $(ASFLAGS) -g $< -o $@
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.S
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(AS) $(ASFLAGS) -g $< -o $@
