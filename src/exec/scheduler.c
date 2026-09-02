@@ -15,6 +15,10 @@ static thread_t* ready_queue_tail = NULL;
 static thread_t* garbage_list = NULL;
 static uint32_t next_thread_id = 0;
 
+static inline void write_cr3(uint64_t val) {
+    __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
+}
+
 void scheduler_enqueue(thread_t* t) {
     spinlock_acquire(&scheduler_lock);
     t->state = THREAD_STATE_READY;
@@ -175,7 +179,6 @@ registers_t* scheduler_schedule(registers_t* regs) {
     // TODO: this is generally a bad idea since kernel pages are mapped but 
     //       theoretically should work since it clears only lower-half
     if (next->process) {
-        void write_cr3(uintptr_t cr3);
         write_cr3(hhdm_virt_to_phys(next->process->page_table));
     }
 
@@ -186,7 +189,7 @@ void thread_yield(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     asm volatile("ebreak");
 #elif ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    asm volatile("int 0x32");
+    asm volatile("int $0x32");
 #endif
 }
 
