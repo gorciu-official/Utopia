@@ -1,13 +1,13 @@
 #include <types.h>
-#include <arch/x86_64/io.h>
+#include <arch/x86_64/pmio.h>
 #include <lib/screen.h>
 #include <drivers/pci.h>
 
 uint32_t pci_read32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     offset &= 0xFC; // "its for good cpu performence x86 said some dude on reddit"
                     // ~ funcieqDEV
-    outl(PCI_CONFIG_ADDRESS, PCI_MAKE_ADDR(bus, slot, func, offset));
-    return inl(PCI_CONFIG_DATA);
+    arch_outl(PCI_CONFIG_ADDRESS, PCI_MAKE_ADDR(bus, slot, func, offset));
+    return arch_inl(PCI_CONFIG_DATA);
 }
 
 uint32_t pci_get_device_id(uint8_t bus, uint8_t slot, uint8_t func) {

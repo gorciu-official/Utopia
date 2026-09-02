@@ -1,5 +1,5 @@
 #include <types.h>
-#include <arch/x86_64/io.h>
+#include <arch/x86_64/pmio.h>
 #include <lib/screen.h>
 
 #define PIC1_CMD 0x20
@@ -20,34 +20,34 @@ void pic_remap(int offset1, int offset2) {
     asm volatile("inb %1, %0" : "=a"(a1) : "Nd"(PIC1_DATA));
     asm volatile("inb %1, %0" : "=a"(a2) : "Nd"(PIC2_DATA));
 
-    outb(PIC1_CMD, 0x11);
+    arch_outb(PIC1_CMD, 0x11);
     io_wait();
-    outb(PIC2_CMD, 0x11);
+    arch_outb(PIC2_CMD, 0x11);
     io_wait();
-    outb(PIC1_DATA, offset1);
+    arch_outb(PIC1_DATA, offset1);
     io_wait();
-    outb(PIC2_DATA, offset2);
+    arch_outb(PIC2_DATA, offset2);
     io_wait();
-    outb(PIC1_DATA, 4);
+    arch_outb(PIC1_DATA, 4);
     io_wait();
-    outb(PIC2_DATA, 2);
+    arch_outb(PIC2_DATA, 2);
     io_wait();
-    outb(PIC1_DATA, 0x01);
+    arch_outb(PIC1_DATA, 0x01);
     io_wait();
-    outb(PIC2_DATA, 0x01);
+    arch_outb(PIC2_DATA, 0x01);
     io_wait();
 
-    outb(PIC1_DATA, a1);
-    outb(PIC2_DATA, a2);
+    arch_outb(PIC1_DATA, a1);
+    arch_outb(PIC2_DATA, a2);
 
     // Unmask: IRQ 0 and IRQ 1
-    outb(PIC1_DATA, inb(PIC1_DATA) & ~(1 << 0));
-    outb(PIC1_DATA, inb(PIC1_DATA) & ~(1 << 1));
+    arch_outb(PIC1_DATA, arch_inb(PIC1_DATA) & ~(1 << 0));
+    arch_outb(PIC1_DATA, arch_inb(PIC1_DATA) & ~(1 << 1));
 }
 
 void pic_send_eoi(uint32_t vector) {
     if (vector >= 40) {
-        outb(PIC2_CMD, 0x20);
+        arch_outb(PIC2_CMD, 0x20);
     }
-    outb(PIC1_CMD, 0x20);
+    arch_outb(PIC1_CMD, 0x20);
 }
