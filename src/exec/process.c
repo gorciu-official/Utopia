@@ -1,7 +1,7 @@
 #include <process.h>
 #include <panic.h>
 #include <memory.h>
-#include <arch/x86_64/common.h>
+#include <arch/common.h>
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <lib/spinlock.h>
@@ -15,7 +15,7 @@ void process_init(void) {
     process_list_head = NULL;
 }
 
-process_t* process_create(const char* name, void (*entry_point)(void*), void* arg, int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
+process_t* process_create(const char* name, void (*entry_point)(void*), int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
     process_t* proc = (process_t*)malloc(sizeof(process_t));
     if (!proc) {
         printk("Process", "Failed to allocate PCB for '%s'!", name);
@@ -33,7 +33,7 @@ process_t* process_create(const char* name, void (*entry_point)(void*), void* ar
     strcpy(proc->name, name);
     proc->page_table = pt;
 
-    thread_t* main_thread = thread_create(name, entry_point, arg, ring, stack_base, sp, stack_size);
+    thread_t* main_thread = thread_create(name, entry_point, ring, stack_base, sp, stack_size);
     if (!main_thread) {
         printk("Process", "Failed to create main thread for '%s'!", name);
         free_page_table(pt);

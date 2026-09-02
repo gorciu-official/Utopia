@@ -5,10 +5,13 @@
 #include <lib/screen.h>
 #include <drivers/ps2.h>
 #include <drivers/filesystem.h>
-#include <arch/x86_64/registers.h>
-#include <arch/x86_64/msr.h>
 #include <memory.h>
 #include <lib/string.h>
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+#include <arch/x86_64/common.h>
+#include <arch/x86_64/msr.h>
+#endif
 
 #include "linux.h"
 #include "common.h"
@@ -176,10 +179,12 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     }
 
     if (fd == 0) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         asm volatile ("sti"); // TODO: temporary fix, syscalls should not enable interrupts
         uintptr_t ret = ps2_read(buf, count);
         asm volatile ("cli");
         return ret;
+#endif
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
@@ -478,6 +483,7 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
 
     dprintk("Syscall", "Calling arch_ptrctl with code %d addr %p", code, addr);
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     switch (code) {
     case ARCH_SET_FS:
         write_msr(IA32_FS_BASE, addr);
@@ -502,6 +508,10 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
     default:
         return -ENOSYS;
     }
+#else 
+    (void)code; (void)addr;
+    return 0;
+#endif
 }
 
 SYSCALL_DEFINE_LINUX(exit) {
@@ -793,6 +803,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [318] = syscall_linux_getrandom
 };
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
     return (syscall_regs_t){
         .syscall_no = regs->rax,
@@ -806,3 +817,6 @@ static void syscall_set_return_val(int64_t val, registers_t* regs) {
 }
 
 SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_set_return_val, -ENOSYS);
+#else
+SYSCALL_ABI_DEFINE(linux, syscall_linux_table, NULL, NULL, -ENOSYS);
+#endif

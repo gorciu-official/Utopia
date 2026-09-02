@@ -1,7 +1,7 @@
 #include <types.h>
 #include <constants.h>
 #include <memory.h>
-#include <arch/x86_64/common.h>
+#include <arch/common.h>
 #include <process.h>
 #include <scheduler.h>
 #include <lib/screen.h>
@@ -750,7 +750,7 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
     
     sp &= ~0xFULL;
 
-    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, NULL, 3, (uintptr_t)stack_base, sp, stack_size);
+    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, 3, (uintptr_t)stack_base, sp, stack_size);
     if (!proc) {
         free_page_table(proc_l4);
         return -1;

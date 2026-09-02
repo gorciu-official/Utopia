@@ -28,7 +28,9 @@ static volatile struct limine_executable_address_request exec_addr_request = {
 void vmm_init(void) {
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
     uint64_t cr3_phys;
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     asm volatile("mov %%cr3, %0" : "=r"(cr3_phys));
+#endif
     page_table_l4 = (uint64_t*)phys_to_virt(cr3_phys & PAGE_PHYS_MASK);
 #endif
 }
@@ -112,7 +114,9 @@ void set_page_permissions(uint64_t virt, uint64_t flags) {
     l3[l3_idx] |= (flags & (PAGE_USER | PAGE_RW));
     if (l3[l3_idx] & PAGE_HUGE) {
         l3[l3_idx] = (l3[l3_idx] & PAGE_PHYS_MASK) | flags | PAGE_HUGE;
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
         return;
     }
     uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
@@ -126,7 +130,9 @@ void set_page_permissions(uint64_t virt, uint64_t flags) {
         l1[l1_idx] = (l1[l1_idx] & PAGE_PHYS_MASK) | flags;
     }
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
 }
 
 void set_page_executable(uint64_t virt, bool executable) {
@@ -148,7 +154,9 @@ void set_page_executable(uint64_t virt, bool executable) {
         } else {
             l3[l3_idx] |= PAGE_NX;
         }
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
         return;
     }
 
@@ -162,7 +170,9 @@ void set_page_executable(uint64_t virt, bool executable) {
             l2[l2_idx] |= PAGE_NX;
         }
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
         return;
     }
 
@@ -178,7 +188,9 @@ void set_page_executable(uint64_t virt, bool executable) {
         l1[l1_idx] |= PAGE_NX;
     }
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
 }
 
 static void free_table_level(uint64_t* table, int level) {
@@ -307,7 +319,9 @@ int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags
     
         uint64_t region_base = virt & ~0x1FFFFFULL;
         for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
             __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
+#endif
         }
     }
 
@@ -322,7 +336,9 @@ int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags
 
     l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
     return 0;
 }
 
@@ -363,7 +379,9 @@ int protect_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t flags) {
         
         uint64_t region_base = virt & ~0x1FFFFFULL;
         for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
             __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
+#endif
         }
     }
 
@@ -373,7 +391,9 @@ int protect_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t flags) {
     uint64_t phys = l1[l1_idx] & PAGE_PHYS_MASK;
     l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
     return 0;
 }
 
@@ -411,13 +431,17 @@ int unmap_page_4k(uint64_t* l4_table, uint64_t virt) {
 
         uint64_t region_base = virt & ~0x1FFFFFULL;
         for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
             __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
+#endif
         }
     }
 
     uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
     if (!(l1[l1_idx] & PAGE_PRESENT)) return 0;
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+#endif
     return 0;
 }

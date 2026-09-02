@@ -1,5 +1,5 @@
 #pragma once
 
-#include <arch/x86_64/registers.h>
+#include <arch/common.h>
 
 void panic(const char* reason, registers_t* regs);

@@ -3,7 +3,7 @@
 #include <arguments.h>
 #include <lib/numbers.h>
 #include <drivers/timer.h>
-#include <arch/x86_64/common.h>
+#include <arch/common.h>
 
 static uint32_t current_fg = 0xFFFFFF;
 static uint32_t current_bg = 0x000000;
@@ -208,7 +208,7 @@ static bool console_suspended = false;
 void printk(const char* module, const char *fmt, ...) {
     if (console_suspended) return;
 
-    uint64_t flags = save_interrupts();
+    uint64_t flags = arch_save_interrupts();
 
     // that should be pretty safe because
     // the first log comes from bootstrap processor
@@ -258,7 +258,7 @@ void printk(const char* module, const char *fmt, ...) {
 
     spinlock_release(&fb_spinlock);
 
-    restore_interrupts(flags);
+    arch_restore_interrupts(flags);
 }
 
 void printk_suspend_console() {

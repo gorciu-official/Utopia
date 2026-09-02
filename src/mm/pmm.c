@@ -356,7 +356,7 @@ int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
 void* malloc(size_t size) {
     if (size == 0) return NULL;
 
-    uint64_t flags = save_interrupts();
+    uint64_t flags = arch_save_interrupts();
 
     size = (size + 7) & ~7;
 
@@ -380,14 +380,14 @@ void* malloc(size_t size) {
         curr = curr->next;
     }
 
-    restore_interrupts(flags);
+    arch_restore_interrupts(flags);
     return result;
 }
 
 void free(void* ptr) {
     if (!ptr) return;
 
-    uint64_t flags = save_interrupts();
+    uint64_t flags = arch_save_interrupts();
 
     heap_block_t* block = (heap_block_t*)((uint8_t*)ptr - sizeof(heap_block_t));
     block->free = true;
@@ -402,14 +402,14 @@ void free(void* ptr) {
         }
     }
 
-    restore_interrupts(flags);
+    arch_restore_interrupts(flags);
 }
 
 void* page_alloc(uint64_t pages) {
     size_t alignment = 4096;
     size_t size = 4096 * pages;
 
-    uint64_t flags = save_interrupts();
+    uint64_t flags = arch_save_interrupts();
 
     heap_block_t* curr = head;
     void* result = NULL;
@@ -456,6 +456,6 @@ void* page_alloc(uint64_t pages) {
         curr = curr->next;
     }
 
-    restore_interrupts(flags);
+    arch_restore_interrupts(flags);
     return result;
 }

@@ -26,19 +26,6 @@ extern void init_syscall();
 extern void idt_init();
 extern void pic_remap(int offset1, int offset2);
 
-static inline uint64_t save_interrupts(void) {
-    uint64_t rflags;
-    __asm__ volatile("pushfq; pop %0" : "=r"(rflags) :: "memory");
-    __asm__ volatile("cli" ::: "memory");
-    return rflags;
-}
-
-static inline void restore_interrupts(uint64_t rflags) {
-    if (rflags & (1 << 9)) {
-        __asm__ volatile("sti" ::: "memory");
-    }
-}
-
 #define CPU_CR4_UMIP (1UL << 11)
 static inline unsigned long read_cr4(void) {
     unsigned long val;
