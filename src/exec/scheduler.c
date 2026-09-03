@@ -189,7 +189,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
 
 void thread_yield(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-    asm volatile("ebreak");
+    asm volatile("wfi");
 #elif ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     asm volatile("int $0x32");
 #endif
@@ -222,7 +222,7 @@ void thread_exit(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         asm volatile("hlt");
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-        asm volatile("ebreak");
+        asm volatile("wfi");
 #endif
     }
 }
