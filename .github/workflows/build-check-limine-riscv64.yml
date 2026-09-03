@@ -1,0 +1,45 @@
+name: Build Check for Limine RISC-V 64
+
+on:
+  push:
+    branches: [main, dev-riscv]
+  pull_request:
+    branches: [main, dev-riscv]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            pkg-config \
+            nasm \
+            xorriso \
+            mtools \
+            gcc-riscv64-unknown-elf \
+            binutils-riscv64-unknown-elf
+
+      - name: Check RISC-V toolchain
+        run: |
+          riscv64-unknown-elf-gcc --version
+          riscv64-unknown-elf-ld --version
+          riscv64-unknown-elf-objcopy --version
+
+      - name: Build project
+        run: |
+          make BOOTLOADER=limine ARCH=riscv64 \
+            CC=riscv64-unknown-elf-gcc \
+            LD=riscv64-unknown-elf-ld \
+            AS=riscv64-unknown-elf-as \
+            AR=riscv64-unknown-elf-ar \
+            OBJCOPY=riscv64-unknown-elf-objcopy \
+            -j$(nproc)
