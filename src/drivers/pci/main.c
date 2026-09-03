@@ -1,3 +1,7 @@
+#include <constants.h>
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+
 #include <types.h>
 #include <arch/x86_64/pmio.h>
 #include <lib/screen.h>
@@ -67,3 +71,5 @@ void pci_scan_bus() {
         }
     }
 }
+
+#endif

@@ -32,3 +32,7 @@ void arch_ap_init() {
 void arch_late_init() {
     pci_scan_bus();
 }
+
+void arch_general_init() {
+    acpi_init();
+}
