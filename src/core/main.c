@@ -57,6 +57,7 @@ void kmain(common_boot_structure_t* cbs) {
         );
     memory_init();
     framebuffer_enable_backbuffer();
+    arch_general_init();
 
     // scheduler init
     scheduler_init();

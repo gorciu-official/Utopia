@@ -1,3 +1,7 @@
+#include <constants.h>
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+
 #include <types.h>
 #include <drivers/ps2.h>
 #include <lib/screen.h>
@@ -116,3 +120,5 @@ void ps2_interrupt_handler() {
         finished[processor] = true;
     }
 }
+
+#endif

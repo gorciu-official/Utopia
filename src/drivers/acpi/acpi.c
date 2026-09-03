@@ -1,3 +1,7 @@
+#include <constants.h>
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+
 #include "definitions.h"
 #include <lib/screen.h>
 #include <memory.h>
@@ -165,3 +169,5 @@ void acpi_init() {
 
     printk("ACPI", "ACPI has been initialized successfully.");
 }
+
+#endif

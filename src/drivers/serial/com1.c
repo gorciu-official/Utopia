@@ -1,3 +1,7 @@
+#include <constants.h>
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+
 #include <arch/x86_64/pmio.h>
 
 #define COM1 0x3F8
@@ -26,3 +30,5 @@ void arch_serial_putchar(char c) {
     while ((arch_inb(COM1 + 5) & 0x20) == 0);
     arch_outb(COM1, c);
 }
+
+#endif
