@@ -358,8 +358,8 @@ void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t
 }
 
 void framebuffer_putchar(char c, uint32_t fg, uint32_t bg) {
-    if (!serial_used)
-        arch_init_serial();
+    if (!serial_used) 
+        serial_used = !(bool)arch_init_serial();
 
     if (serial_used)
         arch_serial_putchar(c);
