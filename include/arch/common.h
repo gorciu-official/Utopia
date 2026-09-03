@@ -6,8 +6,9 @@
 #define CPU_ARCH_MAX_CPUS 256
 
 extern void arch_early_init(void);
+extern void arch_late_init(void);
 extern void arch_ap_init(void);
-extern void arch_boot_aps(uint8_t* ids, int count);
+extern void arch_boot_aps(void);
 
 static inline uint32_t current_processor_id(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64

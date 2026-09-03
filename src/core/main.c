@@ -1,7 +1,5 @@
-#include "arch/x86_64/common.h"
 #include <types.h> 
 #include <lib/screen.h>
-#include <drivers/acpi.h>
 #include <arch/common.h>
 #include <memory.h>
 #include <drivers/framebuffer.h>
@@ -59,22 +57,16 @@ void kmain(common_boot_structure_t* cbs) {
         );
     memory_init();
     framebuffer_enable_backbuffer();
-    acpi_init();
 
     // scheduler init
     scheduler_init();
     process_init();
 
     // ap bootstrap
-    uint8_t cpu_apic_id[CPU_ARCH_MAX_CPUS];
-    int cpu_count = acpi_get_cpus(cpu_apic_id, CPU_ARCH_MAX_CPUS);
-
-    if (cpu_count < 1) printk("Core", "Could not start APs: ACPI returned invalid number of CPUs: %d", cpu_count);
-    else if (cpu_count == 1) printk("Core", "One CPU detected, skipping SMP initialization.");
-    else arch_boot_aps(cpu_apic_id, cpu_count);
+    arch_boot_aps();
 
     // init pci
-    pci_scan_bus();
+    arch_late_init();
 
     // init filesystem
     vfs_init();
