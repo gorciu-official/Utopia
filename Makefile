@@ -135,7 +135,7 @@ $(LIMINE_DIR)/limine:
 	@echo -e "\033[1;34m[*]\033[0m Downloading Limine..."
 	@git clone $(LIMINE_URL) --branch=$(LIMINE_BRANCH) --depth=1 $(LIMINE_DIR)
 	@echo -e "\033[1;34m[*]\033[0m Building Limine tool..."
-	@$(MAKE) -C $(LIMINE_DIR) limine
+	@CC= AS= LD= $(MAKE) -C $(LIMINE_DIR) limine
 endif
 
 ifeq ($(BOOTLOADER),limine)
