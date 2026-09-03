@@ -2,9 +2,9 @@ name: Build Check for Limine x64
 
 on:
   push:
-    branches: [main]
+    branches: [main dev-riscv]
   pull_request:
-    branches: [main]
+    branches: [main dev-riscv]
 
 jobs:
   build:
@@ -20,4 +20,4 @@ jobs:
           sudo apt-get install -y build-essential clang cmake pkg-config nasm xorriso mtools
 
       - name: Build project
-        run: make BOOTLOADER=limine -j
+        run: make BOOTLOADER=limine ARCH=x86_64 -j
