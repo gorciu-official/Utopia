@@ -122,7 +122,7 @@ void panic(const char* reason, registers_t* regs) {
         );
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
         // TODO: there should be a disable interrupts thingy
-        asm volatile ("ebreak");
+        asm volatile ("wfi");
 #endif
 
     // TODO: maybe send init IPIs to APs?

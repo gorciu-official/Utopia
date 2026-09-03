@@ -3,8 +3,10 @@
 
 uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
 
-void arch_early_init() {
+extern void arch_init_interrupts();
 
+void arch_early_init() {
+    arch_init_interrupts();
 }
 
 void arch_general_init() {

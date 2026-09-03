@@ -16,7 +16,7 @@ static inline void cpu_main() {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
         asm volatile("hlt");
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-        asm volatile("ebreak");
+        asm volatile("wfi");
 #endif
 }
 
