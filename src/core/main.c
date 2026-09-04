@@ -13,11 +13,7 @@
 
 static inline void cpu_main() {
     while (true)
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        asm volatile("hlt");
-#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-        asm volatile("wfi");
-#endif
+        arch_wfi();
 }
 
 void kmain(common_boot_structure_t* cbs) {
