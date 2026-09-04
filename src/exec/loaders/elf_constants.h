@@ -7,6 +7,7 @@
 #define ELFCLASS64      2
 #define ELFDATA2LSB     1
 #define EM_X86_64       0x3e
+#define EM_RISCV64      243
 
 #define ET_EXEC         2
 #define ET_DYN          3
