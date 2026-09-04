@@ -57,10 +57,12 @@ static inline void arch_cli() {
 #define arch_invi(int_no) \
     __asm__ volatile("int %0" :: "i"(int_no) : "memory")
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+// TODO: this is a bad idea but I don't have any better
 #define arch_invi(int_no) \
     __asm__ volatile("wfi" ::: "memory")
 #endif
 
+// TODO: add irq lock for riscv64
 static inline uint64_t arch_save_interrupts(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     uint64_t flags;
@@ -68,9 +70,11 @@ static inline uint64_t arch_save_interrupts(void) {
     __asm__ volatile("cli" ::: "memory");
     return flags;
 #endif
+    return 0;
 }
 
 static inline void arch_restore_interrupts(uint64_t flags) {
+    (void)flags;
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     if (flags & (1 << 9)) {
         __asm__ volatile("sti" ::: "memory");
