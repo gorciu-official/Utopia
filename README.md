@@ -35,9 +35,11 @@ RISC-V support is experimental, so don't mind something not working.
 
 I copied the idea of this table from [here](https://git.evalyngoemer.com/evalynOS/evalynOS).
 
-## Building and testing 
+## Running the project
 
-For this kind of information refer to the [CONTRIBUTING.md](docs/CONTRIBUTING.md) file.
+You can simply [download the latest release from GitHub](https://github.com/gorciu-official/utopia/releases/latest).
+
+If you want to compile the project yourself, refer to the [docs/BUILDING.md](docs/BUILDING.md) file. If you also want to contribute back, the [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) file is worth reading too.
 
 ## Software
 
