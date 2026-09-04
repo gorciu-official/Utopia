@@ -1,3 +1,4 @@
+#include "arch/memory.h"
 #include <scheduler.h>
 #include <process.h>
 #include <memory.h>
@@ -109,7 +110,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, 
         for (size_t i = 0; i < stack_size; i += 4096) {
             set_page_permissions(
                 (uintptr_t)stack_base + i,
-                PAGE_RW | PAGE_USER | PAGE_PRESENT
+                VMF_USER | VMF_WRITE 
             );
         }
     }

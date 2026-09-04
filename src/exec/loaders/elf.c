@@ -7,6 +7,7 @@
 #include <lib/screen.h>
 #include <drivers/filesystem.h>
 
+#include "arch/memory.h"
 #include "elf_constants.h"
 #include "elf_structs.h"
 
@@ -25,9 +26,9 @@
 
 static uint64_t page_flags_for(uint32_t p_flags) {
     uint64_t flags = 0;
-    if (p_flags & PF_W) flags |= PAGE_RW;
-    flags |= PAGE_USER;
-    if (!(p_flags & PF_X)) flags |= PAGE_NX;
+    if (p_flags & PF_W) flags |= VMF_WRITE;
+    flags |= VMF_USER;
+    if (p_flags & PF_X) flags |= VMF_EXEC;
     return flags;
 }
 
@@ -50,24 +51,6 @@ static void* elf_uv2kv(uint64_t *l4_table, uint64_t vaddr) {
     uint64_t phys = pt[pt_i] & PTE_ADDR_MASK;
 
     return (void*)(phys_to_virt(phys) + (vaddr & 0xFFF));
-}
-
-static uint64_t* elf_walk_pte_slot(uint64_t *l4_table, uint64_t vaddr) {
-    uint64_t pml4_i = (vaddr >> 39) & 0x1FF;
-    uint64_t pdpt_i = (vaddr >> 30) & 0x1FF;
-    uint64_t pd_i   = (vaddr >> 21) & 0x1FF;
-    uint64_t pt_i   = (vaddr >> 12) & 0x1FF;
-
-    if (!(l4_table[pml4_i] & PAGE_PRESENT)) return NULL;
-    uint64_t* pdpt = (uint64_t *)phys_to_virt(l4_table[pml4_i] & PTE_ADDR_MASK);
-
-    if (!(pdpt[pdpt_i] & PAGE_PRESENT)) return NULL;
-    uint64_t* pd = (uint64_t *)phys_to_virt(pdpt[pdpt_i] & PTE_ADDR_MASK);
-
-    if (!(pd[pd_i] & PAGE_PRESENT)) return NULL;
-    uint64_t* pt = (uint64_t *)phys_to_virt(pd[pd_i] & PTE_ADDR_MASK);
-
-    return &pt[pt_i];
 }
 
 static const void* elf_vaddr_to_fileptr(
@@ -479,32 +462,18 @@ elf_load_result_t elf_load(
             uint64_t phys;
             uint8_t* dst;
 
-            uint64_t* pte = elf_walk_pte_slot(l4_table, page_va);
-            bool already_mapped = pte && (*pte & PAGE_PRESENT);
+            phys = hhdm_virt_to_phys(pt_pool_alloc());
+            if (!phys) {
+                result.status = ELF_ERR_NO_MEMORY;
+                return result;
+            }
 
-            if (already_mapped) {
-                phys = *pte & PTE_ADDR_MASK;
-                dst  = (uint8_t *)phys_to_virt(phys);
+            dst = (uint8_t *)phys_to_virt(phys);
+            for (int b = 0; b < 4096; b++) dst[b] = 0;
 
-                uint64_t merged = *pte;
-                if (flags & PAGE_RW)    merged |= PAGE_RW;
-                if (!(flags & PAGE_NX)) merged &= ~PAGE_NX;
-                merged |= PAGE_USER;
-                *pte = merged;
-            } else {
-                phys = hhdm_virt_to_phys(pt_pool_alloc());
-                if (!phys) {
-                    result.status = ELF_ERR_NO_MEMORY;
-                    return result;
-                }
-
-                dst = (uint8_t *)phys_to_virt(phys);
-                for (int b = 0; b < 4096; b++) dst[b] = 0;
-
-                if (map_page_4k(l4_table, page_va, phys, flags) != 0) {
-                    result.status = ELF_ERR_MAP_FAILED;
-                    return result;
-                }
+            if (map_page_4k(l4_table, page_va, phys, flags) != 0) {
+                result.status = ELF_ERR_MAP_FAILED;
+                return result;
             }
 
             uint64_t page_end = page_va + 0x1000;
