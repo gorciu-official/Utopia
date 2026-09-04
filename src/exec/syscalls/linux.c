@@ -1,3 +1,4 @@
+#include "arch/memory.h"
 #include <constants.h>
 #include <process.h>
 #include <scheduler.h>
@@ -30,7 +31,7 @@ static int grow_process_brk(process_t* process, uint64_t new_break) {
 
         memset(phys_to_virt(phys), 0, 0x1000);
 
-        if (map_page_4k(process->page_table, addr, phys, PAGE_RW | PAGE_USER | PAGE_NX) != 0) {
+        if (map_page_4k(process->page_table, addr, phys, VMF_USER | VMF_WRITE) != 0) {
             return -1;
         }
     }
@@ -277,9 +278,9 @@ SYSCALL_DEFINE_LINUX(mprotect) {
 
     uint64_t aligned_len = page_align_up(length);
 
-    uint64_t pflags = PAGE_PRESENT | PAGE_USER;
-    if (prot & 0x2) pflags |= PAGE_RW;
-    if (!(prot & 0x1)) pflags |= PAGE_NX; 
+    uint64_t pflags = VMF_USER;
+    if (prot & 0x2) pflags |= VMF_WRITE;
+    if (prot & 0x1) pflags |= VMF_EXEC; 
 
     for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
         if (protect_page_4k(process->page_table, va, pflags) != 0) {
@@ -565,9 +566,9 @@ SYSCALL_DEFINE_LINUX(mmap) {
         target_vaddr = page_align_up(addr);
     }
 
-    uint64_t pflags = PAGE_USER | PAGE_PRESENT;
-    if (prot & 0x2) pflags |= PAGE_RW;
-    if (!(prot & 0x1)) pflags |= PAGE_NX;
+    uint64_t pflags = VMF_USER;
+    if (prot & 0x2) pflags |= VMF_WRITE;
+    if (prot & 0x1) pflags |= VMF_EXEC;
 
     bool anonymous = (flags & MAP_ANONYMOUS) || fd < 0;
     vnode_t *node = NULL;
