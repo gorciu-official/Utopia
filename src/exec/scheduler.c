@@ -1,4 +1,5 @@
-#include "arch/memory.h"
+#include <arch/memory.h>
+#include <arch/common.h>
 #include <scheduler.h>
 #include <process.h>
 #include <memory.h>
@@ -17,6 +18,7 @@ static thread_t* garbage_list = NULL;
 static uint32_t next_thread_id = 0;
 
 static inline void write_cr3(uint64_t val) {
+    (void)val;
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
 #endif
@@ -100,6 +102,7 @@ void scheduler_ap_init(void) {
 }
 
 thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
+    (void)sp; (void)entry_point; // for riscv
     thread_t* t = (thread_t*)malloc(sizeof(thread_t));
     if (!t) {
         printk("Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
