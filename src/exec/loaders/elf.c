@@ -403,7 +403,12 @@ elf_load_result_t elf_load(
         result.status = ELF_ERR_BAD_ENDIAN;
         return result;
     }
-    if (ehdr->e_machine != EM_X86_64) {
+    if (
+        ehdr->e_machine != 
+        (ARCHITECTURE == ARCHITECTURE_CODE_x86_64 ? EM_X86_64 : EM_RISCV64)
+    ) {
+        printk("ELF Loader", "Tried to load an executable that is incompatibile with this processor architecture");
+        printk("ELF Loader", "This may occur if you use the same initramfs across different architectures");
         result.status = ELF_ERR_BAD_MACHINE;
         return result;
     }
