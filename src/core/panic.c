@@ -76,9 +76,7 @@ static const char* cpu_exception_name(uintptr_t int_no) {
 }
 
 void panic(const char* reason, registers_t* regs) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    asm volatile ("cli");
-#endif
+    arch_cli();
     
     printk_remove_console_suspension();
     printk("Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
@@ -114,27 +112,12 @@ void panic(const char* reason, registers_t* regs) {
     printk("Core", "  - You can try to file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
     printk("Core", "  - The system enters a halted state, please restart the computer manually.");
 
-    while (true)
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        asm volatile (
-            "cli\n"
-            "hlt"
-        );
-#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-        // TODO: there should be a disable interrupts thingy
-        asm volatile ("wfi");
-#endif
+    while (true) {
+        arch_cli();
+        arch_wfi(); 
+    }
 
     // TODO: maybe send init IPIs to APs?
-    //
-    //       i had an idea of using check_panic when new PIT interrupts 
-    //       arrive and shutting down APs this way, but PIT interrupts
-    //       apparently work only on BSP
-    //       (i am too lazy to implement LAPIC clockevent)
-    //
-    //       though, for the time I'm writing this, you can't do multi-thread
-    //       userspace yet, so theoretically there is no need to shutdown APs 
-    //       now
 
     __builtin_unreachable();
 }

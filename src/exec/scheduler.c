@@ -188,11 +188,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
 }
 
 void thread_yield(void) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-    asm volatile("wfi");
-#elif ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    asm volatile("int $0x32");
-#endif
+    arch_invi(0x32); 
 }
 
 void thread_exit(void) {
@@ -218,13 +214,8 @@ void thread_exit(void) {
 
     thread_yield();
 
-    while (true) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        asm volatile("hlt");
-#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-        asm volatile("wfi");
-#endif
-    }
+    while (true)
+        arch_wfi();
 }
 
 thread_t* scheduler_get_current_thread(void) {
