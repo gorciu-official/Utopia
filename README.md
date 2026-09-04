@@ -29,8 +29,8 @@ RISC-V support is experimental, so don't mind something not working.
 | Architecture | Boot protocol | Support level | Note                                                                             |
 | ------------ | ------------- | ------------- | -------------------------------------------------------------------------------- |
 | x86_64       | Limine        | Full          | Dev time mostly focused on this build.                                           |
-| x86_64       | Multiboot1    | Partial       | Only on machines with one CPU.                                                   |
-| RISC-V 64    | Limine        | Partial/Bad   | Most features are unavailable; development of this build started kinda recently. |
+| x86_64       | Multiboot1    | Partial       | SMP triple faulting; not detecting init file in initramfs.                       |
+| RISC-V 64    | Limine        | Partial       | No SMP; userspace is in progress.                                                |
 | RISC-V 64    | Multiboot1    | Unsupported   | Trying to get Limine version to boot first.                                      |
 
 I copied the idea of this table from [here](https://git.evalyngoemer.com/evalynOS/evalynOS).
