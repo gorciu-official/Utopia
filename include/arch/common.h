@@ -39,6 +39,29 @@ static inline uintptr_t read_pf_addr(void) {
 #endif
 }
 
+static inline void arch_wfi() {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    __asm__ volatile("hlt" ::: "memory");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    __asm__ volatile("wfi" ::: "memory");
+#endif
+}
+
+static inline void arch_cli() {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    __asm__ volatile("cli" ::: "memory");
+#endif
+}
+
+static inline void arch_invi(int int_no) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    __asm__ volatile("int %0" : "=r"(int_no) :: "memory");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    // TODO: replace w/ smth better
+    __asm__ volatile("wfi" ::: "memory");
+#endif
+}
+
 static inline uint64_t arch_save_interrupts(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     uint64_t flags;
