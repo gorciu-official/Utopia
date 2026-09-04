@@ -2,9 +2,9 @@ name: Build Check for GRUB x64
 
 on:
   push:
-    branches: [main dev-riscv]
+    branches: [main]
   pull_request:
-    branches: [main dev-riscv]
+    branches: [main]
 
 jobs:
   build:
