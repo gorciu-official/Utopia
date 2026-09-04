@@ -1,6 +1,6 @@
 # Contributing
 
-Contains information about code style and other similar things. For building information see [docs/BUILDING.md](../BUILDING.md) file.
+Contains information about code style and other similar things. For building information see [docs/BUILDING.md](BUILDING.md) file.
 
 ## Code style
 
