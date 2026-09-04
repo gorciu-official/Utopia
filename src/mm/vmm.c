@@ -2,6 +2,7 @@
 #include <constants.h>
 #include <lib/screen.h>
 #include <memory.h>
+#include <arch/memory.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
 #include <boot/limine.h>
@@ -10,7 +11,7 @@
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
 extern uint64_t page_table_l4[];
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-uint64_t* page_table_l4 = NULL;
+uint64_t* page_table_l4 = NULL; 
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_hhdm_request hhdm_request = {
@@ -27,17 +28,22 @@ static volatile struct limine_executable_address_request exec_addr_request = {
 
 void vmm_init(void) {
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
-    uint64_t cr3_phys;
+    uint64_t root_phys;
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    asm volatile("mov %%cr3, %0" : "=r"(cr3_phys));
+    asm volatile("mov %%cr3, %0" : "=r"(root_phys));
+    root_phys &= 0x000FFFFFFFFFF000ULL;
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    uint64_t satp;
+    asm volatile("csrr %0, satp" : "=r"(satp));
+    root_phys = (satp & 0x00000FFFFFFFFFFFULL) << 12; 
 #endif
-    page_table_l4 = (uint64_t*)phys_to_virt(cr3_phys & PAGE_PHYS_MASK);
+    page_table_l4 = (uint64_t*)phys_to_virt(root_phys);
 #endif
 }
 
 uint64_t* pt_pool_alloc(void) {
     void* page = page_alloc(1);
-    if (!page) return page; // mondre
+    if (!page) return page;
     memset(page, 0, 4096);
     return page;
 }
@@ -56,13 +62,13 @@ uintptr_t hhdm_virt_to_phys(void* addr) {
     if (exec_addr_request.response) {
         return (uintptr_t)addr - hhdm_request.response->offset;
     }
-#endif 
+#endif
     return (uintptr_t)addr - 0xffff800000000000;
 }
 
 void* phys_to_virt(uint64_t phys) {
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
-    return (void*)phys  + 0xffff800000000000;
+    return (void*)phys + 0xffff800000000000;
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
     if (hhdm_request.response) {
         return (void*)(hhdm_request.response->offset + phys);
@@ -71,145 +77,104 @@ void* phys_to_virt(uint64_t phys) {
 #endif
 }
 
-int map_physical_range(uint64_t phys_start, uint64_t size, uint64_t flags) {
+static int split_leaf(pte_t* entry_slot, int level) {
+    pte_t old = *entry_slot;
+    uint64_t base_phys = arch_pte_phys(old);
+    int child_level = level - 1;
+    uint64_t child_span = 1ULL << (12 + child_level * 9);
+
+    uint64_t* new_table = pt_pool_alloc();
+    if (!new_table) return -1;
+
+    for (int i = 0; i < PT_ENTRIES; i++)
+        new_table[i] = arch_pte_child_leaf(old, base_phys + (uint64_t)i * child_span, child_level);
+
+    *entry_slot = arch_pte_table((uint64_t)hhdm_virt_to_phys(new_table));
+    return 0;
+}
+
+int map_physical_range(uint64_t phys_start, uint64_t size, vm_flags_t flags) {
     uint64_t end = phys_start + size;
+    uint64_t huge_span = 1ULL << (12 + 1 * 9);
 
-    for (uint64_t addr = phys_start; addr < end; addr += 0x200000) {
-        uint64_t l4_idx = (addr >> 39) & 0x1FF;
-        uint64_t l3_idx = (addr >> 30) & 0x1FF;
-        uint64_t l2_idx = (addr >> 21) & 0x1FF;
+    for (uint64_t addr = phys_start; addr < end; addr += huge_span) {
+        uint64_t* table = page_table_l4;
 
-        if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) {
-            uint64_t* new_l3 = pt_pool_alloc();
-            if (!new_l3) return -1;
-            page_table_l4[l4_idx] = (uint64_t)hhdm_virt_to_phys(new_l3) | PAGE_PRESENT | PAGE_RW;
+        for (int level = PT_TOP_LEVEL; level > 1; level--) {
+            int idx = pt_index(addr, level);
+            pte_t entry = table[idx];
+            if (!arch_pte_present(entry)) {
+                uint64_t* child = pt_pool_alloc();
+                if (!child) return -1;
+                table[idx] = arch_pte_table((uint64_t)hhdm_virt_to_phys(child));
+                table = child;
+            } else {
+                table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+            }
         }
 
-        uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & PAGE_PHYS_MASK);
-
-        if (!(l3[l3_idx] & PAGE_PRESENT)) {
-            uint64_t* new_l2 = pt_pool_alloc();
-            if (!new_l2) return -1;
-            l3[l3_idx] = (uint64_t)hhdm_virt_to_phys(new_l2) | PAGE_PRESENT | PAGE_RW;
-        }
-
-        uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
-
-        l2[l2_idx] = (addr & ~0x1FFFFFULL) | flags | PAGE_PRESENT | PAGE_RW | PAGE_HUGE;
+        int idx1 = pt_index(addr, 1);
+        table[idx1] = arch_pte_leaf(addr & ~(huge_span - 1), flags, true);
     }
 
     return 0;
 }
 
-void set_page_permissions(uint64_t virt, uint64_t flags) {
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-
-    if (!(page_table_l4[l4_idx] & PAGE_PRESENT)) return;
-    page_table_l4[l4_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & PAGE_PHYS_MASK);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT)) return;
-    l3[l3_idx] |= (flags & (PAGE_USER | PAGE_RW));
-    if (l3[l3_idx] & PAGE_HUGE) {
-        l3[l3_idx] = (l3[l3_idx] & PAGE_PHYS_MASK) | flags | PAGE_HUGE;
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
-        return;
+void set_page_permissions(uint64_t virt, vm_flags_t flags) {
+    uint64_t* table = page_table_l4;
+    for (int level = PT_TOP_LEVEL; level > 0; level--) {
+        int idx = pt_index(virt, level);
+        pte_t entry = table[idx];
+        if (!arch_pte_present(entry)) return;
+        if (arch_pte_is_leaf(entry, level)) {
+            table[idx] = arch_pte_with_flags(entry, flags);
+            arch_tlb_flush_page(virt);
+            return;
+        }
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
     }
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-        l2[l2_idx] = (l2[l2_idx] & PAGE_PHYS_MASK) | flags | PAGE_HUGE;
-    } else if (l2[l2_idx] & PAGE_PRESENT) {
-        l2[l2_idx] |= (flags & (PAGE_USER | PAGE_RW));
-        uint64_t l1_idx = (virt >> 12) & 0x1FF;
-        uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
-        l1[l1_idx] = (l1[l1_idx] & PAGE_PHYS_MASK) | flags;
-    }
-
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
+    int leaf_idx = pt_index(virt, 0);
+    if (!arch_pte_present(table[leaf_idx])) return;
+    table[leaf_idx] = arch_pte_with_flags(table[leaf_idx], flags);
+    arch_tlb_flush_page(virt);
 }
 
 void set_page_executable(uint64_t virt, bool executable) {
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-
-    if (!(page_table_l4[l4_idx] & PAGE_PRESENT))
-        return;
-
-    uint64_t* l3 = (uint64_t*)phys_to_virt(page_table_l4[l4_idx] & PAGE_PHYS_MASK);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT))
-        return;
-
-    if (l3[l3_idx] & PAGE_HUGE) {
-        if (executable) {
-            l3[l3_idx] &= ~PAGE_NX;
-        } else {
-            l3[l3_idx] |= PAGE_NX;
+    uint64_t* table = page_table_l4;
+    for (int level = PT_TOP_LEVEL; level > 0; level--) {
+        int idx = pt_index(virt, level);
+        pte_t entry = table[idx];
+        if (!arch_pte_present(entry)) return;
+        if (arch_pte_is_leaf(entry, level)) {
+            table[idx] = arch_pte_set_exec(entry, executable);
+            arch_tlb_flush_page(virt);
+            return;
         }
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
-        return;
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
     }
-
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-
-        if (executable) {
-            l2[l2_idx] &= ~PAGE_NX;
-        } else {
-            l2[l2_idx] |= PAGE_NX;
-        }
-
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
-        return;
-    }
-
-    uint64_t l1_idx = (virt >> 12) & 0x1FF;
-    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
-
-    if (!(l2[l2_idx] & PAGE_PRESENT))
-        return;
-
-    if (executable) {
-        l1[l1_idx] &= ~PAGE_NX;
-    } else {
-        l1[l1_idx] |= PAGE_NX;
-    }
-
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
+    int leaf_idx = pt_index(virt, 0);
+    if (!arch_pte_present(table[leaf_idx])) return;
+    table[leaf_idx] = arch_pte_set_exec(table[leaf_idx], executable);
+    arch_tlb_flush_page(virt);
 }
 
 static void free_table_level(uint64_t* table, int level) {
-    if (level > 0) {
-        for (int i = 0; i < 512; i++) {
-            uint64_t entry = table[i];
-            if (!(entry & PAGE_PRESENT)) continue;
-            if ((entry & PAGE_HUGE) || level == 1) continue; 
-            uint64_t* child = (uint64_t*)phys_to_virt(entry & PAGE_PHYS_MASK);
-            free_table_level(child, level - 1);
-        }
+    if (level == 0) return;
+    for (int i = 0; i < PT_ENTRIES; i++) {
+        pte_t entry = table[i];
+        if (!arch_pte_present(entry)) continue;
+        if (arch_pte_is_leaf(entry, level)) continue;
+        uint64_t* child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+        free_table_level(child, level - 1);
     }
 }
 
 void free_page_table(uint64_t* l4_table) {
     for (int i = 0; i < 256; i++) {
-        if (!(l4_table[i] & PAGE_PRESENT)) continue;
-        uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[i] & PAGE_PHYS_MASK);
-        free_table_level(l3, 3);
+        pte_t entry = l4_table[i];
+        if (!arch_pte_present(entry)) continue;
+        uint64_t* l3 = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+        free_table_level(l3, PT_TOP_LEVEL - 1);
     }
 }
 
@@ -217,27 +182,21 @@ static uint64_t* clone_table_level(uint64_t* old_table, int level) {
     uint64_t* new_table = pt_pool_alloc();
     if (!new_table) return NULL;
 
-    for (int i = 0; i < 512; i++) {
-        uint64_t entry = old_table[i];
+    for (int i = 0; i < PT_ENTRIES; i++) {
+        pte_t entry = old_table[i];
 
-        if (!(entry & PAGE_PRESENT)) {
-            new_table[i] = 0;
+        if (!arch_pte_present(entry)) { new_table[i] = 0; continue; }
+
+        if (arch_pte_is_leaf(entry, level)) {
+            new_table[i] = entry; 
             continue;
         }
 
-        if ((entry & PAGE_HUGE) || level == 1) {
-            new_table[i] = entry;
-            continue;
-        }
-
-        uint64_t* old_child = (uint64_t*)phys_to_virt(entry & PAGE_PHYS_MASK);
+        uint64_t* old_child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
         uint64_t* new_child = clone_table_level(old_child, level - 1);
-        if (!new_child) {
-            free_table_level(new_table, level);
-            return NULL;
-        }
+        if (!new_child) { free_table_level(new_table, level); return NULL; }
 
-        new_table[i] = (uint64_t)hhdm_virt_to_phys(new_child) | (entry & 0xFFF);
+        new_table[i] = arch_pte_table((uint64_t)hhdm_virt_to_phys(new_child));
     }
 
     return new_table;
@@ -247,201 +206,103 @@ uint64_t* clone_page_table(void) {
     uint64_t* new_l4 = pt_pool_alloc();
     if (!new_l4) return NULL;
 
-    for (int i = 0; i < 512; i++) {
-        if (i >= 256) {
-            new_l4[i] = page_table_l4[i];
-            continue;
-        }
+    for (int i = 0; i < PT_ENTRIES; i++) {
+        if (i >= 256) { new_l4[i] = page_table_l4[i]; continue; }
 
-        if (!(page_table_l4[i] & PAGE_PRESENT)) {
-            new_l4[i] = 0;
-            continue;
-        }
+        pte_t entry = page_table_l4[i];
+        if (!arch_pte_present(entry)) { new_l4[i] = 0; continue; }
 
-        uint64_t* old_l3 = (uint64_t*)phys_to_virt(page_table_l4[i] & PAGE_PHYS_MASK);
-        uint64_t* new_l3 = clone_table_level(old_l3, 3);
-        if (!new_l3) {
-            free_page_table(new_l4);
-            return NULL;
-        }
+        uint64_t* old_l3 = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+        uint64_t* new_l3 = clone_table_level(old_l3, PT_TOP_LEVEL - 1);
+        if (!new_l3) { free_page_table(new_l4); return NULL; }
 
-        new_l4[i] = (uint64_t)hhdm_virt_to_phys(new_l3) | (page_table_l4[i] & 0xFFF);
+        new_l4[i] = arch_pte_table((uint64_t)hhdm_virt_to_phys(new_l3));
     }
 
     return new_l4;
 }
 
-int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, uint64_t flags) {
+int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, vm_flags_t flags) {
     if (!l4_table) return -1;
+    uint64_t* table = l4_table;
 
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-    uint64_t l1_idx = (virt >> 12) & 0x1FF;
+    for (int level = PT_TOP_LEVEL; level > 0; level--) {
+        int idx = pt_index(virt, level);
+        pte_t entry = table[idx];
 
-    if (!(l4_table[l4_idx] & PAGE_PRESENT)) {
-        uint64_t* new_l3 = pt_pool_alloc();
-        if (!new_l3) return -1;
-        l4_table[l4_idx] = (uint64_t)hhdm_virt_to_phys(new_l3) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
-    } else {
-        l4_table[l4_idx] |= (flags & (PAGE_RW | PAGE_USER));
-    }
-    uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[l4_idx] & PAGE_PHYS_MASK);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT)) {
-        uint64_t* new_l2 = pt_pool_alloc();
-        if (!new_l2) return -1;
-        l3[l3_idx] = (uint64_t)hhdm_virt_to_phys(new_l2) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
-    } else {
-        l3[l3_idx] |= (flags & (PAGE_RW | PAGE_USER));
-    }
-
-    if (l3[l3_idx] & PAGE_HUGE) {
-        return -1;
-    }
-
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-        uint64_t huge_entry = l2[l2_idx];
-        uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
-        uint64_t huge_flags = (huge_entry & 0xFFF & ~PAGE_HUGE) | PAGE_PRESENT;
-        if (huge_entry & PAGE_USER) huge_flags |= PAGE_USER;
-    
-        uint64_t* new_l1 = pt_pool_alloc();
-        if (!new_l1) return -1;
-    
-        for (int i = 0; i < 512; i++) {
-            new_l1[i] = (huge_phys_base + i * 0x1000) | huge_flags;
+        if (!arch_pte_present(entry)) {
+            uint64_t* child = pt_pool_alloc();
+            if (!child) return -1;
+            table[idx] = arch_pte_table((uint64_t)hhdm_virt_to_phys(child));
+            table = child;
+            continue;
         }
-    
-        l2[l2_idx] = (uint64_t)hhdm_virt_to_phys(new_l1) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
-    
-        uint64_t region_base = virt & ~0x1FFFFFULL;
-        for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-            __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
-#endif
+
+        if (arch_pte_is_leaf(entry, level)) {
+            uint64_t region = 1ULL << (12 + level * 9);
+            uint64_t region_base = virt & ~(region - 1);
+            if (split_leaf(&table[idx], level) != 0) return -1;
+            arch_tlb_flush_range(region_base, region);
+            entry = table[idx];
         }
+
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
     }
 
-    if (!(l2[l2_idx] & PAGE_PRESENT)) {
-        uint64_t* new_l1 = pt_pool_alloc();
-        if (!new_l1) return -1;
-        l2[l2_idx] = (uint64_t)hhdm_virt_to_phys(new_l1) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
-    } else {
-        l2[l2_idx] |= (flags & (PAGE_RW | PAGE_USER));
-    }
-    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
-
-    l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
-
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
+    int leaf_idx = pt_index(virt, 0);
+    table[leaf_idx] = arch_pte_leaf(phys, flags, false);
+    arch_tlb_flush_page(virt);
     return 0;
 }
 
-int protect_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t flags) {
+int protect_page_4k(uint64_t* l4_table, uint64_t virt, vm_flags_t flags) {
     if (!l4_table) return -1;
+    uint64_t* table = l4_table;
 
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-    uint64_t l1_idx = (virt >> 12) & 0x1FF;
+    for (int level = PT_TOP_LEVEL; level > 0; level--) {
+        int idx = pt_index(virt, level);
+        pte_t entry = table[idx];
+        if (!arch_pte_present(entry)) return -1;
 
-    if (!(l4_table[l4_idx] & PAGE_PRESENT)) return -1;
-    uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[l4_idx] & PAGE_PHYS_MASK);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT)) return -1;
-    if (l3[l3_idx] & PAGE_HUGE) return -1;
-
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
-    if (!(l2[l2_idx] & PAGE_PRESENT)) return -1;
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-        uint64_t huge_entry = l2[l2_idx];
-        uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
-        uint64_t huge_flags = (huge_entry & 0xFFF & ~PAGE_HUGE) | PAGE_PRESENT;
-        if (huge_entry & PAGE_USER) huge_flags |= PAGE_USER;
-        
-        uint64_t* new_l1 = pt_pool_alloc();
-        if (!new_l1) return -1;
-        
-        for (int i = 0; i < 512; i++) {
-            new_l1[i] = (huge_phys_base + i * 0x1000) | huge_flags;
+        if (arch_pte_is_leaf(entry, level)) {
+            uint64_t region = 1ULL << (12 + level * 9);
+            uint64_t region_base = virt & ~(region - 1);
+            if (split_leaf(&table[idx], level) != 0) return -1;
+            arch_tlb_flush_range(region_base, region);
+            entry = table[idx];
         }
-        
-        uint64_t l2_flags = PAGE_PRESENT | PAGE_USER;
-        if (huge_entry & PAGE_RW) l2_flags |= PAGE_RW;
-        
-        l2[l2_idx] = (uint64_t)hhdm_virt_to_phys(new_l1) | l2_flags;
-        
-        uint64_t region_base = virt & ~0x1FFFFFULL;
-        for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-            __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
-#endif
-        }
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
     }
 
-    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
-    if (!(l1[l1_idx] & PAGE_PRESENT)) return -1; 
-
-    uint64_t phys = l1[l1_idx] & PAGE_PHYS_MASK;
-    l1[l1_idx] = (phys & PAGE_PHYS_MASK) | PAGE_PRESENT | flags;
-
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
+    int leaf_idx = pt_index(virt, 0);
+    if (!arch_pte_present(table[leaf_idx])) return -1;
+    uint64_t phys = arch_pte_phys(table[leaf_idx]);
+    table[leaf_idx] = arch_pte_leaf(phys, flags, false);
+    arch_tlb_flush_page(virt);
     return 0;
 }
 
 int unmap_page_4k(uint64_t* l4_table, uint64_t virt) {
     if (!l4_table) return -1;
+    uint64_t* table = l4_table;
 
-    uint64_t l4_idx = (virt >> 39) & 0x1FF;
-    uint64_t l3_idx = (virt >> 30) & 0x1FF;
-    uint64_t l2_idx = (virt >> 21) & 0x1FF;
-    uint64_t l1_idx = (virt >> 12) & 0x1FF;
+    for (int level = PT_TOP_LEVEL; level > 0; level--) {
+        int idx = pt_index(virt, level);
+        pte_t entry = table[idx];
+        if (!arch_pte_present(entry)) return 0;
 
-    if (!(l4_table[l4_idx] & PAGE_PRESENT)) return 0; // already unmapped
-    uint64_t* l3 = (uint64_t*)phys_to_virt(l4_table[l4_idx] & PAGE_PHYS_MASK);
-
-    if (!(l3[l3_idx] & PAGE_PRESENT)) return 0;
-    if (l3[l3_idx] & PAGE_HUGE) return -1; // 1GB pages: not handled here
-
-    uint64_t* l2 = (uint64_t*)phys_to_virt(l3[l3_idx] & PAGE_PHYS_MASK);
-    if (!(l2[l2_idx] & PAGE_PRESENT)) return 0;
-
-    if (l2[l2_idx] & PAGE_HUGE) {
-        uint64_t huge_entry = l2[l2_idx];
-        uint64_t huge_phys_base = huge_entry & ~0x1FFFFFULL;
-        uint64_t huge_flags = (huge_entry & 0xFFF & ~PAGE_HUGE) | PAGE_PRESENT;
-        if (huge_entry & PAGE_USER) huge_flags |= PAGE_USER;
-
-        uint64_t* new_l1 = pt_pool_alloc();
-        if (!new_l1) return -1;
-
-        for (int i = 0; i < 512; i++) {
-            new_l1[i] = (huge_phys_base + i * 0x1000) | huge_flags;
+        if (arch_pte_is_leaf(entry, level)) {
+            uint64_t region = 1ULL << (12 + level * 9);
+            uint64_t region_base = virt & ~(region - 1);
+            if (split_leaf(&table[idx], level) != 0) return -1;
+            arch_tlb_flush_range(region_base, region);
+            entry = table[idx];
         }
-
-        l2[l2_idx] = (uint64_t)hhdm_virt_to_phys(new_l1) | PAGE_PRESENT | PAGE_RW | PAGE_USER;
-
-        uint64_t region_base = virt & ~0x1FFFFFULL;
-        for (uint64_t off = 0; off < 0x200000; off += 0x1000) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-            __asm__ volatile("invlpg (%0)" :: "r"(region_base + off) : "memory");
-#endif
-        }
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
     }
 
-    uint64_t* l1 = (uint64_t*)phys_to_virt(l2[l2_idx] & PAGE_PHYS_MASK);
-    if (!(l1[l1_idx] & PAGE_PRESENT)) return 0;
-
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
-#endif
+    int leaf_idx = pt_index(virt, 0);
+    table[leaf_idx] = 0;
+    arch_tlb_flush_page(virt);
     return 0;
 }
