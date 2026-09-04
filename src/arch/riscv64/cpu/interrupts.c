@@ -13,7 +13,7 @@ void arch_init_interrupts() {
 
 void arch_interrupt_handler(registers_t* regs) {
     bool is_interrupt = (regs->scause >> 63) & 1;
-    uint64_t cause = regs->scause & ~(1ull << 63);
+    // for future use: uint64_t cause = regs->scause & ~(1ull << 63);
 
     // either cpu exception or timer, timer is unimplemented
     // so nearly 100% cpu exception
