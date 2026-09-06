@@ -1,4 +1,4 @@
-name: Build Check for GRUB x64
+name: Build Check for GRUB x86_64
 
 on:
   push:
