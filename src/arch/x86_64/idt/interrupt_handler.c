@@ -4,7 +4,6 @@
 #include <types.h>
 #include <lib/screen.h>
 #include <arch/x86_64/pmio.h>
-#include <drivers/timer.h>
 #include <scheduler.h>
 #include <panic.h>
 

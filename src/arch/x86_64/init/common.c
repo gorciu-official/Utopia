@@ -2,7 +2,7 @@
 #include <drivers/pci.h>
 #include <arch/common.h>
 #include <arch/x86_64/common.h>
-#include <drivers/timer.h>
+#include <arch/x86_64/timer.h>
 
 void arch_early_init() {
     enable_sse();
@@ -35,4 +35,9 @@ void arch_late_init() {
 
 void arch_general_init() {
     acpi_init();
+}
+
+uint64_t arch_get_ns_time() {
+    uint64_t tsc_get_ns_time();
+    return tsc_get_ns_time();
 }

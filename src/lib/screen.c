@@ -2,7 +2,6 @@
 #include <drivers/framebuffer.h>
 #include <arguments.h>
 #include <lib/numbers.h>
-#include <drivers/timer.h>
 #include <arch/common.h>
 
 static uint32_t current_fg = 0xFFFFFF;
@@ -219,12 +218,7 @@ void printk(const char* module, const char *fmt, ...) {
     }
     spinlock_acquire(&fb_spinlock);
 
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    uint64_t tsc_get_ns_time();
-    uint64_t ticks = tsc_get_ns_time();
-#else 
-    uint64_t ticks = 0;
-#endif
+    uint64_t ticks = arch_get_ns_time();
     uint64_t seconds = ticks / 1000000000;
     uint64_t milliseconds = (ticks % 1000000000) / 1000000;
     char time_str[32];

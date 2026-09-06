@@ -84,3 +84,4 @@ static inline void arch_restore_interrupts(uint64_t flags) {
 
 int arch_init_serial();
 void arch_serial_putchar(char c);
+uint64_t arch_get_ns_time(void);
