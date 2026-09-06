@@ -3,19 +3,12 @@
 #include <lib/screen.h>
 #include <memory.h>
 
+#include "sbi.h"
+
 // this thing was useful for SMP implementation:
 //   https://github.com/Limine-Bootloader/Limine/blob/v12.x/common/sys/smp.c
 
 uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
-
-typedef struct {
-    long error;
-    long value;
-} sbicall_result_t;
-
-extern sbicall_result_t sbicall(int eid, int fid, ...);
-
-#define SBI_EID_HSM  0x48534d
 
 __attribute__((naked, used, aligned(4)))
 void smp_startup(void) {

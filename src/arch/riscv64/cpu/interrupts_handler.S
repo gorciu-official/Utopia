@@ -55,12 +55,6 @@ arch_interrupt_handler_asm:
 
     call    arch_interrupt_handler
 
-    ld      t0, 256(sp)
-    csrw    scause, t0
-
-    ld      t0, 264(sp)
-    csrw    stval, t0
-
     ld      t0, 272(sp)
     csrw    sepc, t0
 
