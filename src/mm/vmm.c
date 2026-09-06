@@ -59,7 +59,7 @@ uintptr_t kernel_virt_to_phys(void* addr) {
 
 uintptr_t hhdm_virt_to_phys(void* addr) {
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
-    if (exec_addr_request.response) {
+    if (hhdm_request.response) {
         return (uintptr_t)addr - hhdm_request.response->offset;
     }
 #endif

@@ -33,24 +33,21 @@ static uint64_t page_flags_for(uint32_t p_flags) {
 }
 
 static void* elf_uv2kv(uint64_t *l4_table, uint64_t vaddr) {
-    uint64_t pml4_i = (vaddr >> 39) & 0x1FF;
-    uint64_t pdpt_i = (vaddr >> 30) & 0x1FF;
-    uint64_t pd_i   = (vaddr >> 21) & 0x1FF;
-    uint64_t pt_i   = (vaddr >> 12) & 0x1FF;
-
-    if (!(l4_table[pml4_i] & PAGE_PRESENT)) return NULL;
-    uint64_t* pdpt = (uint64_t *)phys_to_virt(l4_table[pml4_i] & PTE_ADDR_MASK);
-
-    if (!(pdpt[pdpt_i] & PAGE_PRESENT)) return NULL;
-    uint64_t* pd = (uint64_t *)phys_to_virt(pdpt[pdpt_i] & PTE_ADDR_MASK);
-
-    if (!(pd[pd_i] & PAGE_PRESENT)) return NULL;
-    uint64_t* pt = (uint64_t *)phys_to_virt(pd[pd_i] & PTE_ADDR_MASK);
-
-    if (!(pt[pt_i] & PAGE_PRESENT)) return NULL;
-    uint64_t phys = pt[pt_i] & PTE_ADDR_MASK;
-
-    return (void*)(phys_to_virt(phys) + (vaddr & 0xFFF));
+    uint64_t* table = l4_table;
+    for (int level = PT_TOP_LEVEL; level > 0; level--) {
+        int idx = pt_index(vaddr, level);
+        pte_t entry = table[idx];
+        if (!arch_pte_present(entry)) return NULL;
+        if (arch_pte_is_leaf(entry, level)) {
+            uint64_t region_mask = (1ULL << (12 + level * 9)) - 1;
+            return (void*)((uint8_t*)phys_to_virt(arch_pte_phys(entry)) + (vaddr & region_mask));
+        }
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+    }
+    int leaf_idx = pt_index(vaddr, 0);
+    if (!arch_pte_present(table[leaf_idx])) return NULL;
+    uint64_t phys = arch_pte_phys(table[leaf_idx]);
+    return (void*)((uint8_t*)phys_to_virt(phys) + (vaddr & 0xFFF));
 }
 
 static const void* elf_vaddr_to_fileptr(
@@ -614,7 +611,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     uint8_t* interp_buf = NULL;
     uint64_t interp_size = 0;
     if (elf_vfs_read_whole(main_res.interp_path, &interp_buf, &interp_size) != 0) {
-        printk("ELF Loader", "Failed to load an ELF interpretter");
+        printk("ELF Loader", "Failed to load an ELF interpretter, path %s", main_res.interp_path);
         return ELF_ERR_INTERP_LOAD_FAILED;
     }
     elf_image_t main_img = {

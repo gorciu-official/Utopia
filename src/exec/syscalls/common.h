@@ -26,7 +26,7 @@ typedef struct {
 #define USER_HEAP_MAX 0x0000800000000000ULL
 
 #define SYSCALL_DEFINE(platform, syscall_name) \
-    static uintptr_t syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread) 
+    static uintptr_t __attribute__((used)) syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread) 
 
 #define SYSCALL_DEFINE_LINUX(syscall_name) \
     SYSCALL_DEFINE(linux, syscall_name)

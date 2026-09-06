@@ -771,6 +771,7 @@ SYSCALL_DEFINE_LINUX(getrandom) {
     return count; 
 }
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
     [0]   = syscall_linux_read,
     [1]   = syscall_linux_write,
@@ -804,7 +805,6 @@ static const syscall_fn_t syscall_linux_table[] = {
     [318] = syscall_linux_getrandom
 };
 
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
     return (syscall_regs_t){
         .syscall_no = regs->rax,
@@ -818,6 +818,49 @@ static void syscall_set_return_val(int64_t val, registers_t* regs) {
 }
 
 SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_set_return_val, -ENOSYS);
-#else
-SYSCALL_ABI_DEFINE(linux, syscall_linux_table, NULL, NULL, -ENOSYS);
+
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+static const syscall_fn_t syscall_linux_table[] = {
+    [17]  = syscall_linux_getcwd,
+    [23]  = syscall_linux_stub_unimplemented,
+    [56]  = syscall_linux_openat,
+    [57]  = syscall_linux_close,
+    [61]  = syscall_linux_getdents64,
+    [62]  = syscall_linux_lseek,
+    [63]  = syscall_linux_read,
+    [64]  = syscall_linux_write,
+    [66]  = syscall_linux_writev,
+    [67]  = syscall_linux_pread64,
+    [79]  = syscall_linux_newfstatat,
+    [80]  = syscall_linux_fstat,
+    [88]  = syscall_linux_stub_unimplemented,
+    [93]  = syscall_linux_exit,
+    [94]  = syscall_linux_exit,
+    [160] = syscall_linux_uname,
+    [214] = syscall_linux_brk,
+    [215] = syscall_linux_munmap,
+    [222] = syscall_linux_mmap,
+    [226] = syscall_linux_mprotect,
+    [278] = syscall_linux_getrandom
+};
+ 
+static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
+    return (syscall_regs_t) {
+        .syscall_no = regs->x[17], // a7
+
+        .arg1 = regs->x[10], // a0
+        .arg2 = regs->x[11], // a1
+        .arg3 = regs->x[12], // a2
+        .arg4 = regs->x[13], // a3
+        .arg5 = regs->x[14], // a4
+        .arg6 = regs->x[15], // a5
+    };
+}
+
+static void syscall_set_return_val(int64_t val, registers_t* regs) {
+    regs->x[10] = (uint64_t)val; // a0
+}
+
+SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_set_return_val, -ENOSYS);
+
 #endif

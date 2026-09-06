@@ -11,7 +11,7 @@ struct tarfs_node;
 
 typedef struct tarfs_node {
     vnode_t vnode;
-    char name[64];
+    char name[256];
 
     struct tarfs_node* parent;
     struct tarfs_node* children;
@@ -146,7 +146,7 @@ static tarfs_node_t* tarfs_create_node(const char* name, vnode_type_t type) {
     node->vnode.size = 0;
 
     int i = 0;
-    while (name[i] && i < 63) {
+    while (name[i] && i < 255) {
         node->name[i] = name[i];
         i++;
     }
@@ -191,8 +191,8 @@ static tarfs_node_t* tarfs_resolve_dir_path(tarfs_node_t* root, const char* path
         if (comp_len > 0) {
             tarfs_node_t* child = tarfs_find_child(cur, path + start, comp_len);
             if (!child) {
-                char name[64];
-                int n = comp_len < 63 ? comp_len : 63;
+                char name[256];
+                int n = comp_len < 255 ? comp_len : 255;
                 memcpy(name, path + start, n);
                 name[n] = 0;
 
@@ -342,8 +342,8 @@ static void tarfs_parse_archive(tarfs_node_t* root) {
                         if (dir) tarfs_add_child(parent, dir);
                     }
                 } else if (!existing) {
-                    char name[64];
-                    int n = base_len < 63 ? base_len : 63;
+                    char name[256];
+                    int n = base_len < 255 ? base_len : 255;
                     memcpy(name, base, n);
                     name[n] = 0;
 
