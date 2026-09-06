@@ -121,7 +121,7 @@ ifeq ($(USE_HOST_CPU),true)
 QEMU_FLAGS += -enable-kvm -cpu host,invtsc=on
 endif
 ifeq ($(ARCH),riscv64)
-QEMU_FLAGS += -machine virt 
+QEMU_FLAGS += -machine virt -device ramfb
 QEMU_FLAGS += -drive if=pflash,format=raw,unit=0,file=target/third-party.riscv64.edk2/RISCV_VIRT_CODE.fd,readonly=on
 QEMU_FLAGS += -drive if=pflash,format=raw,unit=1,file=target/third-party.riscv64.edk2/RISCV_VIRT_VARS.fd 
 endif
