@@ -7,7 +7,7 @@
     asm volatile ("csrw " #csr ", %0" : : "r"(val) : "memory")
 
 extern void arch_interrupt_handler_asm(void);
-extern void timer_schedule_next(void);
+extern void timer_schedule_next(registers_t** regs);
 
 void arch_init_interrupts() {
     csrw(0x105, (uintptr_t)arch_interrupt_handler_asm);
@@ -22,7 +22,7 @@ void arch_interrupt_handler(registers_t* regs) {
     } else {
         switch (cause) {
         case 5:
-            timer_schedule_next();
+            timer_schedule_next(&regs);
             return;
         }
     }
