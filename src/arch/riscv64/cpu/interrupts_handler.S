@@ -1,28 +1,26 @@
-
 .section .text
 .align  2
 
 .global arch_interrupt_handler_asm
 .type   arch_interrupt_handler_asm, @function
 
-
 arch_interrupt_handler_asm:
-    addi    sp, sp, -288
+    csrrw   sp, sscratch, sp
+    bnez    sp, .trap_stack_ready
+    csrrw   sp, sscratch, sp
 
+.trap_stack_ready:
+    addi    sp, sp, -288
 
     sd      zero,   0(sp)
     sd      ra,     8(sp)
 
     sd      t0,    40(sp)
-
-    addi    t0, sp, 288
-    sd      t0,    16(sp)
+    sd      t1,    48(sp)
+    sd      t2,    56(sp)
 
     sd      gp,    24(sp)
     sd      tp,    32(sp)
-
-    sd      t1,    48(sp)
-    sd      t2,    56(sp)
 
     sd      s0,    64(sp)
     sd      s1,    72(sp)
@@ -52,27 +50,38 @@ arch_interrupt_handler_asm:
     sd      t5,   240(sp)
     sd      t6,   248(sp)
 
+    csrr    t0, sscratch
+    bnez    t0, .save_user_sp
+
+    addi    t0, sp, 288
+
+.save_user_sp:
+
+    sd      t0, 16(sp)
+
+    csrw    sscratch, zero
+
     csrr    t0, scause
-    sd      t0,   256(sp)
+    sd      t0, 256(sp)
 
     csrr    t0, stval
-    sd      t0,   264(sp)
+    sd      t0, 264(sp)
 
     csrr    t0, sepc
-    sd      t0,   272(sp)
+    sd      t0, 272(sp)
 
     csrr    t0, sstatus
-    sd      t0,   280(sp)
+    sd      t0, 280(sp)
 
     mv      a0, sp
     call    arch_interrupt_handler
 
     mv      sp, a0
 
-    ld      t0,   272(sp)
+    ld      t0, 272(sp)
     csrw    sepc, t0
 
-    ld      t0,   280(sp)
+    ld      t0, 280(sp)
     csrw    sstatus, t0
 
     ld      ra,     8(sp)
@@ -115,5 +124,6 @@ arch_interrupt_handler_asm:
     ld      sp,    16(sp)
 
     sret
+
 
 .size arch_interrupt_handler_asm, .-arch_interrupt_handler_asm
