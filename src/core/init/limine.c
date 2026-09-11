@@ -21,6 +21,14 @@ static volatile struct limine_module_request module_request = {
     .revision = 0
 };
 
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_stack_size_request stack_request = {
+    .id = LIMINE_STACK_SIZE_REQUEST_ID,
+    .revision = 0,
+    .response = NULL,
+    .stack_size = 2 * 1024 * 1024,
+};
+
 void kinit() {
     struct limine_framebuffer_response* framebuffer_res = framebuffer_request.response;
     common_boot_structure_t             cbs             = {0};
@@ -34,7 +42,7 @@ void kinit() {
         cbs.framebuffer.height =            framebuffer->height;
         cbs.framebuffer.pitch  =            framebuffer->pitch;
         cbs.framebuffer.bpp    =            framebuffer->bpp;
-    } 
+    }
 
     if (module_request.response) {
         uint64_t module_count = module_request.response->module_count;

@@ -102,7 +102,6 @@ void scheduler_ap_init(void) {
 }
 
 thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
-    (void)sp; (void)entry_point; // for riscv
     thread_t* t = (thread_t*)malloc(sizeof(thread_t));
     if (!t) {
         printk("Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
@@ -131,12 +130,16 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, 
     t->regs = regs;
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    regs->rip = (uint64_t)entry_point;
+    regs->rip = (uintptr_t)entry_point;
     regs->cs = ring == 0 ? 0x08 : (0x28 | 3);
     regs->ss = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
     regs->rsp = sp;
     t->stack_ptr = (void*)stack_base;
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    regs->x[2] = sp;
+    regs->sepc = (uintptr_t)entry_point;
+    regs->sstatus = 1;
 #endif
 
     return t;
