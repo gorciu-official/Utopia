@@ -41,22 +41,22 @@ LINKER_SCRIPT  := $(SRC_DIR)/build/linker-$(ARCH)-$(BOOTLOADER).ld
 GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
 LIMINE_CONFIG  := $(SRC_DIR)/build/limine.conf
 
-CC             ?= cc 
-AS             ?= nasm
-LD             ?= ld
+CROSS_COMPILE  ?= 
+CC             := $(CROSS_COMPILE)cc 
+LD             := $(CROSS_COMPILE)ld
 
-ifeq ($(AS),nasm)
-    ifneq ($(ARCH),x86_64)
-        $(error NASM is great, but incompatibile with other than x86_64 architectures supported by Utopia. Please choose a different assembler)
-    endif
-else 
-    ifeq ($(ARCH),x86_64)
-        ifeq (,$(findstring nasm,$(AS)))
-            ifeq ($(shell command -v nasm 2>/dev/null),)
-                $(error Compiling Utopia for x86_64 architecture requires NASM assembler. No command nasm exists and nasm is not the AS)
-            else
-                AS := nasm
-            endif
+ifeq ($(ARCH),x86_64)
+    AS := nasm
+else ifeq ($(ARCH),riscv64)
+    AS := $(CROSS_COMPILE)as
+endif
+
+ifeq ($(ARCH),x86_64)
+    ifeq (,$(findstring nasm,$(AS)))
+        ifeq ($(shell command -v nasm 2>/dev/null),)
+            $(error Compiling Utopia for x86_64 architecture requires NASM assembler. No command nasm exists and nasm is not the AS)
+        else
+            AS := nasm
         endif
     endif
 endif
