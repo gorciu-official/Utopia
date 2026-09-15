@@ -173,6 +173,8 @@ void free_page_table(uint64_t* l4_table) {
     for (int i = 0; i < 256; i++) {
         pte_t entry = l4_table[i];
         if (!arch_pte_present(entry)) continue;
+        if (arch_pte_is_leaf(entry, PT_TOP_LEVEL)) continue;   // <-- brakujący check
+
         uint64_t* l3 = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
         free_table_level(l3, PT_TOP_LEVEL - 1);
     }
@@ -211,6 +213,11 @@ uint64_t* clone_page_table(void) {
 
         pte_t entry = page_table_l4[i];
         if (!arch_pte_present(entry)) { new_l4[i] = 0; continue; }
+
+        if (arch_pte_is_leaf(entry, PT_TOP_LEVEL)) {   // <-- brakujący check
+            new_l4[i] = entry;
+            continue;
+        }
 
         uint64_t* old_l3 = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
         uint64_t* new_l3 = clone_table_level(old_l3, PT_TOP_LEVEL - 1);

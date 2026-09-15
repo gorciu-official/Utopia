@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <types.h>
+#include <constants.h>
 
 typedef enum {
     VMF_WRITE  = 1 << 0,
@@ -12,7 +13,7 @@ typedef enum {
 typedef uint64_t pte_t;
 
 #define PT_LEVELS     4
-#define PT_TOP_LEVEL  3
+#define PT_TOP_LEVEL  (PT_LEVELS - 1)
 #define PT_ENTRIES    512
 
 static inline int pt_index(uint64_t virt, int level) {

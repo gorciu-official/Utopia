@@ -8,6 +8,7 @@
 
 extern void arch_interrupt_handler_asm(void);
 extern void timer_schedule_next(registers_t** regs);
+extern void syscall_handler(registers_t* regs);
 
 static inline void csrw_sscratch(uint64_t v) {
     __asm__ volatile("csrw sscratch, %0" :: "r"(v));
@@ -25,6 +26,12 @@ registers_t* arch_interrupt_handler(registers_t* regs) {
     uint64_t cause = regs->scause & ~(1ull << 63);
 
     if (!is_interrupt) {
+        if (cause == 8) {
+            syscall_handler(regs);
+            regs->sepc += 4;
+            return regs;
+        }
+
         panic("Unexpected CPU exception", regs);
     } else {
         switch (cause) {

@@ -7,11 +7,6 @@
 #define UART_LSR 5  
 #define UART_TX_READY (1 << 5)
 
-int arch_init_serial() {
-    // nothing needs to be done
-    return 0;
-}
-
 void arch_serial_putchar(char c) {
     volatile unsigned char *uart =
         (volatile unsigned char *)UART_BASE;
@@ -23,4 +18,10 @@ void arch_serial_putchar(char c) {
     uart[UART_THR] = (unsigned char)c;
 }
 
+int arch_init_serial() {
+    static const char clear_seq[] = "\x1b[2J\x1b[3J\x1b[H";
+    for (unsigned i = 0; clear_seq[i] != '\0'; i++)
+        arch_serial_putchar(clear_seq[i]);
+    return 0;
+}
 #endif

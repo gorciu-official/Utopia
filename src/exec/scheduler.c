@@ -21,6 +21,13 @@ static inline void write_cr3(uint64_t val) {
     (void)val;
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    uint64_t satp = (9ULL << 60) | (val >> 12);
+    __asm__ volatile(
+        "csrw satp, %0\n"
+        "sfence.vma\n"
+        :: "r"(satp) : "memory"
+    );
 #endif
 }
 
@@ -139,7 +146,8 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, 
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     regs->x[2] = sp;
     regs->sepc = (uintptr_t)entry_point;
-    regs->sstatus = 1;
+    regs->sstatus &= ~(3ULL << 13);
+    regs->sstatus |=  (1ULL << 13); // FS=Initial
 #endif
 
     return t;
