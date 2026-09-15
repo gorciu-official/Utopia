@@ -109,7 +109,7 @@ void ap_main() {
 
     arch_ap_init();
 
-    printk("Core", "CPU APIC ID %d fully ready, handing control to the scheduler.", id);
+    printk("Core", "CPU ID %d fully ready, handing control to the scheduler.", id);
     
     scheduler_ap_init();
     cpu_main();

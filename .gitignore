@@ -2,9 +2,6 @@
 initramfs
 font.psf1
 
-# external dependencies
-limine
-
 # target dir 
 target
 

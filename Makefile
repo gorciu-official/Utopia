@@ -101,7 +101,7 @@ SMP_ENABLED    ?= true
 USE_HOST_CPU   ?= true
 SMP_CORES      ?= 4
 
-LIMINE_DIR     := $(ROOT_DIR)/limine
+LIMINE_DIR     := $(ROOT_DIR)/target/third-party.all.limine-binaries
 LIMINE_URL     := https://github.com/limine-bootloader/limine.git
 LIMINE_BRANCH  := v11.x-binary
 
@@ -133,6 +133,7 @@ all: build_kernel build_iso
 ifeq ($(BOOTLOADER),limine)
 $(LIMINE_DIR)/limine:
 	@echo -e "\033[1;34m[*]\033[0m Downloading Limine..."
+	@mkdir -p $(LIMINE_DIR)
 	@git clone $(LIMINE_URL) --branch=$(LIMINE_BRANCH) --depth=1 $(LIMINE_DIR)
 	@echo -e "\033[1;34m[*]\033[0m Building Limine tool..."
 	@$(MAKE) CC=cc AS=as LD=ld -C $(LIMINE_DIR) limine
