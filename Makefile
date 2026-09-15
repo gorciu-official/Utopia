@@ -42,7 +42,7 @@ GRUB_CONFIG    := $(SRC_DIR)/build/grub.cfg
 LIMINE_CONFIG  := $(SRC_DIR)/build/limine.conf
 
 CROSS_COMPILE  ?= 
-CC             := $(CROSS_COMPILE)cc 
+CC             := $(CROSS_COMPILE)gcc 
 LD             := $(CROSS_COMPILE)ld
 
 ifeq ($(ARCH),x86_64)

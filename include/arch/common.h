@@ -11,6 +11,13 @@ extern void arch_late_init(void);
 extern void arch_ap_init(void);
 extern void arch_boot_aps(void);
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+typedef struct {
+    uint64_t id;
+    uint64_t kernel_stack_top;
+} cpu_t;
+#endif
+
 static inline uint32_t current_processor_id(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     uint32_t eax, ebx, ecx, edx;
@@ -19,7 +26,9 @@ static inline uint32_t current_processor_id(void) {
         : "0" (1));
     return (ebx >> 24);
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-    return 0;
+    cpu_t* cpu;
+    asm volatile("mv %0, tp" : "=r"(cpu));
+    return cpu->id;
 #endif
 }
 
