@@ -87,10 +87,10 @@ void kmain(common_boot_structure_t* cbs) {
         if (bytes_read == size) {
             int response = elf_start(buffer, size);
             if (response != 0)
-                panic("INIT_LOAD_FAIL", NULL);
+                panic("Failed to load init file", NULL);
         }
     } else {
-        panic("NO_INIT_FILE", NULL);
+        panic("No init file found", NULL);
     }
 
     // suspend console output 

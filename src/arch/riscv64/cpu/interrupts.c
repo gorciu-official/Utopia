@@ -25,7 +25,7 @@ registers_t* arch_interrupt_handler(registers_t* regs) {
     uint64_t cause = regs->scause & ~(1ull << 63);
 
     if (!is_interrupt) {
-        panic("CPU_EXCEPTION", regs);
+        panic("Unexpected CPU exception", regs);
     } else {
         switch (cause) {
         case 5:

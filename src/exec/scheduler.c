@@ -205,7 +205,7 @@ void thread_exit(void) {
     if (curr && curr != idle_threads[cpu_id]) {
         if (curr->process != NULL) {
             if (curr->process->pid == 1) 
-                return panic("INIT_EXITED", NULL);
+                return panic("Init process has exited or has been killed", NULL);
 
             process_terminate(curr->process);
             curr->process = NULL;

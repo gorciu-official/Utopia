@@ -21,7 +21,7 @@ registers_t* isr_handler(registers_t* regs) {
             );
             thread_exit();
         } else {
-            panic("CPU_EXCEPTION", regs);
+            panic("Unexpected CPU exception", regs);
         }
     }  
 
