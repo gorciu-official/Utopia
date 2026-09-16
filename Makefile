@@ -17,10 +17,6 @@ ifeq ($(filter $(ARCH),$(SUPPORTED_ARCHITECTURES)),)
 $(error Unsupported ARCH='$(ARCH)'. Supported values: $(SUPPORTED_ARCHITECTURES))
 endif
 
-ifeq ($(ARCH),riscv64)
-    $(warning RISC-V 64 support in Utopia is extremelly experimental and WILL break)
-endif 
-
 SRC_DIR        := $(ROOT_DIR)/src
 
 # binary dirs
