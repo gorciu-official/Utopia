@@ -4,7 +4,6 @@
 #include <scheduler.h>
 #include <panic.h>
 #include <lib/screen.h>
-#include <drivers/ps2.h>
 #include <drivers/filesystem.h>
 #include <memory.h>
 #include <lib/string.h>
@@ -12,6 +11,7 @@
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/msr.h>
+#include <drivers/arch-specific/ps2.h>
 #endif
 
 #include "linux.h"

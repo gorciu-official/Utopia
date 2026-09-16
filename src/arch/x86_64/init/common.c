@@ -1,5 +1,4 @@
-#include <drivers/acpi.h>
-#include <drivers/pci.h>
+#include <drivers/arch-specific/acpi.h>
 #include <arch/common.h>
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/timer.h>
@@ -30,7 +29,7 @@ void arch_ap_init() {
 }
 
 void arch_late_init() {
-    pci_scan_bus();
+
 }
 
 void arch_general_init() {

@@ -3,7 +3,7 @@
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 
 #include <types.h>
-#include <drivers/ps2.h>
+#include <drivers/arch-specific/ps2.h>
 #include <lib/screen.h>
 #include <drivers/framebuffer.h>
 #include <arch/x86_64/common.h>

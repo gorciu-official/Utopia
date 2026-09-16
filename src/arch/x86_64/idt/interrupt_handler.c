@@ -1,4 +1,4 @@
-#include <drivers/ps2.h>
+#include <drivers/arch-specific/ps2.h>
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/registers.h>
 #include <types.h>

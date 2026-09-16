@@ -20,6 +20,8 @@ void timer_init(uint32_t frequency) {
 
         void tsc_init();
         tsc_init();
+
+        used_before = true;
     }
 
     void lapic_init(void);

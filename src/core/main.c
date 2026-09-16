@@ -4,7 +4,6 @@
 #include <memory.h>
 #include <drivers/framebuffer.h>
 #include <drivers/filesystem.h>
-#include <drivers/pci.h>
 #include <scheduler.h>
 #include <process.h>
 #include <panic.h>

@@ -86,7 +86,6 @@ void boot_all_aps(uint8_t* core_apic_ids, int count) {
             continue;
         }
 
-        printk("SMP", "Waking up CPU %d...", apic_id);
         boot_ap(apic_id);
 
         if (ap_alive_table[apic_id] == 1) {

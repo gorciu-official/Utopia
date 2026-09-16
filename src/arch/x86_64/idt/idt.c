@@ -24,8 +24,6 @@ void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
 }
 
 void idt_init() {
-    printk("IDT", "Initializing Interrupt Descriptor Table for CPU %d", current_processor_id());
-
     idt_ptr.limit = (sizeof(idt_entry_t) * 256) - 1;
     idt_ptr.base = (uint64_t)&idt_entries;
 
@@ -45,8 +43,5 @@ void idt_init() {
 
     idt_load((uint64_t)&idt_ptr);
     
-    printk("IDT", "Interrupt Descriptor Table for CPU %d has been initialized.", current_processor_id());
-
     asm volatile("sti");
-    printk("IDT", "Interrupts enabled for CPU %d", current_processor_id());
 }
