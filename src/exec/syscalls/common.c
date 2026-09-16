@@ -19,6 +19,14 @@ void syscall_handler(registers_t* regs) {
     thread_t* current_thread       = scheduler_get_current_thread();
     process_t* current_process     = current_thread->process;
     syscall_abi_t current_abi      = get_process_abi(current_process);
+    
+#if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    uint64_t sstatus;
+    asm volatile("csrr %0, sstatus" : "=r"(sstatus));
+    sstatus |= (1ULL << 18);
+    asm volatile("csrw sstatus, %0" :: "r"(sstatus));
+    asm volatile("csrr %0, sstatus" : "=r"(sstatus));
+#endif
 
     syscall_regs_t sregs = current_abi.to_sregs(regs);
     uint64_t syscall_num = sregs.syscall_no;
