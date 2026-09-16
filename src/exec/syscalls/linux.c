@@ -550,8 +550,8 @@ SYSCALL_DEFINE_LINUX(mmap) {
     uint64_t length = regs->arg2;
     uint64_t prot   = regs->arg3;
     uint64_t flags  = regs->arg4;
-    int64_t  fd     = (int64_t)regs->arg6;
-    uint64_t offset = regs->arg5;
+    int64_t  fd     = (int64_t)regs->arg5;
+    uint64_t offset = regs->arg6;
 
     if (length == 0) return 0;
 
@@ -809,7 +809,7 @@ static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
     return (syscall_regs_t){
         .syscall_no = regs->rax,
         .arg1 = regs->rdi, .arg2 = regs->rsi, .arg3 = regs->rdx,
-        .arg4 = regs->r10, .arg5 = regs->r9, .arg6 = regs->r8
+        .arg4 = regs->r10, .arg5 = regs->r8, .arg6 = regs->r9
     };
 };
 
