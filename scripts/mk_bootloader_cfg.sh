@@ -1,7 +1,7 @@
 #!/usr/bin/env bash 
 
-GRUB_CFG=src/build/grub.cfg
-LIMINE_CFG=src/build/limine.conf
+GRUB_CFG=kernel/src/build/grub.cfg
+LIMINE_CFG=kernel/src/build/limine.conf
 
 COLOR_GREEN=$'\x1b[32m'
 COLOR_YELLOW=$'\x1b[33m'
@@ -15,7 +15,7 @@ fi
 
 echo Creating bootloader configuration for GRUB and Limine
 
-printf ' Starting %s[Limine bootloader configuration generation]%s\n' "$COLOR_YELLOW" "$COLOR_RESET"
+printf ' Starting %s[GRUB bootloader configuration generation]%s\n' "$COLOR_YELLOW" "$COLOR_RESET"
 
 echo 'set default=0'                                                                        > $GRUB_CFG
 echo 'set timeout=5'                                                                       >> $GRUB_CFG
