@@ -44,7 +44,7 @@ static void syscall_own_set_return_val(int64_t val, registers_t* regs) {
     regs->rax = (uint64_t)val;
 }
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
+static syscall_regs_t syscall_own_to_sregs(registers_t* regs) {
     return (syscall_regs_t) {
         .syscall_no = regs->x[10], // a0
 
