@@ -8,7 +8,6 @@ ROOT_DIR       := .
 KERNEL_SRC_DIR := $(ROOT_DIR)/kernel/src
 
 TARGET_DIR     := $(ROOT_DIR)/target/kernel.$(ARCH).$(BOOTLOADER)
-OBJ_DIR        := $(TARGET_DIR)/obj
 ISO_DIR        := $(TARGET_DIR)/iso
 BOOT_DIR       := $(ISO_DIR)/boot
 GRUB_DIR       := $(BOOT_DIR)/grub
@@ -53,8 +52,13 @@ QEMU_FLAGS += -drive if=pflash,format=raw,unit=1,file=target/third-party.riscv64
 endif
 QEMU_FLAGS += $(EXTRA_QEMU_FLAGS)
 
-all: build_kernel build_iso
+all: build_userspace build_kernel build_iso
 	@echo -e "\033[92;1mCompilation success!\033[0m"
+
+build_userspace:
+	make -C default/init
+	mkdir -p initramfs
+	cp $(ROOT_DIR)/target/default.init.$(ARCH)/init initramfs/
 
 build_kernel:
 	make -C kernel
