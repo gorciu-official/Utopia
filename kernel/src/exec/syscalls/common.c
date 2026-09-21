@@ -6,13 +6,13 @@
 
 #include "common.h"
 
-extern SYSCALL_ABI_DECLARE(linux);
+extern SYSCALL_ABI_DECLARE(own);
 
 static inline syscall_abi_t get_process_abi(process_t* proc) {
     (void)proc;
 
     // TODO: do not hardcode it, read from process field or smth
-    return syscall_abi_linux;
+    return syscall_abi_own;
 }
 
 void syscall_handler(registers_t* regs) {

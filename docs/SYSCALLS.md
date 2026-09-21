@@ -31,7 +31,7 @@ Reserved block: `0`-`999`.
 - 2: `position` - returns the current/changed position in the file. if `arg2` == `1`, changes the position in the file to `arg1`.
 - 3: `readfile` - reads the file with a file descriptor of `arg1` with the limit of `arg2` bytes. increases position in the file by the number of read bytes.
 - 4: `readdir` - writes an array of directory entries of a directory described by `arg3` with the maximum array length in bytes of `arg2` to `arg1`. returns the size of the array. increments position by number of read nodes.
-- 5: `write` - writes `arg2` amount of bytes to the file described by `arg1`
+- 5: `write` - writes `arg3` amount of bytes from `arg2` to the file described by `arg1`
 - 6: `nodeinfo` - reads the current `file_info_t` to a pointer in `arg1` 
 
 Even though filesystem syscalls could be implemented through `IPC` I've decided to dedicate a section for them, mostly because the microkernel provides a few essential filesystems needed during boot. And they are one of the most common operations.
@@ -45,6 +45,12 @@ Reserved block: `1000`-`1999`.
 
 **Considering**:
 - `call` - a syscall that would be used to send a message and wait for a reply back. worried about deadlocking though. there is probably no way the microkernel could enforce that the called process would respond. a quite good solution would be to add a timeout argument ???
+
+### Process 
+
+Reserved block `2000`-`2999`.
+
+- 2000: `exit`
 
 ## Error handling 
 

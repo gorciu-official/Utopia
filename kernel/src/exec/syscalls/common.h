@@ -31,6 +31,9 @@ typedef struct {
 #define SYSCALL_DEFINE_LINUX(syscall_name) \
     SYSCALL_DEFINE(linux, syscall_name)
 
+#define SYSCALL_DEFINE_OWN(syscall_name) \
+    SYSCALL_DEFINE(own, syscall_name)
+
 #define SYSCALL_TABLE_SIZE(syscall_table) \
     (sizeof(syscall_table) / sizeof(syscall_table[0]))
 

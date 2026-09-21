@@ -5,14 +5,14 @@
 #define __LIBC_SYSCALL_REG0 "rax"
 #define __LIBC_SYSCALL_ASM_REG0 "a"
 
-#define __LIBC_SYSCALL_REG1 "rdi"
-#define __LIBC_SYSCALL_ASM_REG1 "D"
+#define __LIBC_SYSCALL_REG1 "rdx"
+#define __LIBC_SYSCALL_ASM_REG1 "d"
 
-#define __LIBC_SYSCALL_REG2 "rsi"
-#define __LIBC_SYSCALL_ASM_REG2 "S"
+#define __LIBC_SYSCALL_REG2 "rdi"
+#define __LIBC_SYSCALL_ASM_REG2 "D"
 
-#define __LIBC_SYSCALL_REG3 "rdx"
-#define __LIBC_SYSCALL_ASM_REG3 "d"
+#define __LIBC_SYSCALL_REG3 "rsi"
+#define __LIBC_SYSCALL_ASM_REG3 "S"
 
 #define __LIBC_SYSCALL_REG4 "r10"
 #define __LIBC_SYSCALL_ASM_REG4 "r"
