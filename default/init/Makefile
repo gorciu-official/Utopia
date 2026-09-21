@@ -21,7 +21,7 @@ C_OBJECTS      := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SOURCES))
 
 all: $(C_OBJECTS)
 	@echo -e "\033[1;36m[*]\033[0m sources -> binary"
-	@gcc $(CFLAGS) $(C_OBJECTS) -o $(TARGET_FILE)
+	@$(CC) $(CFLAGS) $(C_OBJECTS) -o $(TARGET_FILE)
 	@echo -e "\033[32mDefault init process built successfully!\033[0m"
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
