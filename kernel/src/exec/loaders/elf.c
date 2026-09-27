@@ -645,7 +645,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     return 0;
 }
 
-int elf_start(const uint8_t* elf, uintptr_t size, int calling_conv, int arg) {
+int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     uint64_t* proc_l4 = clone_page_table();
     if (!proc_l4) return -1;
 
