@@ -2,8 +2,12 @@
 #include <constants.h>
 #include <arch/common.h>
 #include <lib/screen.h>
+#include <drivers/filesystem.h>
+#include <memory.h>
 
 #include "common.h"
+
+int elf_start(const uint8_t* elf, uintptr_t size);
 
 SYSCALL_DEFINE_OWN(exit) {
     (void)regs; (void)process; (void)thread;
@@ -26,9 +30,36 @@ SYSCALL_DEFINE_OWN(write) {
     return -1;
 }
 
+SYSCALL_DEFINE_OWN(spawn) {
+    (void)thread; (void)process;
+
+    char* path = (char*)regs->arg1;
+    uint64_t conv = regs->arg2; (void)conv;
+    uint64_t startup_arg = regs->arg3; (void)startup_arg;
+
+    vnode_t* node = NULL;
+    vfs_lookup(path, &node);
+    
+    if (!node)
+        return -3;
+
+    uint64_t size = node->size;
+    void* buffer = malloc(size);
+    uint64_t bytes_read = 0;
+    node->ops->read(node, buffer, size, 0, &bytes_read);
+    if (bytes_read == size) {
+        int response = elf_start(buffer, size);
+        if (response != 0)
+            return -8;
+    }
+
+    return 0;
+}
+
 static const syscall_fn_t syscall_own_table[] = {
     [5]    = syscall_own_write,
-    [2000] = syscall_own_exit
+    [2000] = syscall_own_exit,
+    [2001] = syscall_own_spawn
 };
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64

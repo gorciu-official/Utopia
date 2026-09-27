@@ -50,7 +50,8 @@ Reserved block: `1000`-`1999`.
 
 Reserved block `2000`-`2999`.
 
-- 2000: `exit`
+- 2000: `exit` - exits the current process with the exit code `arg1`.
+- 2001: `spawn` - spawns a process from path `arg1` using `arg2` syscall convention (where `0` means default and `1` means Linux), with `rax` in x86_64 or `a0` in RISC-V set to `arg3`
 
 ## Error handling 
 
@@ -64,6 +65,7 @@ Specifically, one of these values:
 - `-5` (`ERR_PERMISSION_DENIED`): no capability to perform operation X
 - `-6` (`ERR_BUFFER_TOO_SMALL`): rerun the syscall with a bigger buffer
 - `-7` (`ERR_MESSAGE_TOO_LARGE`): the size given is too large (used mostly in IPC)
+- `-8` (`ERR_BAD_EXEC`): could not load executable
 
 ## Structures
 

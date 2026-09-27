@@ -37,7 +37,7 @@ typedef struct {
 
 void scheduler_init(void);
 void scheduler_ap_init(void);
-thread_t* thread_create(const char* name, void (*entry_point)(void*), int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size);
+thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size);
 registers_t* scheduler_schedule(registers_t* regs);
 void thread_yield(void);
 void thread_exit(void);
