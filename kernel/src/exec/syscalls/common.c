@@ -7,12 +7,15 @@
 #include "common.h"
 
 extern SYSCALL_ABI_DECLARE(own);
+extern SYSCALL_ABI_DECLARE(linux);
 
 static inline syscall_abi_t get_process_abi(process_t* proc) {
-    (void)proc;
-
-    // TODO: do not hardcode it, read from process field or smth
-    return syscall_abi_own;
+    switch (proc->calling_conv) {
+    case 1:
+        return syscall_abi_linux;
+    case 0: default:
+        return syscall_abi_own;
+    }
 }
 
 void syscall_handler(registers_t* regs) {

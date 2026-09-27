@@ -645,7 +645,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     return 0;
 }
 
-int elf_start(const uint8_t* elf, uintptr_t size) {
+int elf_start(const uint8_t* elf, uintptr_t size, int calling_conv, int arg) {
     uint64_t* proc_l4 = clone_page_table();
     if (!proc_l4) return -1;
 
@@ -721,7 +721,7 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
     
     sp &= ~0xFULL;
 
-    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, 0, 3, (uintptr_t)stack_base, sp, stack_size);
+    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, arg, 3, (uintptr_t)stack_base, sp, stack_size);
     if (!proc) {
         free_page_table(proc_l4);
         return -1;
@@ -734,6 +734,7 @@ int elf_start(const uint8_t* elf, uintptr_t size) {
     proc->brk_current = proc->brk_start;
     proc->mmap_start = 0x400000000000;
     proc->mmap_current = proc->mmap_start;
+    proc->syscall_conv = syscall_conv;
 
     scheduler_enqueue(proc->main_thread);
 

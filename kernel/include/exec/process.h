@@ -26,6 +26,7 @@ typedef struct process {
     struct thread* main_thread; 
     struct process* next;   
     file_desc_t fds[MAX_FILES_PER_PROCESS];
+    int calling_conv;
 } process_t;
 
 void process_init(void);

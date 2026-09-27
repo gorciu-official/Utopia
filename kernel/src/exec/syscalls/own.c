@@ -1,4 +1,5 @@
 #include <exec/scheduler.h>
+#include <exec/loaders/elf.h>
 #include <constants.h>
 #include <arch/common.h>
 #include <lib/screen.h>
@@ -6,8 +7,6 @@
 #include <memory.h>
 
 #include "common.h"
-
-int elf_start(const uint8_t* elf, uintptr_t size);
 
 SYSCALL_DEFINE_OWN(exit) {
     (void)regs; (void)process; (void)thread;
@@ -34,8 +33,8 @@ SYSCALL_DEFINE_OWN(spawn) {
     (void)thread; (void)process;
 
     char* path = (char*)regs->arg1;
-    uint64_t conv = regs->arg2; (void)conv;
-    uint64_t startup_arg = regs->arg3; (void)startup_arg;
+    uint64_t conv = regs->arg2; 
+    uint64_t startup_arg = regs->arg3; 
 
     vnode_t* node = NULL;
     vfs_lookup(path, &node);
@@ -48,7 +47,7 @@ SYSCALL_DEFINE_OWN(spawn) {
     uint64_t bytes_read = 0;
     node->ops->read(node, buffer, size, 0, &bytes_read);
     if (bytes_read == size) {
-        int response = elf_start(buffer, size);
+        int response = elf_start(buffer, size, conv, startup_arg);
         if (response != 0)
             return -8;
     }
