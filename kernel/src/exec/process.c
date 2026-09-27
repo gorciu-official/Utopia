@@ -1,4 +1,4 @@
-#include <process.h>
+#include <exec/process.h>
 #include <panic.h>
 #include <memory.h>
 #include <arch/common.h>

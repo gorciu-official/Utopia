@@ -1,7 +1,7 @@
 #pragma once
 
 #include <types.h>
-#include <scheduler.h>
+#include <exec/scheduler.h>
 
 #define MAX_PROCESSES 256
 #define MAX_FILES_PER_PROCESS 32

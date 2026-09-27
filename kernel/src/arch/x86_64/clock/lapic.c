@@ -1,6 +1,6 @@
 #include <arch/x86_64/registers.h>
 #include <types.h>
-#include <scheduler.h>
+#include <exec/scheduler.h>
 #include <lib/screen.h>
 #include <memory.h>
 

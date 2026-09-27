@@ -1,7 +1,7 @@
 #include <arch/memory.h>
 #include <arch/common.h>
-#include <scheduler.h>
-#include <process.h>
+#include <exec/scheduler.h>
+#include <exec/process.h>
 #include <memory.h>
 #include <arch/common.h>
 #include <lib/screen.h>
@@ -142,9 +142,11 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     regs->ss = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
     regs->rsp = sp;
+    regs->rax = arg;
     t->stack_ptr = (void*)stack_base;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     regs->x[2] = sp;
+    regs->x[10] = arg;
     regs->sepc = (uintptr_t)entry_point;
     regs->sstatus &= ~(3ULL << 13);
     regs->sstatus |=  (1ULL << 13); // FS=Initial

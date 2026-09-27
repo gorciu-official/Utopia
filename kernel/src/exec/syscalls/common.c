@@ -1,6 +1,6 @@
 #include <types.h>
-#include <scheduler.h>
-#include <process.h>
+#include <exec/scheduler.h>
+#include <exec/process.h>
 #include <lib/screen.h>
 #include <arch/common.h>
 

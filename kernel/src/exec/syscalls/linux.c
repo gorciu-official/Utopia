@@ -1,7 +1,7 @@
 #include "arch/memory.h"
 #include <constants.h>
-#include <process.h>
-#include <scheduler.h>
+#include <exec/process.h>
+#include <exec/scheduler.h>
 #include <panic.h>
 #include <lib/screen.h>
 #include <drivers/filesystem.h>

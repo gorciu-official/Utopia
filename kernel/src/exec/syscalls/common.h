@@ -2,7 +2,7 @@
 
 #include <arch/common.h>
 #include <types.h>
-#include <process.h>
+#include <exec/process.h>
 
 typedef struct {
     uint64_t arg1, arg2, arg3, arg4, arg5, arg6, syscall_no;

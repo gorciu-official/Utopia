@@ -4,8 +4,8 @@
 #include <memory.h>
 #include <drivers/framebuffer.h>
 #include <drivers/filesystem.h>
-#include <scheduler.h>
-#include <process.h>
+#include <exec/scheduler.h>
+#include <exec/process.h>
 #include <panic.h>
 #include <boot/common.h>
 #include <constants.h>

@@ -1,7 +1,7 @@
 #include <types.h>
 #include <arch/common.h>
 #include <lib/screen.h>
-#include <scheduler.h>
+#include <exec/scheduler.h>
 #include <arch/common.h>
 
 #include "sbi.h"

@@ -1,4 +1,4 @@
-#include <scheduler.h>
+#include <exec/scheduler.h>
 #include <constants.h>
 #include <arch/common.h>
 #include <lib/screen.h>
