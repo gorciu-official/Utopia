@@ -10,7 +10,7 @@ extern SYSCALL_ABI_DECLARE(own);
 extern SYSCALL_ABI_DECLARE(linux);
 
 static inline syscall_abi_t get_process_abi(process_t* proc) {
-    switch (proc->calling_conv) {
+    switch (proc->syscall_conv) {
     case 1:
         return syscall_abi_linux;
     case 0: default:
