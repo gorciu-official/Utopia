@@ -14,22 +14,9 @@ static thread_t* current_threads[CPU_ARCH_MAX_CPUS] = {NULL};
 static thread_t* idle_threads[CPU_ARCH_MAX_CPUS] = {NULL};
 static thread_t* ready_queue_head = NULL;
 static thread_t* ready_queue_tail = NULL;
-static thread_t* garbage_list = NULL;
+static thread_t* dead_threads[CPU_ARCH_MAX_CPUS] = {NULL};
 static uint32_t next_thread_id = 0;
 
-static inline void write_cr3(uint64_t val) {
-    (void)val;
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
-#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-    uint64_t satp = (9ULL << 60) | (val >> 12);
-    __asm__ volatile(
-        "csrw satp, %0\n"
-        "sfence.vma\n"
-        :: "r"(satp) : "memory"
-    );
-#endif
-}
 
 void scheduler_enqueue(thread_t* t) {
     spinlock_acquire(&scheduler_lock);
@@ -77,6 +64,10 @@ void scheduler_init(void) {
     main_thread->stack_ptr = NULL;
     main_thread->next = NULL;
     main_thread->process = NULL;
+    main_thread->regs = (registers_t*)malloc(sizeof(registers_t));
+    if (main_thread->regs) {
+        memset(main_thread->regs, 0, sizeof(registers_t));
+    }
 
     current_threads[cpu_id] = main_thread;
     idle_threads[cpu_id] = main_thread;
@@ -103,6 +94,10 @@ void scheduler_ap_init(void) {
     ap_thread->stack_ptr = NULL;
     ap_thread->next = NULL;
     ap_thread->process = NULL;
+    ap_thread->regs = (registers_t*)malloc(sizeof(registers_t));
+    if (ap_thread->regs) {
+        memset(ap_thread->regs, 0, sizeof(registers_t));
+    }
 
     current_threads[cpu_id] = ap_thread;
     idle_threads[cpu_id] = ap_thread;
@@ -161,22 +156,21 @@ registers_t* scheduler_schedule(registers_t* regs) {
 
     if (!curr) return regs;
 
-    thread_t* garbage = NULL;
-    spinlock_acquire(&scheduler_lock);
-    garbage = garbage_list;
-    garbage_list = NULL;
-    spinlock_release(&scheduler_lock);
-
-    while (garbage) {
-        thread_t* next_garbage = garbage->next;
-        if (garbage->stack_base) {
-            free(garbage->stack_base);
+    if (dead_threads[cpu_id]) {
+        thread_t* dead = dead_threads[cpu_id];
+        dead_threads[cpu_id] = NULL;
+        if (dead->stack_base) {
+            free(dead->stack_base);
         }
-        free(garbage);
-        garbage = next_garbage;
+        if (dead->regs) {
+            free(dead->regs);
+        }
+        free(dead);
     }
 
-    curr->regs = regs;
+    if (regs && curr->regs) {
+        memcpy(curr->regs, regs, sizeof(registers_t));
+    }
 
     if (curr->state == THREAD_STATE_RUNNING && curr != idle_threads[cpu_id]) {
         curr->state = THREAD_STATE_READY;
@@ -192,11 +186,13 @@ registers_t* scheduler_schedule(registers_t* regs) {
         next = idle_threads[cpu_id];
     }
 
+    if (curr->state == THREAD_STATE_TERMINATED && curr != idle_threads[cpu_id]) {
+        dead_threads[cpu_id] = curr;
+    }
+
     next->state = THREAD_STATE_RUNNING;
     current_threads[cpu_id] = next;
 
-    // TODO: this is generally a bad idea since kernel pages are mapped but 
-    //       theoretically should work since it clears only lower-half
     if (next->process) {
         write_cr3(hhdm_virt_to_phys(next->process->page_table));
     }
@@ -205,7 +201,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
 }
 
 void thread_yield(void) {
-    arch_invi(0x32); 
+    arch_invi(32); 
 }
 
 void thread_exit(void) {
@@ -222,11 +218,6 @@ void thread_exit(void) {
         }
 
         curr->state = THREAD_STATE_TERMINATED;
-
-        spinlock_acquire(&scheduler_lock);
-        curr->next = garbage_list;
-        garbage_list = curr;
-        spinlock_release(&scheduler_lock);
     }
 
     thread_yield();

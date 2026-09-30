@@ -34,8 +34,6 @@ Reserved block: `0`-`999`.
 - 5: `write` - writes `arg3` amount of bytes from `arg2` to the file described by `arg1`
 - 6: `nodeinfo` - reads the current `file_info_t` to a pointer in `arg1` 
 
-Even though filesystem syscalls could be implemented through `IPC` I've decided to dedicate a section for them, mostly because the microkernel provides a few essential filesystems needed during boot. And they are one of the most common operations.
-
 ### IPC 
 
 Reserved block: `1000`-`1999`.

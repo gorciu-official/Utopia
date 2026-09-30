@@ -62,6 +62,20 @@ static inline void arch_cli() {
 #endif
 }
 
+static inline void write_cr3(uint64_t val) {
+    (void)val;
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    uint64_t satp = (9ULL << 60) | (val >> 12);
+    __asm__ volatile(
+        "csrw satp, %0\n"
+        "sfence.vma\n"
+        :: "r"(satp) : "memory"
+    );
+#endif
+}
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #define arch_invi(int_no) \
     __asm__ volatile("int %0" :: "i"(int_no) : "memory")

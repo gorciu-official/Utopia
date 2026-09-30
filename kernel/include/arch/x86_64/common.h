@@ -53,9 +53,6 @@ static inline uint64_t read_cr0(void) {
     return val;
 }
 
-static inline void write_cr3(uint64_t val) {
-    __asm__ volatile("mov %0, %%cr3" :: "r"(val) : "memory");
-}
 
 typedef struct {
     uint16_t limit_low;
