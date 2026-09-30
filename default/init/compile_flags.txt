@@ -1,6 +1,0 @@
--I../libc/include/
--nostdinc
--nostdlib
--ffreestanding
--nostartfiles
--static
