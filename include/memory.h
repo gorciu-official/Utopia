@@ -16,7 +16,12 @@ uintptr_t kernel_virt_to_phys(void* addr);
 
 void* page_alloc(uint64_t pages);
 uint64_t* pt_pool_alloc(void);
+
+#if BOOTLOADER == BOOTLOADER_CODE_LIMINE
 extern uint64_t* page_table_l4;
+#else 
+extern uint64_t page_table_l4[];
+#endif
 
 void* memset(void* dest, int val, size_t n);
 void* memcpy(void* dest, const void* src, size_t n);
