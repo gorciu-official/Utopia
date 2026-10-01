@@ -1,7 +1,7 @@
 #!/usr/bin/env bash 
 
-GRUB_CFG=kernel/src/build/grub.cfg
-LIMINE_CFG=kernel/src/build/limine.conf
+GRUB_CFG=src/build/grub.cfg
+LIMINE_CFG=src/build/limine.conf
 
 COLOR_GREEN=$'\x1b[32m'
 COLOR_YELLOW=$'\x1b[33m'
