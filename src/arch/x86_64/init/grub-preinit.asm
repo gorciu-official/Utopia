@@ -3,7 +3,7 @@ global _long_mode_entry
 extern kinit
 
 %define KERNEL_VMA     0xffffffff80000000
-%define KERNEL_LMA     0x00100000
+%define KERNEL_LMA     0x00200000
 %define KERNEL_OFFSET  0xffffffff7ff00000
 
 %define HHDM_BASE      0xffff800000000000

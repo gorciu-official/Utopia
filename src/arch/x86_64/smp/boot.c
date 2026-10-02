@@ -1,3 +1,4 @@
+#include <arch/memory.h>
 #include <types.h>
 #include <constants.h>
 #include <lib/screen.h>
@@ -20,8 +21,15 @@ volatile uint64_t ap_stack_ptr = 0;
 extern void ap_main();
 
 void boot_ap(uint8_t target_apic_id) {
-uint8_t* trampoline_dest = (uint8_t*)0x70000;
+    uint8_t* trampoline_dest = (uint8_t*)0x70000;
     size_t trampoline_size = (size_t)(ap_end - ap_start);
+
+    for (
+        uintptr_t addr = 0x70000;
+        addr < 0x73000;
+        addr += 0x1000
+    )
+        map_page_4k(NULL, addr, addr, VMF_WRITE | VMF_EXEC);
 
     memcpy(trampoline_dest, ap_start, trampoline_size);
 

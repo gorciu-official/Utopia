@@ -54,7 +54,7 @@ uintptr_t kernel_virt_to_phys(void* addr) {
         return (uintptr_t)addr - exec_addr_request.response->virtual_base + exec_addr_request.response->physical_base;
     }
 #endif
-    return (uintptr_t)addr - 0xffffffff80000000ULL + 0x100000ULL;
+    return (uintptr_t)addr - 0xffffffff80000000ULL + 0x200000ULL;
 }
 
 uintptr_t hhdm_virt_to_phys(void* addr) {
@@ -230,7 +230,7 @@ uint64_t* clone_page_table(void) {
 }
 
 int map_page_4k(uint64_t* l4_table, uint64_t virt, uint64_t phys, vm_flags_t flags) {
-    if (!l4_table) return -1;
+    if (!l4_table) l4_table = page_table_l4;
     uint64_t* table = l4_table;
 
     for (int level = PT_TOP_LEVEL; level > 0; level--) {
