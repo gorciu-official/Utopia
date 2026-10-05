@@ -76,6 +76,8 @@ void kmain(common_boot_structure_t* cbs) {
         vfs_mount("ramfs", 0, "/");
 
     // run base tasks
+    printk("Core", "Starting init process");
+
     vnode_t* init_file = 0;
     vfs_lookup("/init", &init_file);
     if (init_file) {
