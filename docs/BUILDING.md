@@ -6,7 +6,7 @@ So, before building, make sure you have these:
 
 - a good assembler (NASM) for x86_64 / a bad assembler (GNU as) for non-x86_64 architectures
 - a C compiler 
-- GNU make (or any other program that reads Makefiles)
+- GNU make (or any other program that reads Makefiles with GNU extensions)
 
 If you want to test on an emulated machine make sure you have a good CPU (good cpu = smth better than core 2 quad q9300) and QEMU installed.
 
