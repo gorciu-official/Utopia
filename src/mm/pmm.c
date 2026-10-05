@@ -3,7 +3,8 @@
 #include <memory.h>
 #include <panic.h>
 #include <lib/screen.h>
-#include <arch/x86_64/common.h>
+#include <lib/spinlock.h>
+#include <arch/common.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
 #include <boot/limine.h>
@@ -28,6 +29,8 @@ typedef struct heap_block {
 static heap_block_t* head = NULL;
 static memory_map_entry_t kernel_memory_map[64];
 static uint32_t memory_map_count = 0;
+static bool pmm_initialized = false;
+static spinlock_t spin = {0};
 
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
 void memory_init_base(multiboot_info_t* mbd) {
@@ -283,6 +286,9 @@ void memory_init(void) {
             kernel_memory_map[i].len
         );
     }
+
+    spinlock_init(&spin);
+    pmm_initialized = true;
 }
 
 int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
@@ -354,9 +360,13 @@ int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
 }
 
 void* malloc(size_t size) {
+    if (!pmm_initialized)
+        panic("Too early use of malloc()", NULL);
+
     if (size == 0) return NULL;
 
     uint64_t flags = arch_save_interrupts();
+    spinlock_acquire(&spin);
 
     size = (size + 7) & ~7;
 
@@ -381,6 +391,7 @@ void* malloc(size_t size) {
     }
 
     arch_restore_interrupts(flags);
+    spinlock_release(&spin);
     return result;
 }
 
@@ -388,6 +399,7 @@ void free(void* ptr) {
     if (!ptr) return;
 
     uint64_t flags = arch_save_interrupts();
+    spinlock_acquire(&spin);
 
     heap_block_t* block = (heap_block_t*)((uint8_t*)ptr - sizeof(heap_block_t));
     block->free = true;
@@ -403,6 +415,7 @@ void free(void* ptr) {
     }
 
     arch_restore_interrupts(flags);
+    spinlock_release(&spin);
 }
 
 void* page_alloc(uint64_t pages) {
@@ -410,6 +423,7 @@ void* page_alloc(uint64_t pages) {
     size_t size = 4096 * pages;
 
     uint64_t flags = arch_save_interrupts();
+    spinlock_acquire(&spin);
 
     heap_block_t* curr = head;
     void* result = NULL;
@@ -457,5 +471,6 @@ void* page_alloc(uint64_t pages) {
     }
 
     arch_restore_interrupts(flags);
+    spinlock_release(&spin);
     return result;
 }
