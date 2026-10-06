@@ -12,12 +12,23 @@ extern registers_t* lapic_timer_handler(registers_t* regs);
 registers_t* isr_handler(registers_t* regs) {
     // -- cpu exceptions
     if (regs->int_no < 32) {
-        if (regs->int_no == 14 && regs->err_code & (1 << 2)) {
+        if (
+            (regs->int_no == 14 && regs->err_code & (1 << 2)) 
+        ) {
             printf(
                 "Segmentation fault at %p (%s %p; %s)\n", regs->rip,
                 (regs->err_code & (1 << 1)) ? "writing to" : "reading", 
                 read_pf_addr(), 
                 (regs->err_code & (1 << 0)) ? "protection violation" : "non-present"
+            );
+            thread_exit();
+            return scheduler_schedule(regs);
+        } else if (
+            (regs->int_no == 13 && (regs->cs & 3) == 3)
+        ) {
+            printf(
+                "Segmentation fault at %p (user-mode #GP)",
+                regs->rip
             );
             thread_exit();
             return scheduler_schedule(regs);
