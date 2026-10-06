@@ -202,7 +202,7 @@ void user_print(char* fmt, uint64_t size) {
     spinlock_release(&fb_spinlock);
 }
 
-static bool console_suspended = false;
+static volatile bool console_suspended = false;
 
 void printk(const char* module, const char *fmt, ...) {
     if (console_suspended) return;

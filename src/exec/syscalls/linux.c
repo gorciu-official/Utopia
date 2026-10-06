@@ -527,7 +527,7 @@ SYSCALL_DEFINE_LINUX(exit) {
 
 SYSCALL_DEFINE_LINUX(stub_unimplemented) {
     (void)regs; (void)process; (void)thread;
-    printk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->syscall_no);
+    dprintk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->syscall_no);
     return 0;
 }
 
