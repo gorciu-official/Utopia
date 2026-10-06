@@ -17,6 +17,8 @@
 #include "linux.h"
 #include "common.h"
 
+extern bool context_switch_lock;
+
 static uint64_t page_align_up(uint64_t value) {
     return (value + 0xFFFULL) & ~0xFFFULL;
 }
@@ -181,9 +183,11 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
 
     if (fd == 0) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+        context_switch_lock = true;
         asm volatile ("sti"); // TODO: temporary fix, syscalls should not enable interrupts
         uintptr_t ret = ps2_read(buf, count);
         asm volatile ("cli");
+        context_switch_lock = false;
         return ret;
 #endif
     }

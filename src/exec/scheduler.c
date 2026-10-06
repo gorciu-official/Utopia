@@ -17,6 +17,7 @@ static thread_t* ready_queue_tail = NULL;
 static thread_t* dead_threads[CPU_ARCH_MAX_CPUS] = {NULL};
 static uint32_t next_thread_id = 0;
 
+bool context_switch_lock = false;
 
 void scheduler_enqueue(thread_t* t) {
     spinlock_acquire(&scheduler_lock);
@@ -151,6 +152,9 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
 }
 
 registers_t* scheduler_schedule(registers_t* regs) {
+    if (context_switch_lock)
+        return regs;
+
     uint32_t cpu_id = current_processor_id();
     thread_t* curr = current_threads[cpu_id];
 
