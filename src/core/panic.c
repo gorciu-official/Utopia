@@ -94,6 +94,16 @@ void panic(const char* reason, registers_t* regs) {
                 (regs->err_code & (1 << 1)) ? "writing to" : "reading", read_pf_addr()
             );
         }
+
+        printk("Core", "  - Stack dump:");
+
+        uint64_t* stack = (uint64_t*)regs->rsp;
+        
+        for (int i = 0; i < 16; i++) {
+            printk("Core", "    [%p] = %p",
+                   stack + i,
+                   stack[i]);
+        }
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
         printk("Core", "  - CPU exception: %s", cpu_exception_name(regs->scause));
         printk("Core", "  - Basic info:    cause=%p  cpu_id=%d  stval=%p", regs->scause, current_processor_id(), regs->stval);
