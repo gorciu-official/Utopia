@@ -76,7 +76,22 @@ static const char* cpu_exception_name(uintptr_t int_no) {
 }
 
 void panic(const char* reason, registers_t* regs) {
+    static bool panicked = false;
+
     arch_cli();
+
+    if (panicked) {
+        printk("Core", "\x1b[91mDouble kernel panic\x1b[0m: %s", reason);
+        printk("Core", "  - A kernel panic occured while handling the first kernel panic.");
+        printk("Core", "  - Please file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
+        printk("Core", "  - The system enters a halted state, please restart the computer manually");
+
+        while (true) {
+            arch_cli();
+            arch_wfi(); 
+        }
+    } else 
+        panicked = true;
     
     printk_remove_console_suspension();
     printk("Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
