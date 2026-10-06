@@ -20,6 +20,7 @@ registers_t* isr_handler(registers_t* regs) {
                 (regs->err_code & (1 << 0)) ? "protection violation" : "non-present"
             );
             thread_exit();
+            return scheduler_schedule(regs);
         } else {
             panic("Unexpected CPU exception", regs);
         }

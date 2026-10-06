@@ -200,10 +200,6 @@ registers_t* scheduler_schedule(registers_t* regs) {
     return next->regs;
 }
 
-void thread_yield(void) {
-    arch_invi(32); 
-}
-
 void thread_exit(void) {
     uint32_t cpu_id = current_processor_id();
     thread_t* curr = current_threads[cpu_id];
@@ -219,11 +215,6 @@ void thread_exit(void) {
 
         curr->state = THREAD_STATE_TERMINATED;
     }
-
-    thread_yield();
-
-    while (true)
-        arch_wfi();
 }
 
 thread_t* scheduler_get_current_thread(void) {
