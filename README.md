@@ -53,5 +53,5 @@ Running any of these of course assume a good C standard library (glibc may work,
 ## Additional notes
 
 - Contributions are welcome!
-- Main repository is [on GitHub](https://github.com/gorciu-official/Utopia), official mirrors: [Radicle](https://radicle.network/nodes/iris.radicle.network/rad%3Azxi5tifexnTkPWHimgBqHCqHLTpJ), [Evalyn's Git Server](https://git.evalyngoemer.com/gorciu/Utopia)
+- Main repository is [on GitHub](https://github.com/gorciu-official/Utopia), official mirrors: [Radicle](https://radicle.network/nodes/iris.radicle.network/rad%3Azxi5tifexnTkPWHimgBqHCqHLTpJ), [Evalyn's Git Server](https://git.evalyngoemer.com/gorciu/Utopia), [Gitea on tilde.town](https://git.tilde.town/gorciu/Utopia)
 - Utopia is licensed under GNU GPL v3.0
