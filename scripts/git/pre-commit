@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash --posix
+
+# At least ensure that it compiles for the host architecture.
+# Given huge differences in cross-toolchain across different configurations,
+# it would probably be better not to check them
+make

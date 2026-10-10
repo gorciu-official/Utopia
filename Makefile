@@ -123,7 +123,7 @@ QEMU_FLAGS += -drive if=pflash,format=raw,unit=1,file=target/third-party.riscv64
 endif
 QEMU_FLAGS += $(EXTRA_QEMU_FLAGS)
 
-all: build_kernel build_iso
+all: hooks build_kernel build_iso
 	@echo -e "\033[32mSuccess!\033[0m"
 
 ifeq ($(BOOTLOADER),limine)
@@ -240,3 +240,7 @@ run_dbg: all
 	./scripts/run_debug_mode.sh $(QEMU) $(KERNEL_BIN) $(QEMU_FLAGS)
 
 recompile: clean all
+
+hooks:
+	@chmod +x scripts/git/*
+	@git config core.hooksPath scripts/git
