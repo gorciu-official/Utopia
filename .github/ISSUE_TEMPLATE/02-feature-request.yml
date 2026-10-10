@@ -1,0 +1,31 @@
+name: Feature request 
+description: File a feature request.
+title: "request: Please enter your title here"
+labels: ["enhancement"]
+assignees:
+  - gorciu-official
+
+body:
+  - type: textarea
+    id: request-details 
+    attributes:
+      label: Request details
+      description: What are you requesting?
+    validations:
+      required: true
+
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything you want to add to this issue.
+
+
+  - type: checkboxes
+    id: Agreements 
+    attributes:
+      label: Agreements 
+      options:
+        - label: I have checked that the feature I am requesting is not present on the latest git version on the main branch. 
+          required: true
