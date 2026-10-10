@@ -244,3 +244,5 @@ recompile: clean all
 hooks:
 	@chmod +x scripts/git/*
 	@git config core.hooksPath scripts/git
+
+-include $(C_OBJECTS:.o=.d)
