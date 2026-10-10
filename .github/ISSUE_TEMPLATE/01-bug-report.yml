@@ -1,0 +1,73 @@
+name: 🐍 Bug report
+description: You may let me know if you have encountered a bug or something. 
+title: "bug: Please enter your title here"
+labels: ["bug"]
+
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A detailed explanation of the bug with information about expected behaviour. 
+    validations:
+      required: true
+
+
+  - type: dropdown
+    id: cpu    
+    attributes:
+      label: For which CPU architecture was the kernel compiled for? 
+      multiple: false
+      options:
+        - x86_64
+        - RISC-V 64
+    validations:
+        required: true
+
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: What hardware / emulator did you run the kernel with? 
+      multiple: false
+      options:
+        - QEMU
+        - VirtualBox
+        - VMware
+        - Other emulator (specify in notes) 
+        - Real hardware (specify in notes)
+    validations:
+        required: true
+
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Version 
+      description: Which version of the kernel was used? If compiled from source, please check the branch and commit SHA of your cloned repo and paste it here.
+    validations:
+      required: true
+
+
+  - type: textarea
+    id: userspace 
+    attributes:
+      label: Userspace
+      description: Please paste the build instructions for the userspace used. Alternatively, if only one process is running as a system init, please specify the repo link to the init process used.
+    validations:
+      required: true
+
+
+  - type: textarea
+    id: out
+    attributes:
+      label: Output
+      description: Please copy and paste any output from the serial console. This will be automatically formatted into code. If no output present, just skip.
+      render: shell
+
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything you want to add to this issue. If "real hardware" or "other emulator"" options were chosen, please specify the hardware/emulator used here.
