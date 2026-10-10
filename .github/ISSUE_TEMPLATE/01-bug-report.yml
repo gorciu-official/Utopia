@@ -1,7 +1,7 @@
 name: Bug report
 description: Report an encountered, reproduceable bug. 
 title: "bug: Please enter your title here"
-labels: ["bug"]
+labels: ["Bug"]
 assignees:
   - gorciu-official
 
