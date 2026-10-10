@@ -1,5 +1,5 @@
-name: 🐍 Bug report
-description: You may let me know if you have encountered a bug or something. 
+name: Bug report
+description: Report an encountered, reproduceable bug. 
 title: "bug: Please enter your title here"
 labels: ["bug"]
 
@@ -70,4 +70,4 @@ body:
     id: notes
     attributes:
       label: Notes
-      description: Anything you want to add to this issue. If "real hardware" or "other emulator"" options were chosen, please specify the hardware/emulator used here.
+      description: Anything you want to add to this issue. If "real hardware" or "other emulator" options were chosen, please specify the hardware/emulator used here.
