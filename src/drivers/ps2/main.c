@@ -1,8 +1,10 @@
+#include <types.h>
 #include <constants.h>
+
+bool keyboard_should_putchar = false;
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 
-#include <types.h>
 #include <drivers/arch-specific/ps2.h>
 #include <lib/screen.h>
 #include <drivers/framebuffer.h>
@@ -114,7 +116,8 @@ void ps2_interrupt_handler() {
     buffers[processor][pos] = character;
     positions[processor]++;
 
-    framebuffer_putchar(character, 0xFFFFFF, 0x000000);
+    if (keyboard_should_putchar) 
+        framebuffer_putchar(character, 0xFFFFFF, 0x000000);
 
     if (positions[processor] == sizes[processor]) {
         finished[processor] = true;

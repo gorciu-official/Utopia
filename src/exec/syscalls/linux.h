@@ -43,6 +43,23 @@ struct stat {
     int64_t  __unused[3];
 }__attribute__((packed));
 
+struct termios {
+    uint32_t c_iflag;   
+    uint32_t c_oflag;
+    uint32_t c_cflag;
+    uint32_t c_lflag;
+    uint8_t c_cc[20];
+
+    union {
+        uint32_t __ispeed;
+        uint32_t c_ispeed;
+    };
+    union {
+        uint32_t __ospeed;
+        uint32_t c_ospeed;
+    };
+} __attribute__((packed));
+
 struct linux_dirent64 {
     uint64_t        d_ino;
     int64_t         d_off;
@@ -89,3 +106,13 @@ struct linux_dirent64 {
 #define DT_REG      8
 #define DT_LNK      10
 #define DT_SOCK     12
+
+
+// TODO: this is apparently architecture-dependent for some reason so we
+//   should use something for RISC-V or idk
+#define TCGETS  0x5401
+#define TCSETS  0x5402
+#define TCSETSW 0x5403
+#define TCSETSF 0x5404
+
+#define TERMIOS_ECHO	0000010

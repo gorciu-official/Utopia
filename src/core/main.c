@@ -1,15 +1,21 @@
 #include <types.h> 
+#include <constants.h>
+
 #include <lib/screen.h>
+
 #include <arch/common.h>
+#include <boot/common.h>
+
 #include <memory.h>
+
 #include <drivers/framebuffer.h>
 #include <drivers/filesystem.h>
+
 #include <exec/scheduler.h>
 #include <exec/process.h>
 #include <exec/loaders/elf.h>
+
 #include <panic.h>
-#include <boot/common.h>
-#include <constants.h>
 
 static inline void cpu_main() {
     while (true)
@@ -69,11 +75,18 @@ void kmain(common_boot_structure_t* cbs) {
     vfs_init();
     vfs_register_driver(&ramfs_driver);
     vfs_register_driver(&tarfs_driver);
+    vfs_register_driver(&devtmpfs_driver);
     if (cbs->modules.initramfs_addr != NULL) {
         tarfs_set_image(cbs->modules.initramfs_addr, cbs->modules.initramfs_size);
         vfs_mount("tarfs", 0, "/");
     } else 
         vfs_mount("ramfs", 0, "/");
+
+    vnode_t* root_node;
+    vnode_t* dev_node;
+    vfs_lookup("/", &root_node);
+    root_node->ops->mkdir(root_node, "dev", &dev_node);
+    vfs_mount("devtmpfs", 0, "/dev/");
 
     // run base tasks
     printk("Core", "Starting init process");

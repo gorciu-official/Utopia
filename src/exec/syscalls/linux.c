@@ -18,6 +18,7 @@
 #include "common.h"
 
 extern bool context_switch_lock;
+extern bool keyboard_should_putchar;
 
 static uint64_t page_align_up(uint64_t value) {
     return (value + 0xFFFULL) & ~0xFFFULL;
@@ -775,6 +776,18 @@ SYSCALL_DEFINE_LINUX(getrandom) {
     return count; 
 }
 
+SYSCALL_DEFINE_LINUX(ioctl) {
+    (void)process; (void)thread;
+
+    struct termios* tos = (struct termios*)regs->arg3;
+
+    if (regs->arg2 == TCSETS) {
+        keyboard_should_putchar = !!(tos->c_lflag & TERMIOS_ECHO);
+    }
+
+    return 0;
+}
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
     [0]   = syscall_linux_read,
@@ -789,7 +802,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [11]  = syscall_linux_munmap,
     [12]  = syscall_linux_brk,
     [13]  = syscall_linux_stub_unimplemented,
-    [16]  = syscall_linux_stub_unimplemented,
+    [16]  = syscall_linux_ioctl,
     [17]  = syscall_linux_pread64,
     [20]  = syscall_linux_writev,
     [21]  = syscall_linux_access,
@@ -827,6 +840,7 @@ SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_s
 static const syscall_fn_t syscall_linux_table[] = {
     [17]  = syscall_linux_getcwd,
     [23]  = syscall_linux_stub_unimplemented,
+    [29]  = syscall_linux_ioctl,
     [56]  = syscall_linux_openat,
     [57]  = syscall_linux_close,
     [61]  = syscall_linux_getdents64,

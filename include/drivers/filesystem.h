@@ -64,7 +64,10 @@ int vfs_register_driver(filesystem_driver_t *driver);
 int vfs_mount(const char *type, const char *source, const char *target);
 int vfs_lookup(const char *path, vnode_t **result);
 int vfs_open(const char *path, int flags, vnode_t **result);
+
+// -- fs drivers 
 extern filesystem_driver_t ramfs_driver;
 extern filesystem_driver_t tarfs_driver;
+extern filesystem_driver_t devtmpfs_driver;
 
 void tarfs_set_image(const void* data, uint64_t size);
