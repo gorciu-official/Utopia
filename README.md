@@ -26,9 +26,9 @@ Jokes aside but should work everywhere (with a few exceptions of course). Tested
 
 | Architecture | Boot protocol | Support level | Note                                                                             |
 | ------------ | ------------- | ------------- | -------------------------------------------------------------------------------- |
-| x86_64       | Limine        | Full          | Dev time mostly focused on this build.                                           |
+| x86_64       | Limine        | Full          | -                                                                                |
 | x86_64       | Multiboot1    | Partial       | SMP triple faulting; not detecting init file in initramfs.                       |
-| RISC-V 64    | Limine        | Partial       | Non-glibc static executables should absolutelly work.                            |
+| RISC-V 64    | Limine        | Full          | -                                                                                |
 | RISC-V 64    | Multiboot1    | Unsupported   | Trying to get Limine version to boot first.                                      |
 
 I copied the idea of this table from [here](https://git.evalyngoemer.com/evalynOS/evalynOS).
