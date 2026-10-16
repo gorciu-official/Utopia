@@ -116,3 +116,5 @@ struct linux_dirent64 {
 #define TCSETSF 0x5404
 
 #define TERMIOS_ECHO	0000010
+
+#define SIGABRT 6

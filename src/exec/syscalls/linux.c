@@ -75,6 +75,23 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     return bytes_written;
 }
 
+SYSCALL_DEFINE_LINUX(tgkill) {
+    uint64_t tgid = regs->arg1;
+    uint64_t pid = regs->arg2;
+    uint64_t signal = regs->arg3;
+
+    if (tgid != thread->id && pid != process->pid)
+        return -ENOSYS;
+
+    if (signal != SIGABRT)
+        return -ENOSYS;
+
+    printf("abort.");
+    thread_exit();
+
+    return 0;
+}
+
 SYSCALL_DEFINE_LINUX(lseek) {
     (void)thread;
 
@@ -285,7 +302,7 @@ SYSCALL_DEFINE_LINUX(mprotect) {
 
     uint64_t pflags = VMF_USER;
     if (prot & 0x2) pflags |= VMF_WRITE;
-    if (prot & 0x1) pflags |= VMF_EXEC; 
+    if (prot & 0x4) pflags |= VMF_EXEC;
 
     for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
         if (protect_page_4k(process->page_table, va, pflags) != 0) {
@@ -571,6 +588,9 @@ SYSCALL_DEFINE_LINUX(mmap) {
         target_vaddr = page_align_up(addr);
     }
 
+    dprintk("mmap", "addr=%p len=%p prot=%p flags=%p fd=%d offset=%p -> %p",
+        addr, length, prot, flags, (int)fd, offset, target_vaddr);
+
     uint64_t pflags = VMF_USER;
     if (prot & 0x2) pflags |= VMF_WRITE;
     if (prot & 0x1) pflags |= VMF_EXEC;
@@ -788,6 +808,16 @@ SYSCALL_DEFINE_LINUX(ioctl) {
     return 0;
 }
 
+SYSCALL_DEFINE_LINUX(gettid) {
+    (void)process; (void)regs;
+    return thread->id;
+}
+
+SYSCALL_DEFINE_LINUX(getpid) {
+    (void)thread; (void)regs;
+    return process->pid;
+}
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
     [0]   = syscall_linux_read,
@@ -806,16 +836,19 @@ static const syscall_fn_t syscall_linux_table[] = {
     [17]  = syscall_linux_pread64,
     [20]  = syscall_linux_writev,
     [21]  = syscall_linux_access,
+    [39]  = syscall_linux_getpid,
     [60]  = syscall_linux_exit,
     [63]  = syscall_linux_uname,
     [79]  = syscall_linux_getcwd,
     [102] = syscall_linux_stub_unimplemented, // that is indeed correct. let me explain.
                                               // this returns 0 and 0 means root
     [158] = syscall_linux_arch_prctl,
+    [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
     [217] = syscall_linux_getdents64,
     [218] = syscall_linux_set_tid_address,
     [231] = syscall_linux_exit,
+    [234] = syscall_linux_tgkill,
     [257] = syscall_linux_openat,
     [262] = syscall_linux_newfstatat,
     [273] = syscall_linux_stub_unimplemented,

@@ -72,9 +72,15 @@
 #define AT_PAGESZ    6
 #define AT_BASE     7
 #define AT_ENTRY    9
+#define AT_UID      11
+#define AT_EUID     12
+#define AT_GID      13
+#define AT_EGID     14
+#define AT_CLKTCK   17
+#define AT_SECURE   23
 #define AT_RANDOM   25
-#define AT_EXECFN 31
+#define AT_EXECFN   31
 
 #define ELF_PUSH_STACK(sp, value) \
     *sp -= 8; \
-    *(uint64_t*)(*sp) = value; 
+    *(uint64_t*)(*sp) = value;

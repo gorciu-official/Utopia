@@ -285,7 +285,8 @@ static bool elf_gnu_hash_symcount(
 
 static elf_load_status_t elf_process_dynamic(
     const elf_image_t* img, uint64_t* l4_table, uint64_t load_bias, const elf64_phdr_t *dyn_ph,
-    const elf_object_t* ext_modules, int ext_module_count, elf_load_result_t *result
+    const elf_object_t* ext_modules, int ext_module_count, elf_load_result_t *result,
+    bool apply_relocs
 ) {
     if (dyn_ph->p_offset + dyn_ph->p_filesz > img->size) return ELF_ERR_TRUNCATED;
 
@@ -350,6 +351,11 @@ done_scanning:
         }
     }
 
+    // IMPORTANT: when the image is handed over to ld.so (main program with PT_INTERP,
+    // the interpreter itself, static-pie) userspace relocates it on its own. RELR is
+    // not idempotent (*p += bias), so doing it here too would apply the bias twice.
+    if (!apply_relocs) return ELF_OK;
+
     if (rela_off && rela_size) {
         int rc = elf_apply_rela_table(img, l4_table, load_bias,
                                        rela_off, rela_size, rela_ent, symtab_off,
@@ -376,7 +382,8 @@ done_scanning:
 elf_load_result_t elf_load(
     const uint8_t* image, uint64_t image_size,
     uint64_t* l4_table, uint64_t load_bias,
-    const elf_object_t* ext_modules, int ext_module_count
+    const elf_object_t* ext_modules, int ext_module_count,
+    bool apply_relocs
 ) {
     elf_load_result_t result = {0};
 
@@ -427,6 +434,7 @@ elf_load_result_t elf_load(
     result.phnum = ehdr->e_phnum;
     result.phentsize = ehdr->e_phentsize;
 
+    uint64_t prev_seg_flags = 0;
     uint64_t lowest = ~0ULL;
     uint64_t highest = 0;
     const elf64_phdr_t* dyn_ph = NULL;
@@ -464,18 +472,29 @@ elf_load_result_t elf_load(
             uint64_t phys;
             uint8_t* dst;
 
-            phys = hhdm_virt_to_phys(pt_pool_alloc());
-            if (!phys) {
-                result.status = ELF_ERR_NO_MEMORY;
-                return result;
-            }
+            // a page can be shared by two PT_LOADs (e.g. -z noseparate-code):
+            // reuse it instead of zeroing what the previous segment copied in
+            void* existing = elf_uv2kv(l4_table, page_va);
+            if (existing) {
+                dst = (uint8_t *)existing;
+                if (protect_page_4k(l4_table, page_va, flags | prev_seg_flags) != 0) {
+                    result.status = ELF_ERR_MAP_FAILED;
+                    return result;
+                }
+            } else {
+                phys = hhdm_virt_to_phys(pt_pool_alloc());
+                if (!phys) {
+                    result.status = ELF_ERR_NO_MEMORY;
+                    return result;
+                }
 
-            dst = (uint8_t *)phys_to_virt(phys);
-            for (int b = 0; b < 4096; b++) dst[b] = 0;
+                dst = (uint8_t *)phys_to_virt(phys);
+                for (int b = 0; b < 4096; b++) dst[b] = 0;
 
-            if (map_page_4k(l4_table, page_va, phys, flags) != 0) {
-                result.status = ELF_ERR_MAP_FAILED;
-                return result;
+                if (map_page_4k(l4_table, page_va, phys, flags) != 0) {
+                    result.status = ELF_ERR_MAP_FAILED;
+                    return result;
+                }
             }
 
             uint64_t page_end = page_va + 0x1000;
@@ -495,6 +514,7 @@ elf_load_result_t elf_load(
             }
         }
 
+        prev_seg_flags = flags;
         if (seg_start < lowest) lowest = seg_start;
         if (seg_end > highest) highest = seg_end;
 
@@ -539,7 +559,7 @@ elf_load_result_t elf_load(
             .phnum     = ehdr->e_phnum,
             .phentsize = ehdr->e_phentsize
         };
-        elf_load_status_t dyn_status = elf_process_dynamic(&img, l4_table, load_bias, dyn_ph, ext_modules, ext_module_count, &result);
+        elf_load_status_t dyn_status = elf_process_dynamic(&img, l4_table, load_bias, dyn_ph, ext_modules, ext_module_count, &result, apply_relocs);
         if (dyn_status != ELF_OK) {
             result.status = dyn_status;
             return result;
@@ -587,7 +607,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
 
     uint64_t bias = (peek->e_type == ET_DYN) ? ELF_PIE_BASE : 0;
 
-    elf_load_result_t main_res = elf_load(image, image_size, l4_table, bias, NULL, 0);
+    elf_load_result_t main_res = elf_load(image, image_size, l4_table, bias, NULL, 0, false);
     if (out_main) *out_main = main_res;
     if (main_res.status != ELF_OK) {
         printk("ELF Loader", "Failed to load main ELF image, status %d", main_res.status);
@@ -631,7 +651,8 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
         .sym_count    = main_res.sym_count,
     };
 
-    elf_load_result_t interp_res = elf_load(interp_buf, interp_size, l4_table, ELF_INTERP_BASE, &main_object, 1);
+    elf_load_result_t interp_res = elf_load(interp_buf, interp_size, l4_table, ELF_INTERP_BASE, &main_object, 1, false);
+    free(interp_buf); // segments were copied into their own pages
 
     if (interp_res.status != ELF_OK) {
         printk("ELF Loader", "Could not load ELF program interpretter, error: %d", interp_res.status);
@@ -671,55 +692,55 @@ int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     
     uint64_t sp = (uint64_t)stack_base + stack_size;
     sp &= ~0xFULL;
+
+    // --- data blobs living above the argv/envp/auxv vector ---
+    static const char argv0_str[] = "/init";
+    sp -= (sizeof(argv0_str) + 15) & ~15ULL;
+    uint64_t argv0_addr = sp;
+    for (size_t i = 0; i < sizeof(argv0_str); i++) ((char*)argv0_addr)[i] = argv0_str[i];
+
     sp -= 16;
     uint64_t random_addr = sp;
-    
-    uint8_t rand_buf[16];
     for (int i = 0; i < 16; i++) {
-        rand_buf[i] = (uint8_t)(i ^ 0x42); 
-    }
-    
-    for (int i = 0; i < 16; i++) {
-        ((uint8_t*)random_addr)[i] = rand_buf[i];
+        ((uint8_t*)random_addr)[i] = (uint8_t)(i ^ 0x42); // TODO: real entropy
     }
 
-    ELF_PUSH_STACK(&sp, 0);
-    ELF_PUSH_STACK(&sp, AT_NULL);
-    
-    if (auxv.at_entry) {
-        ELF_PUSH_STACK(&sp, auxv.at_entry);
-        ELF_PUSH_STACK(&sp, AT_ENTRY);
-    }
-    
-    if (auxv.at_phdr) {
-        ELF_PUSH_STACK(&sp, auxv.at_phdr);
-        ELF_PUSH_STACK(&sp, AT_PHDR);
-    }
-    
-    ELF_PUSH_STACK(&sp, random_addr);
-    ELF_PUSH_STACK(&sp, AT_RANDOM);
-    
-    ELF_PUSH_STACK(&sp, 4096);
-    ELF_PUSH_STACK(&sp, AT_PAGESZ);
-    
-    ELF_PUSH_STACK(&sp, auxv.at_phent);
-    ELF_PUSH_STACK(&sp, AT_PHENT);
-    
-    ELF_PUSH_STACK(&sp, auxv.at_phnum);
-    ELF_PUSH_STACK(&sp, AT_PHNUM);
-    
-    ELF_PUSH_STACK(&sp, auxv.has_interp ? auxv.at_base : 0);
-    ELF_PUSH_STACK(&sp, AT_BASE);
-    
-    ELF_PUSH_STACK(&sp, 0);
+    // --- initial process stack, lowest address first:
+    //     argc | argv[0] | NULL | envp NULL | auxv pairs (type, value)... | AT_NULL, 0
+    uint64_t vec[64];
+    int n = 0;
+    #define VEC_PUSH(v) (vec[n++] = (uint64_t)(v))
+    #define VEC_AUX(t, v) do { VEC_PUSH(t); VEC_PUSH(v); } while (0)
 
-    ELF_PUSH_STACK(&sp, 0); 
-    
-    ELF_PUSH_STACK(&sp, 0); 
+    VEC_PUSH(1);            // argc
+    VEC_PUSH(argv0_addr);   // argv[0] (used to be NULL with argc == 1, which is invalid)
+    VEC_PUSH(0);            // argv terminator
+    VEC_PUSH(0);            // envp terminator
 
-    ELF_PUSH_STACK(&sp, 1); 
-    
+    VEC_AUX(AT_PHDR,    auxv.at_phdr);
+    VEC_AUX(AT_PHENT,   auxv.at_phent);
+    VEC_AUX(AT_PHNUM,   auxv.at_phnum);
+    VEC_AUX(AT_PAGESZ,  4096);
+    VEC_AUX(AT_BASE,    auxv.has_interp ? auxv.at_base : 0);
+    VEC_AUX(AT_ENTRY,   auxv.at_entry);   // entry of the *main* program, not of ld.so
+    VEC_AUX(AT_UID,     0);
+    VEC_AUX(AT_EUID,    0);
+    VEC_AUX(AT_GID,     0);
+    VEC_AUX(AT_EGID,    0);
+    VEC_AUX(AT_SECURE,  0);
+    VEC_AUX(AT_CLKTCK,  100);
+    VEC_AUX(AT_RANDOM,  random_addr);
+    VEC_AUX(AT_EXECFN,  argv0_addr);
+    VEC_AUX(AT_NULL,    0);
+
+    // rsp must be 16-byte aligned and point exactly at argc when the entry point runs.
+    // (the old code aligned *after* pushing argc, which could move rsp off argc)
+    sp -= (uint64_t)n * 8;
     sp &= ~0xFULL;
+    for (int i = 0; i < n; i++) ((uint64_t*)sp)[i] = vec[i];
+
+    #undef VEC_PUSH
+    #undef VEC_AUX
 
     process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, arg, 3, (uintptr_t)stack_base, sp, stack_size);
     if (!proc) {
