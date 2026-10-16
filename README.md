@@ -55,7 +55,7 @@ The kernel is being constantly adapted to run some software as system inits.
 Running any of these of course assume a good C standard library (glibc may work, musl is ideal). Support for dynamic executables was added somewhat recently, so yes - you should (in theory) be able to run them!
 
 > [!CAUTION]
-> In modern Utopia systems, an executable running through the Linux compatibility layer designed to run as a system init **MUST** be launched by a system init wrapper executable using the [Utopia syscall ABI](docs/SYSCALLS.md). I recommend writting a quick assembly wrapper.
+> In modern Utopia systems, an executable running through the Linux compatibility layer designed to run as a system init **MUST** be launched by a system init wrapper executable using the [Utopia syscall ABI](docs/SYSCALLS.md). I recommend writting a quick assembly wrapper. **This is a breaking change.**
 
 ## Additional notes
 
