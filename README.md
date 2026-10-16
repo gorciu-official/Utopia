@@ -48,7 +48,14 @@ The kernel is being constantly adapted to run some software as system inits.
 - [nsh](https://github.com/na-razie-bez-nicku/nsh)
 - [JUAMP](https://github.com/gorciu-official/JUAMP)
 
+**In active porting:**
+
+- [bash](https://www.gnu.org/software/bash/)
+
 Running any of these of course assume a good C standard library (glibc may work, musl is ideal). Support for dynamic executables was added somewhat recently, so yes - you should (in theory) be able to run them!
+
+> [!CAUTION]
+> In modern Utopia systems, an executable running through the Linux compatibility layer designed to run as a system init **MUST** be launched by a system init wrapper executable using the [Utopia syscall ABI](docs/SYSCALLS.md). I recommend writting a quick assembly wrapper.
 
 ## Additional notes
 
