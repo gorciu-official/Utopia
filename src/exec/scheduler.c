@@ -3,24 +3,47 @@
 #include <exec/scheduler.h>
 #include <exec/process.h>
 #include <memory.h>
-#include <arch/common.h>
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <lib/spinlock.h>
 #include <panic.h>
 
 static spinlock_t scheduler_lock;
-static thread_t* current_threads[CPU_ARCH_MAX_CPUS] = {NULL};
-static thread_t* idle_threads[CPU_ARCH_MAX_CPUS] = {NULL};
+
+static thread_t* current_threads[CPU_ARCH_MAX_CPUS];
+static thread_t* idle_threads[CPU_ARCH_MAX_CPUS];
+static uintptr_t boot_cr3[CPU_ARCH_MAX_CPUS]; 
+static uintptr_t active_cr3[CPU_ARCH_MAX_CPUS]; 
+
 static thread_t* ready_queue_head = NULL;
 static thread_t* ready_queue_tail = NULL;
-static thread_t* dead_threads[CPU_ARCH_MAX_CPUS] = {NULL};
-static uint32_t next_thread_id = 0;
+static thread_t* zombie_list = NULL; 
+static uint32_t  next_thread_id = 0;
 
 bool context_switch_lock = false;
 
-void scheduler_enqueue(thread_t* t) {
+static inline unsigned long sched_lock(void) {
+    unsigned long flags = arch_save_interrupts();
     spinlock_acquire(&scheduler_lock);
+    return flags;
+}
+
+static inline uintptr_t read_page_table_root(void) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    uintptr_t v;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(v));
+    return v;
+#endif 
+    // TODO: RISC-V handling
+    return 0;
+}
+
+static inline void sched_unlock(unsigned long flags) {
+    spinlock_release(&scheduler_lock);
+    arch_restore_interrupts(flags);
+}
+
+static void enqueue_locked(thread_t* t) {
     t->state = THREAD_STATE_READY;
     t->next = NULL;
     if (ready_queue_tail == NULL) {
@@ -30,120 +53,146 @@ void scheduler_enqueue(thread_t* t) {
         ready_queue_tail->next = t;
         ready_queue_tail = t;
     }
-    spinlock_release(&scheduler_lock);
 }
 
-static thread_t* scheduler_dequeue(void) {
-    spinlock_acquire(&scheduler_lock);
+static thread_t* dequeue_locked(void) {
     thread_t* t = ready_queue_head;
     if (t != NULL) {
         ready_queue_head = t->next;
-        if (ready_queue_head == NULL) {
+        if (ready_queue_head == NULL)
             ready_queue_tail = NULL;
-        }
         t->next = NULL;
     }
-    spinlock_release(&scheduler_lock);
     return t;
+}
+
+static void thread_set_name(thread_t* t, const char* name) {
+    size_t i = 0;
+    if (name) {
+        for (; i < sizeof(t->name) - 1 && name[i]; i++)
+            t->name[i] = name[i];
+    }
+    t->name[i] = '\0';
+}
+
+static thread_t* tcb_alloc(const char* name) {
+    thread_t* t = (thread_t*)malloc(sizeof(thread_t));
+    if (!t) return NULL;
+    memset(t, 0, sizeof(thread_t));
+
+    t->regs = (registers_t*)malloc(sizeof(registers_t));
+    if (!t->regs) {
+        free(t);
+        return NULL;
+    }
+    memset(t->regs, 0, sizeof(registers_t));
+
+    t->id = __atomic_fetch_add(&next_thread_id, 1, __ATOMIC_RELAXED);
+    thread_set_name(t, name);
+    t->state = THREAD_STATE_UNINITIALISED;
+    t->next = NULL;
+    t->process = NULL;
+    return t;
+}
+
+void scheduler_reap(void) {
+    if (!__atomic_load_n(&zombie_list, __ATOMIC_ACQUIRE))
+        return;
+
+    unsigned long flags = sched_lock();
+    thread_t* list = zombie_list;
+    zombie_list = NULL;
+    sched_unlock(flags);
+
+    while (list) {
+        thread_t* next = list->next;
+        if (list->stack_base) free(list->stack_base);
+        if (list->regs)       free(list->regs);
+        free(list);
+        list = next;
+    }
+}
+
+static void register_idle_for_this_cpu(thread_t* t) {
+    uint32_t cpu_id = current_processor_id();
+
+    t->state = THREAD_STATE_RUNNING;
+    boot_cr3[cpu_id]   = read_page_table_root();
+    active_cr3[cpu_id] = boot_cr3[cpu_id];
+
+    current_threads[cpu_id] = t;
+    idle_threads[cpu_id]    = t;
 }
 
 void scheduler_init(void) {
     spinlock_init(&scheduler_lock);
-    
-    uint32_t cpu_id = current_processor_id();
 
-    thread_t* main_thread = (thread_t*)malloc(sizeof(thread_t));
+    thread_t* main_thread = tcb_alloc("main");
     if (!main_thread) {
         printk("Scheduler", "Failed to allocate main thread TCB!");
         return;
     }
-
-    main_thread->id = next_thread_id++;
-    strcpy(main_thread->name, "main");
-    main_thread->state = THREAD_STATE_RUNNING;
-    main_thread->stack_base = NULL;
-    main_thread->stack_ptr = NULL;
-    main_thread->next = NULL;
-    main_thread->process = NULL;
-    main_thread->regs = (registers_t*)malloc(sizeof(registers_t));
-    if (main_thread->regs) {
-        memset(main_thread->regs, 0, sizeof(registers_t));
-    }
-
-    current_threads[cpu_id] = main_thread;
-    idle_threads[cpu_id] = main_thread;
+    register_idle_for_this_cpu(main_thread);
 }
 
 void scheduler_ap_init(void) {
     uint32_t cpu_id = current_processor_id();
 
-    thread_t* ap_thread = (thread_t*)malloc(sizeof(thread_t));
+    char name[5] = { 'a', 'p', '_', (char)('0' + (cpu_id % 10)), '\0' };
+    thread_t* ap_thread = tcb_alloc(name);
     if (!ap_thread) {
         printk("Scheduler", "Failed to allocate AP thread TCB for CPU %d!", cpu_id);
         return;
     }
-
-    ap_thread->id = next_thread_id++;
-    ap_thread->name[0] = 'a';
-    ap_thread->name[1] = 'p';
-    ap_thread->name[2] = '_';
-    ap_thread->name[3] = '0' + (cpu_id % 10);
-    ap_thread->name[4] = '\0';
-    
-    ap_thread->state = THREAD_STATE_RUNNING;
-    ap_thread->stack_base = NULL;
-    ap_thread->stack_ptr = NULL;
-    ap_thread->next = NULL;
-    ap_thread->process = NULL;
-    ap_thread->regs = (registers_t*)malloc(sizeof(registers_t));
-    if (ap_thread->regs) {
-        memset(ap_thread->regs, 0, sizeof(registers_t));
-    }
-
-    current_threads[cpu_id] = ap_thread;
-    idle_threads[cpu_id] = ap_thread;
+    register_idle_for_this_cpu(ap_thread);
 }
 
-thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
-    thread_t* t = (thread_t*)malloc(sizeof(thread_t));  
+void scheduler_enqueue(thread_t* t) {
+    unsigned long flags = sched_lock();
+    enqueue_locked(t);
+    sched_unlock(flags);
+}
+
+thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring,
+                        uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
+    scheduler_reap();
+
+    thread_t* t = tcb_alloc(name);
     if (!t) {
         printk("Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
         return NULL;
     }
 
     if (ring == 3) {
-        for (size_t i = 0; i < stack_size; i += 4096) {
-            set_page_permissions(
-                (uintptr_t)stack_base + i,
-                VMF_USER | VMF_WRITE 
-            );
+        uintptr_t start = stack_base & ~(uintptr_t)0xFFF;
+        uintptr_t end   = (stack_base + stack_size + 0xFFF) & ~(uintptr_t)0xFFF;
+        for (uintptr_t a = start; a < end; a += 4096) {
+            set_page_permissions(a, VMF_USER | VMF_WRITE);
         }
+    } else {
+        sp = (sp & ~(uintptr_t)0xF) - 8;
+        *(uint64_t*)sp = (uint64_t)(uintptr_t)thread_exit;
     }
 
-    t->id = next_thread_id++;
-    strcpy(t->name, name);
-    t->state = THREAD_STATE_UNINITIALISED;
     t->stack_base = (void*)stack_base;
     t->stack_size = stack_size;
-    t->next = NULL;
-    t->process = NULL;
 
-    registers_t* regs = malloc(sizeof(registers_t));
-    memset(regs, 0, sizeof(registers_t));
-    t->regs = regs;
+    registers_t* regs = t->regs;
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    regs->rip = (uintptr_t)entry_point;
-    regs->cs = ring == 0 ? 0x08 : (0x28 | 3);
-    regs->ss = ring == 0 ? 0x10 : (0x20 | 3);
+    regs->rip    = (uintptr_t)entry_point;
+    regs->cs     = ring == 0 ? 0x08 : (0x28 | 3);
+    regs->ss     = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
-    regs->rsp = sp;
-    regs->rax = arg;
+    regs->rsp    = sp;
+    regs->rdi    = arg; 
+    regs->rax    = arg;  
     t->stack_ptr = (void*)stack_base;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-    regs->x[2] = sp;
+    regs->x[1]  = (uintptr_t)thread_exit; /* ra */
+    regs->x[2]  = sp;
     regs->x[10] = arg;
-    regs->sepc = (uintptr_t)entry_point;
+    regs->sepc  = (uintptr_t)entry_point;
     regs->sstatus &= ~(3ULL << 13);
     regs->sstatus |=  (1ULL << 13); // FS=Initial
 #endif
@@ -157,73 +206,98 @@ registers_t* scheduler_schedule(registers_t* regs) {
 
     uint32_t cpu_id = current_processor_id();
     thread_t* curr = current_threads[cpu_id];
+    if (!curr || !regs)
+        return regs;
 
-    if (!curr) return regs;
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    bool interrupted_kernel = (regs->cs & 3) == 0;
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    bool interrupted_kernel = (regs->sstatus & (1UL << 8)) != 0; /* SPP */
+#endif
+    if (interrupted_kernel && curr->process != NULL)
+        return regs;
 
-    if (dead_threads[cpu_id]) {
-        thread_t* dead = dead_threads[cpu_id];
-        dead_threads[cpu_id] = NULL;
-        if (dead->stack_base) {
-            free(dead->stack_base);
-        }
-        if (dead->regs) {
-            free(dead->regs);
-        }
-        free(dead);
-    }
-
-    if (regs && curr->regs) {
+    if (curr->regs)
         memcpy(curr->regs, regs, sizeof(registers_t));
+
+    unsigned long flags = sched_lock();
+
+    thread_t* idle = idle_threads[cpu_id];
+
+    if (curr->state == THREAD_STATE_RUNNING && curr != idle)
+        enqueue_locked(curr);
+
+    thread_t* next = dequeue_locked();
+    if (!next)
+        next = idle ? idle : curr;
+
+    if (next == curr) {
+        curr->state = THREAD_STATE_RUNNING;
+        sched_unlock(flags);
+        return regs;
     }
 
-    if (curr->state == THREAD_STATE_RUNNING && curr != idle_threads[cpu_id]) {
-        curr->state = THREAD_STATE_READY;
-        scheduler_enqueue(curr);
-    }
-
-    thread_t* next = scheduler_dequeue();
-    if (!next) {
-        if (curr->state != THREAD_STATE_TERMINATED && curr->state != THREAD_STATE_UNINITIALISED) {
-            curr->state = THREAD_STATE_RUNNING;
-            return regs;
-        }
-        next = idle_threads[cpu_id];
-    }
-
-    if (curr->state == THREAD_STATE_TERMINATED && curr != idle_threads[cpu_id]) {
-        dead_threads[cpu_id] = curr;
+    if (curr->state == THREAD_STATE_TERMINATED && curr != idle) {
+        curr->next  = zombie_list;
+        zombie_list = curr;
     }
 
     next->state = THREAD_STATE_RUNNING;
     current_threads[cpu_id] = next;
 
-    if (next->process) {
-        write_cr3(hhdm_virt_to_phys(next->process->page_table));
+    uintptr_t cr3 = 0;
+    bool force = false;
+    if (next->process && next->process->page_table) {
+        cr3   = hhdm_virt_to_phys(next->process->page_table);
+        force = true;
+    } else {
+        cr3 = boot_cr3[cpu_id];
+    }
+
+    sched_unlock(flags);
+
+    if (cr3 && (force || cr3 != active_cr3[cpu_id])) {
+        write_cr3(cr3);
+        active_cr3[cpu_id] = cr3;
     }
 
     return next->regs;
 }
 
 void thread_exit(void) {
+    unsigned long flags = arch_save_interrupts();
+    (void)flags; 
+
     uint32_t cpu_id = current_processor_id();
     thread_t* curr = current_threads[cpu_id];
 
-    if (curr && curr != idle_threads[cpu_id]) {
-        if (curr->process != NULL) {
-            if (curr->process->pid == 1) 
-                return panic("Init process has exited or has been killed", NULL);
+    if (!curr || curr == idle_threads[cpu_id]) {
+        arch_restore_interrupts(flags);
+        return;
+    }
 
-            process_terminate(curr->process);
-            curr->process = NULL;
+    if (curr->process != NULL) {
+        if (curr->process->pid == 1) {
+            panic("Init process has exited or has been killed", NULL);
+            return;
         }
 
-        curr->state = THREAD_STATE_TERMINATED;
+        if (boot_cr3[cpu_id]) {
+            write_cr3(boot_cr3[cpu_id]);
+            active_cr3[cpu_id] = boot_cr3[cpu_id];
+        }
+
+        process_terminate(curr->process);
+        curr->process = NULL;
     }
+
+    curr->state = THREAD_STATE_TERMINATED;
+
+    arch_restore_interrupts(flags);
+    for (;;)
+        arch_wfi();
 }
 
 thread_t* scheduler_get_current_thread(void) {
-    uint32_t cpu_id = current_processor_id();
-    thread_t* t = current_threads[cpu_id];
-
-    return t;
+    return current_threads[current_processor_id()];
 }

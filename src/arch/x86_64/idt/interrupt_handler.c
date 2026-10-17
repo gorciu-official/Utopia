@@ -10,6 +10,14 @@
 extern registers_t* lapic_timer_handler(registers_t* regs);
 
 registers_t* isr_handler(registers_t* regs) {
+    // -- panic killer 
+    if (regs->int_no == 2) {
+        for (;;) {
+            arch_cli();
+            arch_wfi();
+        }
+    }
+
     // -- cpu exceptions
     if (regs->int_no < 32) {
         if (

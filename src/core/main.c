@@ -17,11 +17,6 @@
 
 #include <panic.h>
 
-static inline void cpu_main() {
-    while (true)
-        arch_wfi();
-}
-
 void kmain(common_boot_structure_t* cbs) {
     framebuffer_init(
         cbs->framebuffer.addr,
@@ -112,7 +107,8 @@ void kmain(common_boot_structure_t* cbs) {
         printk_suspend_console();
     #endif
 
-    cpu_main();
+    for (;;)
+        arch_wfi();
 }
 
 extern uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
@@ -126,5 +122,7 @@ void ap_main() {
     printk("Core", "CPU ID %d fully ready, handing control to the scheduler.", id);
     
     scheduler_ap_init();
-    cpu_main();
+
+    for (;;)
+        scheduler_reap();
 }

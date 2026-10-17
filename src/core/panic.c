@@ -6,6 +6,10 @@
 static uint32_t invoker = 0;
 extern bool context_switch_lock;
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+extern void lapic_broadcast_nmi(void);
+#endif
+
 static const char* cpu_exception_name(uintptr_t int_no) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     // copied from https://git.evalyngoemer.com/evalynOS/evalynOS/src/branch/main/kernel/src/arch/riscv64/cpu/interrupts.c
@@ -79,10 +83,9 @@ void panic(const char* reason, registers_t* regs) {
     static bool panicked = false;
 
     arch_cli();
-    // TODO: use an arch specific function to kill other cpus
     context_switch_lock = true;
 
-    if (panicked) {
+    if (__atomic_exchange_n(&panicked, true, __ATOMIC_SEQ_CST)) {
         printk("Core", "\x1b[91mDouble kernel panic\x1b[0m: %s", reason);
         printk("Core", "  - A kernel panic occured while handling the first kernel panic.");
         printk("Core", "  - Please file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
@@ -94,6 +97,10 @@ void panic(const char* reason, registers_t* regs) {
         }
     } else 
         panicked = true;
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    lapic_broadcast_nmi();
+#endif
     
     printk_remove_console_suspension();
     printk("Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
@@ -143,8 +150,6 @@ void panic(const char* reason, registers_t* regs) {
         arch_cli();
         arch_wfi(); 
     }
-
-    // TODO: maybe send init IPIs to APs?
 
     __builtin_unreachable();
 }

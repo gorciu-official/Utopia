@@ -26,6 +26,7 @@ extern bool has_invariant_tsc();
 volatile uint32_t* lapic = (volatile uint32_t *)LAPIC_BASE;
 
 static uint64_t lapic_ticks_per_second;
+static volatile bool lapic_ready = false;
 
 static inline volatile uint32_t* lapic_reg(uint32_t reg) {
     return (volatile uint32_t*)phys_to_virt(LAPIC_BASE + reg);
@@ -89,4 +90,12 @@ void lapic_init(void) {
     uint32_t initial_count = (uint32_t)(lapic_ticks_per_second / TIMER_HZ);
 
     lapic_write(LAPIC_TICR, initial_count);
+    lapic_ready = true;
+}
+
+void lapic_broadcast_nmi(void) {
+    if (!lapic_ready) return;
+
+    lapic_write(0x310, 0);
+    lapic_write(0x300, (3u << 18) | (1u << 14) | (4u << 8));
 }

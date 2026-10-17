@@ -42,3 +42,4 @@ registers_t* scheduler_schedule(registers_t* regs);
 void thread_exit(void);
 thread_t* scheduler_get_current_thread(void);
 void scheduler_enqueue(thread_t* t);
+void scheduler_reap(void);
