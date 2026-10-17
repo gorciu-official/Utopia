@@ -15,7 +15,7 @@ registers_t* isr_handler(registers_t* regs) {
         if (
             (regs->int_no == 14 && regs->err_code & (1 << 2)) 
         ) {
-            printf(
+            locked_printf(
                 "Segmentation fault at %p (%s %p; %s)\n", regs->rip,
                 (regs->err_code & (1 << 1)) ? "writing to" : "reading", 
                 read_pf_addr(), 
@@ -26,7 +26,7 @@ registers_t* isr_handler(registers_t* regs) {
         } else if (
             (regs->int_no == 13 && (regs->cs & 3) == 3)
         ) {
-            printf(
+            locked_printf(
                 "Segmentation fault at %p (user-mode #GP)",
                 regs->rip
             );

@@ -4,7 +4,7 @@
 #include <arch/common.h>
 
 static uint32_t invoker = 0;
-static bool panicked = false;
+extern bool context_switch_lock;
 
 static const char* cpu_exception_name(uintptr_t int_no) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
@@ -79,6 +79,8 @@ void panic(const char* reason, registers_t* regs) {
     static bool panicked = false;
 
     arch_cli();
+    // TODO: use an arch specific function to kill other cpus
+    context_switch_lock = true;
 
     if (panicked) {
         printk("Core", "\x1b[91mDouble kernel panic\x1b[0m: %s", reason);
@@ -115,7 +117,7 @@ void panic(const char* reason, registers_t* regs) {
         uint64_t* stack = (uint64_t*)regs->rsp;
         
         for (int i = 0; i < 16; i++) {
-            printk("Core", "    [%p] = %p",
+            printk("Core", "      * [%p] = %p",
                    stack + i,
                    stack[i]);
         }

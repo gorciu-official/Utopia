@@ -196,6 +196,15 @@ void printf(const char* fmt, ...) {
     va_end(args);
 }
 
+void locked_printf(const char* fmt, ...) {
+    spinlock_acquire(&fb_spinlock);
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    spinlock_release(&fb_spinlock);
+}
+
 void user_print(char* fmt, uint64_t size) {
     spinlock_acquire(&fb_spinlock);
     print_string_internal_limit(fmt, size);
