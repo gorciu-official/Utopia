@@ -158,7 +158,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S
 
 build_deps:
 	@chmod +x scripts/mk_bootloader_cfg.sh && ./scripts/mk_bootloader_cfg.sh -e
-	@if [ -d initramfs ]; then tar --format=ustar -cf $(ISO_DIR)/initramfs.tar -C $(ROOT_DIR)/initramfs . ; fi
+	@if [ -d initramfs-$(ARCH) ]; then tar --format=ustar -cf $(ISO_DIR)/initramfs.tar -C $(ROOT_DIR)/initramfs-$(ARCH) . ; fi
 	@if [ -f font.psf1 ]; then cp font.psf1 $(ISO_DIR)/ ; fi
 
 build_kernel: $(OBJECTS)

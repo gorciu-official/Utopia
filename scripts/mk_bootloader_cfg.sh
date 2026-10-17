@@ -3,6 +3,7 @@
 GRUB_CFG=src/build/grub.cfg
 LIMINE_CFG=src/build/limine.conf
 
+COLOR_RED=$'\x1b[91;1m'
 COLOR_GREEN=$'\x1b[32m'
 COLOR_YELLOW=$'\x1b[33m'
 COLOR_GRAY=$'\x1b[90m'
@@ -13,6 +14,19 @@ if [[ "$1" = "-e" && -f $GRUB_CFG && -f $LIMINE_CFG ]]; then
     exit 0
 fi
 
+ARCH="${ARCH:-x86_64}"
+
+echo Using architecture ${ARCH}
+
+case "$ARCH" in
+    x86_64|riscv64)
+        ;;
+    *)
+        printf '%sNo such architecture supported.%s\n' "$COLOR_RED" "$COLOR_RESET"
+        exit 1
+        ;;
+esac
+
 echo Creating bootloader configuration for GRUB and Limine
 
 printf ' Starting %s[GRUB bootloader configuration generation]%s\n' "$COLOR_YELLOW" "$COLOR_RESET"
@@ -22,7 +36,7 @@ echo 'set timeout=5'                                                            
 echo 'menuentry "Utopia" {'                                                                >> $GRUB_CFG 
 echo '    set gfxpayload=800x600x32'                                                       >> $GRUB_CFG
 echo '    multiboot /boot/kernel.bin'                                                      >> $GRUB_CFG
-if [[ -d initramfs || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
+if [[ -d initramfs-${ARCH} || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
     printf '  %sFound initramfs, adding module initramfs support.%s\n'                     "$COLOR_GRAY" "$COLOR_RESET"
     echo '    module /initramfs.tar initramfs.tar'                                         >> $GRUB_CFG
 fi
@@ -41,7 +55,7 @@ echo 'timeout: 3'                                                               
 echo '/Utopia'                                                                             >> $LIMINE_CFG
 echo '    protocol: limine'                                                                >> $LIMINE_CFG
 echo '    kernel_path: boot():/kernel.bin'                                                 >> $LIMINE_CFG
-if [[ -d initramfs || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
+if [[ -d initramfs-${ARCH} || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
     printf '  %sFound initramfs, adding module initramfs support.%s\n'                     "$COLOR_GRAY" "$COLOR_RESET"
     echo '    module_path: boot():/initramfs.tar'                                          >> $LIMINE_CFG
 fi

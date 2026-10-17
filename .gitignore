@@ -1,5 +1,5 @@
 # user-generated content
-initramfs
+initramfs-*
 font.psf1
 
 # target dir 

@@ -39,4 +39,6 @@ chmod +x scripts/mk_bootloader_cfg.sh
 ./scripts/mk_bootloader_cfg.sh
 ```
 
+This will build bootloader configuration for **x86_64** (every architecture detects other initramfs). To change architecture, prefix the second command with `ARCH=your_architecture_here`.
+
 Alternatively, you may just delete old configuration files from `src/build/`, specifically `limine.conf` and `grub.cfg`, then rebuild the kernel.
