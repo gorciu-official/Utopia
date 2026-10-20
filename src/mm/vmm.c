@@ -180,51 +180,12 @@ void free_page_table(uint64_t* l4_table) {
     }
 }
 
-static uint64_t* clone_table_level(uint64_t* old_table, int level) {
-    uint64_t* new_table = pt_pool_alloc();
-    if (!new_table) return NULL;
-
-    for (int i = 0; i < PT_ENTRIES; i++) {
-        pte_t entry = old_table[i];
-
-        if (!arch_pte_present(entry)) { new_table[i] = 0; continue; }
-
-        if (arch_pte_is_leaf(entry, level)) {
-            new_table[i] = entry; 
-            continue;
-        }
-
-        uint64_t* old_child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
-        uint64_t* new_child = clone_table_level(old_child, level - 1);
-        if (!new_child) { free_table_level(new_table, level); return NULL; }
-
-        new_table[i] = arch_pte_table((uint64_t)hhdm_virt_to_phys(new_child));
-    }
-
-    return new_table;
-}
-
 uint64_t* clone_page_table(void) {
     uint64_t* new_l4 = pt_pool_alloc();
     if (!new_l4) return NULL;
 
-    for (int i = 0; i < PT_ENTRIES; i++) {
-        if (i >= 256) { new_l4[i] = page_table_l4[i]; continue; }
-
-        pte_t entry = page_table_l4[i];
-        if (!arch_pte_present(entry)) { new_l4[i] = 0; continue; }
-
-        if (arch_pte_is_leaf(entry, PT_TOP_LEVEL)) {   // <-- brakujący check
-            new_l4[i] = entry;
-            continue;
-        }
-
-        uint64_t* old_l3 = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
-        uint64_t* new_l3 = clone_table_level(old_l3, PT_TOP_LEVEL - 1);
-        if (!new_l3) { free_page_table(new_l4); return NULL; }
-
-        new_l4[i] = arch_pte_table((uint64_t)hhdm_virt_to_phys(new_l3));
-    }
+    for (int i = 0; i < 256; i++) new_l4[i] = 0;
+    for (int i = 256; i < PT_ENTRIES; i++) new_l4[i] = page_table_l4[i];
 
     return new_l4;
 }
