@@ -51,6 +51,7 @@ The kernel is being constantly adapted to run some software as system inits.
 **In active porting:**
 
 - [bash](https://www.gnu.org/software/bash/)
+- certain parts of [inetutils](https://www.gnu.org/software/inetutils/)
 
 Running any of these of course assume a good C standard library (glibc may work, musl is ideal). Support for dynamic executables was added somewhat recently, so yes - you should (in theory) be able to run them!
 
