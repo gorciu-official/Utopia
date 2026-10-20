@@ -60,10 +60,7 @@ void kmain(common_boot_structure_t* cbs) {
     scheduler_init();
     process_init();
 
-    // ap bootstrap
     arch_boot_aps();
-
-    // init pci
     arch_late_init();
 
     // init filesystem
