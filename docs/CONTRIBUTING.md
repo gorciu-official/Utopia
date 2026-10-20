@@ -8,7 +8,7 @@ Contains information about code style and other similar things. For building inf
 
 **Indentation:** Tabs are bad, 2-space indentation is bad, 8-space indentation is also bad. Please use 4-space indentation whereever possible. Do not double-indent `switch` statements. 
 
-**Other notes:** Star belongs to the type (it's cleaner).
+**Other notes:** Pointer aligment should be left, but not everywhere this rule is strictly respected. 
 
 ## Good practices
 

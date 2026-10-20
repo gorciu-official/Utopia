@@ -20,7 +20,8 @@
 
 For simplicity we will refer to architecture-specific registers as `arg<1-6>`. It's also how it's handled internally.
 
-This will be a stable interface once merged to `main`, but now shouldn't be treated as one.
+> [!CAUTION]
+> As development is more focused on Linux compatibility layer lately, not every syscall listed here should be treated as implemented.
 
 ### Filesystem
 
@@ -42,7 +43,7 @@ Reserved block: `1000`-`1999`.
 - 1001: `receive` - receives messages to `arg1` which is a pointer to an array of `ipc_message_t`.
 
 **Considering**:
-- `call` - a syscall that would be used to send a message and wait for a reply back. worried about deadlocking though. there is probably no way the microkernel could enforce that the called process would respond. a quite good solution would be to add a timeout argument ???
+- `call` - a syscall that would be used to send a message and wait for a reply back. worried about deadlocking though. there is probably no way the kernel could enforce that the called process would respond. a quite good solution would be to add a timeout argument ???
 
 ### Process 
 

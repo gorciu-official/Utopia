@@ -12,11 +12,11 @@ If you want to test on an emulated machine make sure you have a good CPU (good c
 
 ## Building and testing
 
-To build the project, simply use `make`. Alternatively, you can only build the kernel using `make build_kernel`.
+To build the project, simply use `make`. No meta-build-systems here. Alternatively, you can only build the kernel using `make build_kernel`.
 
 Testing is usually done in one of two ways:
-- **flashing a pendrive and booting on real hardware**: use `dd` to flash an USB drive, then boot from it and test 
 - **using an emulator**: run `make run` to open the kernel in QEMU
+- **booting on real hardware through USB**: use `dd` to flash an USB drive, then boot from it and test 
 
 ### Bootloaders
 
