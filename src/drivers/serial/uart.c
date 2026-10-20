@@ -1,4 +1,5 @@
 #include <constants.h>
+#include <memory.h>
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
 
@@ -9,7 +10,7 @@
 
 void arch_serial_putchar(char c) {
     volatile unsigned char *uart =
-        (volatile unsigned char *)UART_BASE;
+        (volatile unsigned char *)phys_to_virt(UART_BASE);
 
     while (!(uart[UART_LSR] & UART_TX_READY)) {
         // wait until UART can accept another byte
