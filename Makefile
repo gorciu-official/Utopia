@@ -1,5 +1,4 @@
 # makefile adapted from https://github.com/Interpuce/AurorOS/blob/main/Makefile
-# TODO: rewrite to nob.c
 
 ROOT_DIR  := .
 
@@ -8,6 +7,8 @@ SUPPORTED_BOOTLOADERS := limine grub
 
 ARCH                    ?= x86_64
 SUPPORTED_ARCHITECTURES := x86_64 riscv64
+
+DEBUG                   ?= false
 
 ifeq ($(filter $(BOOTLOADER),$(SUPPORTED_BOOTLOADERS)),)
 $(error Unsupported BOOTLOADER='$(BOOTLOADER)'. Supported values: $(SUPPORTED_BOOTLOADERS))
@@ -20,7 +21,11 @@ endif
 SRC_DIR        := $(ROOT_DIR)/src
 
 # binary dirs
-TARGET_DIR     := $(ROOT_DIR)/target/kernel.$(ARCH).$(BOOTLOADER)
+ifeq ($(DEBUG),true)
+    TARGET_DIR     := $(ROOT_DIR)/target/kernel.debug.$(ARCH).$(BOOTLOADER)
+else
+    TARGET_DIR     := $(ROOT_DIR)/target/kernel.release.$(ARCH).$(BOOTLOADER)
+endif
 OBJ_DIR        := $(TARGET_DIR)/obj
 ISO_DIR        := $(TARGET_DIR)/iso
 BOOT_DIR       := $(ISO_DIR)/boot
@@ -70,6 +75,10 @@ ifeq ($(ARCH),riscv64)
     CFLAGS += -march=rv64gc_zihintpause -mabi=lp64d -DARCHITECTURE=2
     ASFLAGS += -march=rv64gc_zihintpause
     LDFLAGS += -m elf64lriscv 
+endif
+
+ifeq ($(DEBUG),true) 
+    CFLAGS += -g -DUTOPIA_DEBUG=1
 endif
 
 C_SOURCES := $(shell find $(SRC_DIR) -type f -name '*.c' ! -name '*.excluded.c' ! -path '$(SRC_DIR)/arch/*')

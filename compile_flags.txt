@@ -1,5 +1,3 @@
--g 
-
 -Wall 
 -Wextra
 -Wimplicit-fallthrough
