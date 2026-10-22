@@ -214,8 +214,6 @@ void user_print(char* fmt, uint64_t size) {
 static volatile bool console_suspended = false;
 
 void printk(const char* module, const char *fmt, ...) {
-    if (console_suspended) return;
-
     uint64_t flags = arch_save_interrupts();
 
     // that should be pretty safe because
@@ -226,6 +224,11 @@ void printk(const char* module, const char *fmt, ...) {
         spinlock_initialized = true;
     }
     spinlock_acquire(&fb_spinlock);
+
+    if (console_suspended) {
+        spinlock_release(&fb_spinlock);
+        return;
+    }
 
     uint64_t ticks = arch_get_ns_time();
     uint64_t seconds = ticks / 1000000000;
