@@ -4,167 +4,93 @@
 #include <memory.h>
 #include <lib/screen.h>
 
-#define container_of(ptr, type, member) \
-    ((type *)((char*)(ptr) - offsetof(type, member)))
-
-struct tarfs_node;
+#define TARFS_MAX_SYMLINK_DEPTH 8
 
 typedef struct tarfs_node {
     vnode_t vnode;
     char name[256];
-
-    struct tarfs_node* parent;
-    struct tarfs_node* children;
-    struct tarfs_node* next;
-
-    const uint8_t* data; 
+    struct tarfs_node *parent, *children, *next;
+    const uint8_t* data;
+    char link_target[256];
+    uint64_t ino; 
+    uint8_t is_symlink; 
 } tarfs_node_t;
 
 typedef struct __attribute__((packed)) {
-    char name[100];
-    char mode[8];
-    char uid[8];
-    char gid[8];
-    char size[12];
-    char mtime[12];
-    char chksum[8];
+    char name[100], mode[8], uid[8], gid[8], size[12], mtime[12], chksum[8];
     char typeflag;
-    char linkname[100];
-    char magic[6];
-    char version[2];
-    char uname[32];
-    char gname[32];
-    char devmajor[8];
-    char devminor[8];
-    char prefix[155];
-    char pad[12];
+    char linkname[100], magic[6], version[2], uname[32], gname[32];
+    char devmajor[8], devminor[8], prefix[155], pad[12];
 } tar_header_t;
 
 static vnode_ops_t tarfs_ops;
-
 static const uint8_t* tarfs_image = 0;
 static uint64_t tarfs_image_size = 0;
 
 void tarfs_set_image(const void* data, uint64_t size) {
-    // TODO: this is vulnerable to timing, since we have SMP 
-    //       another thread may want to mount tarfs and break 
-    //       things
+    // TODO: this is vulnerable to timing, either when an interrupt 
+    // fires / another thread wants something so fix this
     tarfs_image = (const uint8_t*)data;
     tarfs_image_size = size;
 }
 
-static uint64_t tarfs_oct2u64(const char* str, int len) {
-    uint64_t val = 0;
-    for (int i = 0; i < len; i++) {
-        char c = str[i];
-        if (c < '0' || c > '7') break;
-        val = (val << 3) + (uint64_t)(c - '0');
-    }
-    return val;
+static uint64_t tarfs_oct2u64(const char* s, int len) {
+    uint64_t v = 0;
+    for (int i = 0; i < len && s[i] >= '0' && s[i] <= '7'; i++)
+        v = (v << 3) + (uint64_t)(s[i] - '0');
+    return v;
 }
 
-static uint64_t tarfs_align_up(uint64_t n) {
-    return (n + 511ULL) & ~511ULL;
+static uint64_t tarfs_align_up(uint64_t n) { return (n + 511ULL) & ~511ULL; }
+
+static int tarfs_strnlen(const char* s, int max) {
+    int n = 0;
+    while (n < max && s[n]) n++;
+    return n;
 }
 
-static int tarfs_block_is_zero(const uint8_t* block) {
-    for (int i = 0; i < 512; i++) {
-        if (block[i] != 0) return 0;
-    }
+static int tarfs_block_is_zero(const uint8_t* b) {
+    for (int i = 0; i < 512; i++) if (b[i]) return 0;
     return 1;
 }
 
-static tarfs_node_t* vnode_to_tarfs(vnode_t* v) {
-    return (tarfs_node_t*)v;
+static int tarfs_strip(const char* p, int len, const char** out) {
+    while (len > 0 && p[len - 1] == '/') len--;
+    while (len >= 2 && p[0] == '.' && p[1] == '/') { p += 2; len -= 2; }
+    while (len > 0 && p[0] == '/') { p++; len--; }
+    *out = p;
+    return len;
 }
 
-static int tarfs_readdir(vnode_t* node, uint64_t index, vfs_dirent_t* entry) {
-    if (!node || !entry)
-        return -1;
-
-    tarfs_node_t* dir = vnode_to_tarfs(node);
-
-    if (dir->vnode.type != VNODE_TYPE_DIR)
-        return -1;
-
-    if (index == 0) {
-        entry->ino = (uint64_t)(uintptr_t)dir;
-        entry->off = 1;
-        entry->type = 4;
-        entry->name = ".";
-        return 0;
-    }
-
-    if (index == 1) {
-        tarfs_node_t* parent = dir->parent;
-
-        entry->ino = parent
-            ? (uint64_t)(uintptr_t)parent
-            : (uint64_t)(uintptr_t)dir;
-
-        entry->off = 2;
-        entry->type = 4;
-        entry->name = "..";
-        return 0;
-    }
-
-    tarfs_node_t* child = dir->children;
-
-    uint64_t child_index = index - 2;
-
-    while (child && child_index > 0) {
-        child = child->next;
-        child_index--;
-    }
-
-    if (!child)
-        return -1;
-
-    entry->ino = (uint64_t)(uintptr_t)child;
-    entry->off = index + 1;
-
-    if (child->vnode.type == VNODE_TYPE_DIR)
-        entry->type = 4;
-    else
-        entry->type = 8;
-
-    entry->name = child->name;
-
-    return 0;
+static void tarfs_copy_link_target(char* dst, size_t dst_size, const char* src, size_t src_size) {
+    size_t len = tarfs_strnlen(src, (int)src_size);
+    if (len >= dst_size) len = dst_size - 1;
+    memcpy(dst, src, len);
+    dst[len] = '\0';
 }
 
-static tarfs_node_t* tarfs_create_node(const char* name, vnode_type_t type) {
-    if (!name) return 0;
+static tarfs_node_t* vnode_to_tarfs(vnode_t* v) { return (tarfs_node_t*)v; }
+static vnode_t* tarfs_to_vnode(tarfs_node_t* n) { return (vnode_t*)n; }
 
-    tarfs_node_t* node = malloc(sizeof(tarfs_node_t));
+static tarfs_node_t* tarfs_create_node(const char* name, int len, vnode_type_t type) {
+    tarfs_node_t* node = malloc(sizeof(*node));
     if (!node) return 0;
-
-    memset(node, 0, sizeof(tarfs_node_t));
+    memset(node, 0, sizeof(*node));
 
     node->vnode.ops = &tarfs_ops;
     node->vnode.type = type;
-    node->vnode.size = 0;
+    node->ino = (uint64_t)(uintptr_t)node;
 
-    int i = 0;
-    while (name[i] && i < 255) {
-        node->name[i] = name[i];
-        i++;
-    }
-    node->name[i] = 0;
-
+    if (len > 255) len = 255;
+    memcpy(node->name, name, len);
     return node;
 }
 
 static tarfs_node_t* tarfs_find_child(tarfs_node_t* parent, const char* name, int len) {
     if (!parent || !name) return 0;
-    tarfs_node_t* cur = parent->children;
-
-    while (cur) {
-        if ((int)strlen(cur->name) == len && memcmp(cur->name, name, len) == 0)
-            return cur;
-        cur = cur->next;
-    }
-
+    for (tarfs_node_t* c = parent->children; c; c = c->next)
+        if ((int)strlen(c->name) == len && memcmp(c->name, name, len) == 0)
+            return c;
     return 0;
 }
 
@@ -175,38 +101,86 @@ static void tarfs_add_child(tarfs_node_t* parent, tarfs_node_t* child) {
     child->parent = parent;
 }
 
-static vnode_t* tarfs_to_vnode(tarfs_node_t* node) {
-    return (vnode_t*)node;
+static tarfs_node_t* tarfs_resolve_dir_path(tarfs_node_t* root, const char* path, int len) {
+    tarfs_node_t* cur = root;
+
+    for (int i = 0; i < len; i++) {
+        int start = i;
+        while (i < len && path[i] != '/') i++;
+        if (i == start) continue;
+
+        tarfs_node_t* child = tarfs_find_child(cur, path + start, i - start);
+        if (!child) {
+            child = tarfs_create_node(path + start, i - start, VNODE_TYPE_DIR);
+            if (!child) return 0;
+            tarfs_add_child(cur, child);
+        }
+        cur = child;
+    }
+    return cur;
 }
 
-static tarfs_node_t* tarfs_resolve_dir_path(tarfs_node_t* root, const char* path, int path_len) {
-    tarfs_node_t* cur = root;
-    int i = 0;
+static tarfs_node_t* tarfs_walk(tarfs_node_t* start, const char* path, int len, int depth);
 
-    while (i < path_len) {
-        int start = i;
-        while (i < path_len && path[i] != '/') i++;
-        int comp_len = i - start;
+static tarfs_node_t* tarfs_follow(tarfs_node_t* n, int depth) {
+    if (!n || !n->is_symlink) return n;
+    if (depth >= TARFS_MAX_SYMLINK_DEPTH) return 0;
+    return tarfs_walk(n->parent, n->link_target, (int)strlen(n->link_target), depth + 1);
+}
 
-        if (comp_len > 0) {
-            tarfs_node_t* child = tarfs_find_child(cur, path + start, comp_len);
-            if (!child) {
-                char name[256];
-                int n = comp_len < 255 ? comp_len : 255;
-                memcpy(name, path + start, n);
-                name[n] = 0;
+static tarfs_node_t* tarfs_walk(tarfs_node_t* start, const char* path, int len, int depth) {
+    tarfs_node_t* cur = start;
 
-                child = tarfs_create_node(name, VNODE_TYPE_DIR);
-                if (!child) return 0;
-                tarfs_add_child(cur, child);
-            }
-            cur = child;
+    if (len > 0 && path[0] == '/')
+        while (cur->parent) cur = cur->parent;
+
+    for (int i = 0; i < len; i++) {
+        int s = i;
+        while (i < len && path[i] != '/') i++;
+        int clen = i - s;
+        if (!clen) continue;
+
+        if (cur->vnode.type != VNODE_TYPE_DIR) return 0;
+
+        if (clen == 1 && path[s] == '.') continue;
+        if (clen == 2 && path[s] == '.' && path[s + 1] == '.') {
+            if (cur->parent) cur = cur->parent;
+            continue;
         }
 
-        i++;
+        cur = tarfs_follow(tarfs_find_child(cur, path + s, clen), depth);
+        if (!cur) return 0;
+    }
+    return cur;
+}
+
+static int tarfs_readdir(vnode_t* node, uint64_t index, vfs_dirent_t* entry) {
+    if (!node || !entry) return -1;
+
+    tarfs_node_t* dir = vnode_to_tarfs(node);
+    if (dir->vnode.type != VNODE_TYPE_DIR) return -1;
+
+    if (index < 2) {
+        tarfs_node_t* t = (index == 1 && dir->parent) ? dir->parent : dir;
+        entry->ino = t->ino;
+        entry->off = index + 1;
+        entry->type = 4;
+        entry->name = index ? ".." : ".";
+        return 0;
     }
 
-    return cur;
+    tarfs_node_t* child = dir->children;
+    for (uint64_t n = index - 2; child && n > 0; n--) child = child->next;
+    if (!child) return -1;
+
+    tarfs_node_t* r = tarfs_follow(child, 0);
+    if (!r) r = child;
+
+    entry->ino = r->ino;
+    entry->off = index + 1;
+    entry->name = child->name;
+    entry->type = r->vnode.type == VNODE_TYPE_DIR ? 4 : 8;
+    return 0;
 }
 
 static int tarfs_lookup(vnode_t* parent, const char* name, vnode_t** result) {
@@ -215,48 +189,35 @@ static int tarfs_lookup(vnode_t* parent, const char* name, vnode_t** result) {
     tarfs_node_t* p = vnode_to_tarfs(parent);
     if (p->vnode.type != VNODE_TYPE_DIR) return -1;
 
-    tarfs_node_t* found = tarfs_find_child(p, name, (int)strlen(name));
+    tarfs_node_t* found = tarfs_follow(tarfs_find_child(p, name, (int)strlen(name)), 0);
     if (!found) return -1;
 
     *result = tarfs_to_vnode(found);
     return 0;
 }
 
-static int tarfs_create(vnode_t* parent, const char* name, vnode_t** result) {
-    (void)parent; (void)name; (void)result;
-    return -1; /* read-only */
-}
-
-static int tarfs_mkdir(vnode_t* parent, const char* name, vnode_t** result) {
-    (void)parent; (void)name; (void)result;
-    return -1; /* read-only */
-}
-
 static int tarfs_read(vnode_t* node, void* buffer, uint64_t size, uint64_t offset, uint64_t* bytes_read) {
     if (!node || !buffer || !bytes_read) return -1;
 
     tarfs_node_t* n = vnode_to_tarfs(node);
-    if (n->vnode.type != VNODE_TYPE_FILE)
-        return -1;
+    if (n->vnode.type != VNODE_TYPE_FILE) return -1;
 
     if (!n->data || offset >= n->vnode.size) {
         *bytes_read = 0;
         return 0;
     }
 
-    uint64_t to_read = size;
-    if (offset + to_read > n->vnode.size)
-        to_read = n->vnode.size - offset;
-
-    memcpy(buffer, n->data + offset, to_read);
-
-    *bytes_read = to_read;
+    if (offset + size > n->vnode.size) size = n->vnode.size - offset;
+    memcpy(buffer, n->data + offset, size);
+    *bytes_read = size;
     return 0;
 }
 
-static int tarfs_write(vnode_t* node, const void* buffer, uint64_t size, uint64_t offset, uint64_t* bytes_written) {
-    (void)node; (void)buffer; (void)size; (void)offset; (void)bytes_written;
-    return -1; /* read-only */
+static int tarfs_create(vnode_t* p, const char* n, vnode_t** r) { (void)p; (void)n; (void)r; return -1; }
+static int tarfs_mkdir(vnode_t* p, const char* n, vnode_t** r)  { (void)p; (void)n; (void)r; return -1; }
+static int tarfs_write(vnode_t* n, const void* b, uint64_t s, uint64_t o, uint64_t* w) {
+    (void)n; (void)b; (void)s; (void)o; (void)w;
+    return -1;
 }
 
 static vnode_ops_t tarfs_ops = {
@@ -265,42 +226,64 @@ static vnode_ops_t tarfs_ops = {
     .mkdir   = tarfs_mkdir,
     .read    = tarfs_read,
     .write   = tarfs_write,
-    .readdir = tarfs_readdir
+    .readdir = tarfs_readdir,
 };
 
-static int tarfs_build_path(const tar_header_t* hdr, char* out, int out_cap) {
+static int tarfs_build_path(const tar_header_t* hdr, char* out, int cap) {
+    int plen = tarfs_strnlen(hdr->prefix, 155);
+    int nlen = tarfs_strnlen(hdr->name, 100);
     int len = 0;
 
-    int prefix_len = 0;
-    while (prefix_len < 155 && hdr->prefix[prefix_len]) prefix_len++;
-
-    int name_len = 0;
-    while (name_len < 100 && hdr->name[name_len]) name_len++;
-
-    if (prefix_len > 0) {
-        int n = prefix_len < out_cap ? prefix_len : out_cap;
-        memcpy(out, hdr->prefix, n);
-        len = n;
-        if (len < out_cap) out[len++] = '/';
+    if (plen > 0) {
+        len = plen < cap ? plen : cap;
+        memcpy(out, hdr->prefix, len);
+        if (len < cap) out[len++] = '/';
     }
 
-    int room = out_cap - len;
-    int n = name_len < room ? name_len : room;
+    int n = nlen < cap - len ? nlen : cap - len;
     if (n > 0) memcpy(out + len, hdr->name, n);
-    len += n;
+    return len + n;
+}
 
-    while (len > 0 && out[len - 1] == '/') len--;
+static void tarfs_add_entry(tarfs_node_t* root, tarfs_node_t* parent, const char* base, int blen,
+                            const tar_header_t* hdr, const uint8_t* data, uint64_t size) {
+    tarfs_node_t* n = 0;
 
-    int start = 0;
-    if (len >= 2 && out[0] == '.' && out[1] == '/') start = 2;
-    else if (len >= 1 && out[0] == '/') start = 1;
+    switch (hdr->typeflag) {
+    case '5':
+        n = tarfs_create_node(base, blen, VNODE_TYPE_DIR);
+        break;
 
-    if (start > 0) {
-        memmove(out, out + start, len - start);
-        len -= start;
+    case '2':
+        n = tarfs_create_node(base, blen, VNODE_TYPE_FILE);
+        if (!n) return;
+        n->is_symlink = 1;
+        tarfs_copy_link_target(n->link_target, sizeof(n->link_target), hdr->linkname, sizeof(hdr->linkname));
+        break;
+
+    case '1': {
+        const char* lp;
+        int llen = tarfs_strip(hdr->linkname, tarfs_strnlen(hdr->linkname, 100), &lp);
+        tarfs_node_t* t = tarfs_walk(root, lp, llen, 0);
+        if (!t || t->vnode.type == VNODE_TYPE_DIR) return;
+
+        n = tarfs_create_node(base, blen, t->vnode.type);
+        if (!n) return;
+        n->vnode.size = t->vnode.size;
+        n->data = t->data;
+        n->ino = t->ino;
+        break;
     }
 
-    return len;
+    default:
+        n = tarfs_create_node(base, blen, VNODE_TYPE_FILE);
+        if (!n) return;
+        n->data = data;
+        n->vnode.size = size;
+        break;
+    }
+
+    if (n) tarfs_add_child(parent, n);
 }
 
 static void tarfs_parse_archive(tarfs_node_t* root) {
@@ -310,50 +293,27 @@ static void tarfs_parse_archive(tarfs_node_t* root) {
 
     while (offset + 512 <= tarfs_image_size) {
         const tar_header_t* hdr = (const tar_header_t*)(tarfs_image + offset);
-
         if (tarfs_block_is_zero((const uint8_t*)hdr)) break;
 
         uint64_t size = tarfs_oct2u64(hdr->size, 12);
-        char typeflag = hdr->typeflag;
-
-        char path[256];
-        int path_len = tarfs_build_path(hdr, path, (int)sizeof(path));
-
+        char t = hdr->typeflag;
         offset += 512;
 
-        if (path_len > 0 && (typeflag == '0' || typeflag == 0 || typeflag == '5')) {
-            int split = path_len;
-            while (split > 0 && path[split - 1] != '/') split--;
+        if (t == '1' || t == '2') size = 0;
+        if (offset + size > tarfs_image_size) break;
 
-            const char* base = path + split;
-            int base_len = path_len - split;
+        if (t == 0 || t == '0' || t == '1' || t == '2' || t == '5') {
+            char raw[256];
+            const char* p;
+            int plen = tarfs_strip(raw, tarfs_build_path(hdr, raw, sizeof(raw)), &p);
 
-            tarfs_node_t* parent = tarfs_resolve_dir_path(root, path, split > 0 ? split - 1 : 0);
-            if (parent && base_len > 0) {
-                tarfs_node_t* existing = tarfs_find_child(parent, base, base_len);
+            int split = plen;
+            while (split > 0 && p[split - 1] != '/') split--;
 
-                if (typeflag == '5') {
-                    if (!existing) {
-                        char name[64];
-                        int n = base_len < 63 ? base_len : 63;
-                        memcpy(name, base, n);
-                        name[n] = 0;
-                        tarfs_node_t* dir = tarfs_create_node(name, VNODE_TYPE_DIR);
-                        if (dir) tarfs_add_child(parent, dir);
-                    }
-                } else if (!existing) {
-                    char name[256];
-                    int n = base_len < 255 ? base_len : 255;
-                    memcpy(name, base, n);
-                    name[n] = 0;
-
-                    tarfs_node_t* file = tarfs_create_node(name, VNODE_TYPE_FILE);
-                    if (file) {
-                        file->data = tarfs_image + offset;
-                        file->vnode.size = size;
-                        tarfs_add_child(parent, file);
-                    }
-                }
+            if (plen > split) {
+                tarfs_node_t* parent = tarfs_resolve_dir_path(root, p, split > 0 ? split - 1 : 0);
+                if (parent && !tarfs_find_child(parent, p + split, plen - split))
+                    tarfs_add_entry(root, parent, p + split, plen - split, hdr, tarfs_image + offset, size);
             }
         }
 
@@ -362,32 +322,22 @@ static void tarfs_parse_archive(tarfs_node_t* root) {
 }
 
 static int tarfs_mount(filesystem_mount_t* mount, const char* source, const char* target) {
-    (void)source;
-    (void)target;
-
+    (void)source; (void)target;
     if (!mount) return -1;
 
-    tarfs_node_t* root = malloc(sizeof(tarfs_node_t));
+    tarfs_node_t* root = tarfs_create_node("", 0, VNODE_TYPE_DIR);
     if (!root) return -1;
 
-    memset(root, 0, sizeof(tarfs_node_t));
-
-    root->vnode.ops = &tarfs_ops;
-    root->vnode.type = VNODE_TYPE_DIR;
-    root->vnode.size = 0;
     root->vnode.mount = mount;
     root->vnode.fs_private = root;
-
     mount->fs_private = root;
     mount->root = (vnode_t*)root;
 
     tarfs_parse_archive(root);
-
     return 0;
 }
 
 static int tarfs_unmount(filesystem_mount_t* mount) {
-    /* nodes are never freed; same laziness as ramfs lol */
     (void)mount;
     return 0;
 }
@@ -395,5 +345,5 @@ static int tarfs_unmount(filesystem_mount_t* mount) {
 filesystem_driver_t tarfs_driver = {
     .name = "tarfs",
     .mount = tarfs_mount,
-    .unmount = tarfs_unmount
+    .unmount = tarfs_unmount,
 };

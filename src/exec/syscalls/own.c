@@ -39,7 +39,7 @@ SYSCALL_DEFINE_OWN(spawn) {
     vnode_t* node = NULL;
     vfs_lookup(path, &node);
     
-    if (!node)
+    if (!node) 
         return -3;
 
     uint64_t size = node->size;
@@ -50,7 +50,8 @@ SYSCALL_DEFINE_OWN(spawn) {
         int response = elf_start(buffer, size, conv, startup_arg);
         if (response != 0)
             return -8;
-    }
+    } else 
+        return -8;
 
     return 0;
 }
