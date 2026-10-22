@@ -56,7 +56,7 @@ The kernel is being constantly adapted to run some software as system inits.
 Running any of these of course assume a good C standard library. Porting is primairly done on [glibc](https://www.gnu.org/software/libc/), although running simpler, but complete ones like [Musl](https://en.wikipedia.org/wiki/Musl) or [mlibc](https://github.com/managarm/mlibc) should also work. Support for dynamic executables was added somewhat recently, so yes - you should (in theory) be able to run them!
 
 > [!CAUTION]
-> In modern Utopia systems, an executable running through the Linux compatibility layer designed to run as a system init **MUST** be launched by a system init wrapper executable using the [Utopia syscall ABI](docs/SYSCALLS.md). I recommend writting a quick assembly wrapper. **This is a breaking change.**
+> In modern Utopia systems, an executable running through the Linux compatibility layer designed to run as a system init **MUST** be launched by a system init wrapper executable using the [Utopia syscall ABI](docs/SYSCALLS.md). I recommend using [fsstrap](https://github.com/MoreUtopia/fsstrap) (a build system for Utopia's initramfses) to generate the initramfs and PID 1 executable. **This is a breaking change.**
 
 ## Additional notes
 
