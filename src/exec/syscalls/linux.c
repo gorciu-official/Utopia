@@ -842,6 +842,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [79]  = syscall_linux_getcwd,
     [102] = syscall_linux_stub_unimplemented, // that is indeed correct. let me explain.
                                               // this returns 0 and 0 means root
+    [107] = syscall_linux_stub_unimplemented,
     [158] = syscall_linux_arch_prctl,
     [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
