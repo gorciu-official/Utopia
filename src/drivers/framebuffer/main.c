@@ -30,7 +30,7 @@ static bool serial_used = false;
 static uint32_t cursor_x = 0;
 static uint32_t cursor_y = 0;
 
-static uint32_t framebuffer_font_height(void) {
+uint32_t framebuffer_font_height(void) {
     if (current_font != NULL)
         return current_font->charsize;
 

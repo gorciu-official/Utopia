@@ -1,4 +1,5 @@
 #include "arch/memory.h"
+#include "drivers/framebuffer.h"
 #include <constants.h>
 #include <exec/process.h>
 #include <exec/scheduler.h>
@@ -862,10 +863,13 @@ SYSCALL_DEFINE_LINUX(getrandom) {
 SYSCALL_DEFINE_LINUX(ioctl) {
     (void)process; (void)thread;
 
-    struct termios* tos = (struct termios*)regs->arg3;
-
     if (regs->arg2 == TCSETS) {
+        struct termios* tos = (struct termios*)regs->arg3;
         keyboard_should_putchar = !!(tos->c_lflag & TERMIOS_ECHO);
+    } else if (regs->arg2 == TIOCGWINSZ) {
+        struct winsize* winsize = (struct winsize*)regs->arg3;
+        winsize->ws_col = framebuffer_get_height() / framebuffer_font_height();
+        winsize->ws_row = framebuffer_get_width() / framebuffer_font_height();
     }
 
     return 0;

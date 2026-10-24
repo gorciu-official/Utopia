@@ -68,6 +68,13 @@ struct linux_dirent64 {
     char            d_name[];
 };
 
+struct winsize {
+    unsigned short ws_row;
+    unsigned short ws_col;
+    unsigned short ws_xpixel;
+    unsigned short ws_ypixel;
+};
+
 #define POLLIN    0x001
 #define POLLPRI   0x002
 #define POLLOUT   0x004
@@ -114,6 +121,7 @@ struct linux_dirent64 {
 #define TCSETS  0x5402
 #define TCSETSW 0x5403
 #define TCSETSF 0x5404
+#define TIOCGWINSZ 0x5413
 
 #define TERMIOS_ECHO	0000010
 

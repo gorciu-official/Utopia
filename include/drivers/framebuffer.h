@@ -24,3 +24,4 @@ extern uint32_t  framebuffer_get_width();
 extern uint32_t  framebuffer_get_height();
 extern void      framebuffer_enable_backbuffer();
 extern void      framebuffer_switch_font(psf1_header_t* font, uintptr_t size);
+extern uint32_t  framebuffer_font_height(void);
