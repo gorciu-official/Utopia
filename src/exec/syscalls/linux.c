@@ -136,6 +136,69 @@ SYSCALL_DEFINE_LINUX(lseek) {
     return new_offset;
 }
 
+SYSCALL_DEFINE_LINUX(pselect6) {
+    (void)thread;
+
+    if (!process)
+        return -EINVAL;
+
+    int nfds = (int)regs->arg1;
+
+    if (nfds < 0 || nfds > MAX_FILES_PER_PROCESS)
+        return -EINVAL;
+
+    uint64_t readfds_ptr = regs->arg2;
+    uint64_t writefds_ptr = regs->arg3;
+    uint64_t exceptfds_ptr = regs->arg4;
+    uint64_t timeout_ptr = regs->arg5;
+    uint64_t sigmask_ptr = regs->arg6;
+
+    (void)timeout_ptr;
+    (void)sigmask_ptr;
+
+    uint64_t readfds = 0;
+    uint64_t writefds = 0;
+
+    if (readfds_ptr)
+        readfds = *(uint64_t*)readfds_ptr;
+
+    if (writefds_ptr)
+        writefds = *(uint64_t*)writefds_ptr;
+
+    uint64_t ready_readfds = 0;
+    uint64_t ready_writefds = 0;
+    uint64_t ready_exceptfds = 0;
+
+    int ready_count = 0;
+
+    for (int fd = 0; fd < nfds; fd++) {
+        uint64_t mask = 1ULL << fd;
+
+        if (process->fds[fd].used) {
+            if (readfds & mask) {
+                ready_readfds |= mask;
+                ready_count++;
+            }
+
+            if (writefds & mask) {
+                ready_writefds |= mask;
+                ready_count++;
+            }
+        }
+    }
+
+    if (readfds_ptr)
+        *(uint64_t*)readfds_ptr = ready_readfds;
+
+    if (writefds_ptr)
+        *(uint64_t*)writefds_ptr = ready_writefds;
+
+    if (exceptfds_ptr)
+        *(uint64_t*)exceptfds_ptr = ready_exceptfds;
+
+    return ready_count;
+}
+
 SYSCALL_DEFINE_LINUX(getcwd) {
     (void)thread; (void)process;
 
@@ -852,6 +915,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [234] = syscall_linux_tgkill,
     [257] = syscall_linux_openat,
     [262] = syscall_linux_newfstatat,
+    [270] = syscall_linux_pselect6,
     [273] = syscall_linux_stub_unimplemented,
     [318] = syscall_linux_getrandom
 };
