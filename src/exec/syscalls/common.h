@@ -8,7 +8,17 @@ typedef struct {
     uint64_t arg1, arg2, arg3, arg4, arg5, arg6, syscall_no;
 } syscall_regs_t;
 
-typedef uintptr_t (*syscall_fn_t)(syscall_regs_t* regs, process_t* process, thread_t* thread);
+typedef enum {
+    SYSCALL_RESULT_TYPE_CODE,
+    SYSCALL_RESULT_TYPE_SCHED_NEW_THREAD
+} syscall_result_type_t;
+
+typedef struct {
+    syscall_result_type_t type;   
+    uintptr_t code;
+} syscall_result_t;
+
+typedef syscall_result_t (*syscall_fn_t)(syscall_regs_t* regs, process_t* process, thread_t* thread);
 
 typedef struct {
     // syscall table
@@ -26,7 +36,8 @@ typedef struct {
 #define USER_HEAP_MAX 0x0000800000000000ULL
 
 #define SYSCALL_DEFINE(platform, syscall_name) \
-    static uintptr_t __attribute__((used)) syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread) 
+    static __attribute__((used)) \
+    syscall_result_t syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread) 
 
 #define SYSCALL_DEFINE_LINUX(syscall_name) \
     SYSCALL_DEFINE(linux, syscall_name)
@@ -43,3 +54,6 @@ typedef struct {
 #define SYSCALL_ABI_DEFINE(abi_name, syscall_table, to_sregs_fun, set_return_value, not_found_err) \
     SYSCALL_ABI_DECLARE(abi_name) = \
         { .table = &syscall_table, .table_size = SYSCALL_TABLE_SIZE(syscall_table), .to_sregs = to_sregs_fun, .not_found_error = (not_found_err), .set_ret_value = set_return_value };
+
+#define SCRC(pcode) \
+    ((syscall_result_t){ .type = SYSCALL_RESULT_TYPE_CODE, .code = pcode })

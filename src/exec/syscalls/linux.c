@@ -1,5 +1,5 @@
-#include "arch/memory.h"
-#include "drivers/framebuffer.h"
+#include <arch/memory.h>
+#include <drivers/framebuffer.h>
 #include <constants.h>
 #include <exec/process.h>
 #include <exec/scheduler.h>
@@ -47,7 +47,7 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     if (!process) return -1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; // -EBADF
+        return -EBADF; 
     }
 
     if (fd == 1 || fd == 2) {
@@ -56,7 +56,7 @@ static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, i
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -EBADF; // -EBADF
+    if (!vnode) return -EBADF; 
 
     if (vnode->type == VNODE_TYPE_DIR) {
         return -21; // -EISDIR
@@ -82,33 +82,33 @@ SYSCALL_DEFINE_LINUX(tgkill) {
     uint64_t signal = regs->arg3;
 
     if (tgid != thread->id && pid != process->pid)
-        return -ENOSYS;
+        return SCRC(-ENOSYS);
 
     if (signal != SIGABRT)
-        return -ENOSYS;
+        return SCRC(-ENOSYS);
 
     printf("abort.");
     thread_exit();
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(lseek) {
     (void)thread;
 
     if (!process)
-        return -EINVAL;
+        return SCRC(-EINVAL);
 
     int fd = (int)regs->arg1;
     int64_t offset = (int64_t)regs->arg2;
     int whence = (int)regs->arg3;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
-        return -EBADF;
+        return SCRC(-EBADF);
 
     vnode_t *vnode = process->fds[fd].vnode;
     if (!vnode)
-        return -EBADF;
+        return SCRC(-EBADF);
 
     int64_t new_offset;
 
@@ -126,27 +126,27 @@ SYSCALL_DEFINE_LINUX(lseek) {
         break;
 
     default:
-        return -EINVAL;
+        return SCRC(-EINVAL);
     }
 
     if (new_offset < 0)
-        return -EINVAL;
+        return SCRC(-EINVAL);
 
     process->fds[fd].offset = (uint64_t)new_offset;
 
-    return new_offset;
+    return SCRC(new_offset);
 }
 
 SYSCALL_DEFINE_LINUX(pselect6) {
     (void)thread;
 
     if (!process)
-        return -EINVAL;
+        return SCRC(-EINVAL);
 
     int nfds = (int)regs->arg1;
 
     if (nfds < 0 || nfds > MAX_FILES_PER_PROCESS)
-        return -EINVAL;
+        return SCRC(-EINVAL);
 
     uint64_t readfds_ptr = regs->arg2;
     uint64_t writefds_ptr = regs->arg3;
@@ -197,35 +197,35 @@ SYSCALL_DEFINE_LINUX(pselect6) {
     if (exceptfds_ptr)
         *(uint64_t*)exceptfds_ptr = ready_exceptfds;
 
-    return ready_count;
+    return SCRC(ready_count);
 }
 
 SYSCALL_DEFINE_LINUX(getcwd) {
     (void)thread; (void)process;
 
-    char *buf = (char *)regs->arg1;
+    char *buf = (char*)regs->arg1;
     size_t size = regs->arg2;
 
     if (size < 2)
-        return -34;
+        return SCRC(-34);
 
     buf[0] = '/';
     buf[1] = '\0';
 
-    return 2;
+    return SCRC(2);
 }
 
 SYSCALL_DEFINE_LINUX(fstat) {
     (void)thread;
-    if (!process) return -EINVAL;
+    if (!process) return SCRC(-EINVAL);
 
     int fd = regs->arg1;
     struct stat* statbuf = (struct stat*)regs->arg2;
 
-    if (!statbuf) return -EFAULT; 
+    if (!statbuf) return SCRC(-EFAULT); 
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; 
+        return SCRC(-EBADF); 
     }
 
     memset(statbuf, 0, sizeof(struct stat));
@@ -233,11 +233,11 @@ SYSCALL_DEFINE_LINUX(fstat) {
     if (fd == 0 || fd == 1 || fd == 2) {
         statbuf->st_mode = 020000 | 0666;
         statbuf->st_blksize = 1024;
-        return 0;
+        return SCRC(0);
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -EBADF;
+    if (!vnode) return SCRC(-EBADF);
     
     statbuf->st_dev  = 1; 
     statbuf->st_ino  = (uint64_t)(uintptr_t)vnode;
@@ -253,7 +253,7 @@ SYSCALL_DEFINE_LINUX(fstat) {
 
     dprintk("Syscall", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
 
-    return 0;
+    return SCRC(0);
 }
 
 static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintptr_t offset, bool update_offset) {
@@ -304,7 +304,7 @@ SYSCALL_DEFINE_LINUX(read) {
     char* buf = (char*)regs->arg2;
     size_t count = regs->arg3;
 
-    return do_read(process, fd, buf, count, process->fds[fd].offset, true);
+    return SCRC(do_read(process, fd, buf, count, process->fds[fd].offset, true));
 }
 
 SYSCALL_DEFINE_LINUX(pread64) {
@@ -314,18 +314,17 @@ SYSCALL_DEFINE_LINUX(pread64) {
     size_t count = regs->arg3;
     uintptr_t offset = regs->arg4;
 
-    uintptr_t result = do_read(process, fd, buf, count, offset, false);
-    return result;
+    return SCRC(do_read(process, fd, buf, count, offset, false));
 }
 
 SYSCALL_DEFINE_LINUX(write) {
     (void)thread;
-    return write_internal(process, (void*)regs->arg2, regs->arg3, regs->arg1);
+    return SCRC(write_internal(process, (void*)regs->arg2, regs->arg3, regs->arg1));
 }
 
 SYSCALL_DEFINE_LINUX(writev) {
     (void)thread;
-    if (!process) return -1;
+    if (!process) return SCRC(-1);
 
     int fd = regs->arg1;
     iovec_t* iov = (iovec_t*)regs->arg2;
@@ -336,7 +335,7 @@ SYSCALL_DEFINE_LINUX(writev) {
     for (int i = 0; i < iovcnt; i++) {
         size_t ret = write_internal(process, iov[i].iov_base, iov[i].iov_len, fd);
         if (ret == (uintptr_t)-EBADF) {
-            if (total == 0) return -EBADF;
+            if (total == 0) return SCRC(-EBADF);
             break;
         }
         total += ret;
@@ -346,12 +345,12 @@ SYSCALL_DEFINE_LINUX(writev) {
         }
     }
 
-    return total;
+    return SCRC(total);
 }
 
 SYSCALL_DEFINE_LINUX(mprotect) {
     (void)thread;
-    if (!process) return -EINVAL;
+    if (!process) return SCRC(-EINVAL);
     
     uint64_t addr   = regs->arg1;
     uint64_t length = regs->arg2;
@@ -359,8 +358,8 @@ SYSCALL_DEFINE_LINUX(mprotect) {
     
     dprintk("Syscall", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
 
-    if (length == 0) return 0;
-    if (addr & 0xFFF) return -EINVAL; 
+    if (length == 0) return SCRC(0);
+    if (addr & 0xFFF) return SCRC(-EINVAL); 
 
     uint64_t aligned_len = page_align_up(length);
 
@@ -370,44 +369,44 @@ SYSCALL_DEFINE_LINUX(mprotect) {
 
     for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
         if (protect_page_4k(process->page_table, va, pflags) != 0) {
-            return -ENOMEM;
+            return SCRC(-ENOMEM);
         }
     }
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(munmap) {
     (void)thread;
-    if (!process) return -EINVAL; 
+    if (!process) return SCRC(-EINVAL); 
 
     uint64_t addr   = regs->arg1;
     uint64_t length = regs->arg2;
     
     dprintk("Syscall", "munmap called with addr=%p length=%p", addr, length);
 
-    if (length == 0) return -EINVAL;
-    if (addr & 0xFFF) return -EINVAL; 
+    if (length == 0) return SCRC(-EINVAL);
+    if (addr & 0xFFF) return SCRC(-EINVAL); 
 
     uint64_t aligned_len = page_align_up(length);
 
     for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
         if (unmap_page_4k(process->page_table, va) != 0) {
-            return -12;
+            return SCRC(-12);
         }
     }
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(open) {
     (void)thread;
-    if (!process) return -EINVAL;
+    if (!process) return SCRC(-EINVAL);
 
     const char* path = (const char*)regs->arg1;
     int flags = regs->arg2;
 
-    if (!path) return -EFAULT; 
+    if (!path) return SCRC(-EFAULT); 
 
     int fd = -1;
     for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
@@ -418,14 +417,14 @@ SYSCALL_DEFINE_LINUX(open) {
     }
 
     if (fd == -1) {
-        return -EMFILE; 
+        return SCRC(-EMFILE); 
     }
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
     dprintk("Syscall", "Accessing through open %s, code %d", path, res);
     if (res != 0) {
-        return res;
+        return SCRC(res);
     }
 
     process->fds[fd].vnode = vnode;
@@ -433,17 +432,17 @@ SYSCALL_DEFINE_LINUX(open) {
     process->fds[fd].flags = flags;
     process->fds[fd].used = true;
 
-    return fd;
+    return SCRC(fd);
 }
 
 SYSCALL_DEFINE_LINUX(close) {
     (void)thread;
-    if (!process) return -EINVAL; 
+    if (!process) return SCRC(-EINVAL); 
 
     int fd = regs->arg1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; 
+        return SCRC(-EBADF); 
     }
 
     process->fds[fd].vnode = NULL;
@@ -451,19 +450,19 @@ SYSCALL_DEFINE_LINUX(close) {
     process->fds[fd].flags = 0;
     process->fds[fd].used = false;
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(openat) {
     (void)thread;
-    if (!process) return -EINVAL; 
+    if (!process) return SCRC(-EINVAL); 
 
     int dfd = (int)regs->arg1;  
     const char* path = (const char*)regs->arg2;
     int flags = (int)regs->arg3;
     (void)dfd;
 
-    if (!path) return -EFAULT;
+    if (!path) return SCRC(-EFAULT);
 
     int fd = -1;
     for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
@@ -474,14 +473,14 @@ SYSCALL_DEFINE_LINUX(openat) {
     }
 
     if (fd == -1) {
-        return -EMFILE;
+        return SCRC(-EMFILE);
     }
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
     dprintk("Syscall", "Accessing through openat %s, code %d", path, res);
     if (res != 0) {
-        return res;
+        return SCRC(res);
     }
 
     process->fds[fd].vnode = vnode;
@@ -489,7 +488,7 @@ SYSCALL_DEFINE_LINUX(openat) {
     process->fds[fd].flags = flags;
     process->fds[fd].used = true;
 
-    return fd;
+    return SCRC(fd);
 }
 
 SYSCALL_DEFINE_LINUX(poll) {
@@ -532,9 +531,9 @@ SYSCALL_DEFINE_LINUX(poll) {
     }
 
     if (ready)
-        return ready;
+        return SCRC(ready);
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(brk) {
@@ -543,23 +542,23 @@ SYSCALL_DEFINE_LINUX(brk) {
     uint64_t requested_break = regs->arg1;
 
     if (!process) {
-        return -ENOSYS;
+        return SCRC(-ENOSYS);
     }
 
     if (requested_break == 0) {
-        return process->brk_current;
+        return SCRC(process->brk_current);
     }
 
     if (requested_break < process->brk_start || requested_break >= USER_HEAP_MAX) {
-        return process->brk_current;
+        return SCRC(process->brk_current);
     }
 
     if (requested_break > process->brk_current && grow_process_brk(process, requested_break) != 0) {
-        return process->brk_current;
+        return SCRC(process->brk_current);
     }
 
     process->brk_current = requested_break;
-    return process->brk_current;
+    return SCRC(process->brk_current);
 }
 
 SYSCALL_DEFINE_LINUX(arch_prctl) {
@@ -574,43 +573,43 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
     switch (code) {
     case ARCH_SET_FS:
         write_msr(IA32_FS_BASE, addr);
-        return 0;
+        return SCRC(0);
 
     case ARCH_GET_FS: {
-        if (!addr) return -1;
+        if (!addr) return SCRC(-1);
         *(uint64_t*)addr = read_msr(IA32_FS_BASE);
-        return 0;
+        return SCRC(0);
     }
 
     case ARCH_SET_GS:
         write_msr(IA32_GS_BASE, addr);
-        return 0;
+        return SCRC(0);
 
     case ARCH_GET_GS: {
-        if (!addr) return -1;
+        if (!addr) return SCRC(-1);
         *(uint64_t*)addr = read_msr(IA32_GS_BASE);
-        return 0;
+        return SCRC(0);
     }
 
     default:
-        return -ENOSYS;
+        return SCRC(-ENOSYS);
     }
 #else 
     (void)code; (void)addr;
-    return 0;
+    return SCRC(0);
 #endif
 }
 
 SYSCALL_DEFINE_LINUX(exit) {
     (void)regs; (void)process; (void)thread;
     thread_exit();
-    return 0; 
+    return SCRC(0); 
 }
 
 SYSCALL_DEFINE_LINUX(stub_unimplemented) {
     (void)regs; (void)process; (void)thread;
     dprintk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->syscall_no);
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(uname) {
@@ -625,12 +624,12 @@ SYSCALL_DEFINE_LINUX(uname) {
     strcpy(ptr->machine, "x86_64");
     strcpy(ptr->domainname, "");
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(mmap) {
     (void)thread;
-    if (!process) return (uint64_t)-1;
+    if (!process) return SCRC(-1);
     
     uint64_t addr   = regs->arg1;
     uint64_t length = regs->arg2;
@@ -639,7 +638,7 @@ SYSCALL_DEFINE_LINUX(mmap) {
     int64_t  fd     = (int64_t)regs->arg5;
     uint64_t offset = regs->arg6;
 
-    if (length == 0) return 0;
+    if (length == 0) return SCRC(0);
 
     uint64_t alloc_size = page_align_up(length);
     uint64_t pages_count = alloc_size / 0x1000;
@@ -662,12 +661,12 @@ SYSCALL_DEFINE_LINUX(mmap) {
     bool anonymous = (flags & MAP_ANONYMOUS) || fd < 0;
     vnode_t *node = NULL;
     if (!anonymous) {
-        if (fd < 0 || !process->fds[fd].vnode) return (uint64_t)-1; // -EBADF
+        if (fd < 0 || !process->fds[fd].vnode) return SCRC(-EBADF); 
         node = process->fds[fd].vnode;
     }
 
     void *virt_block = page_alloc(pages_count);
-    if (!virt_block) return 0;
+    if (!virt_block) return SCRC(0);
 
     uint64_t phys_base = hhdm_virt_to_phys(virt_block);
     memset(virt_block, 0, alloc_size);
@@ -688,32 +687,32 @@ SYSCALL_DEFINE_LINUX(mmap) {
 
         if (map_page_4k(process->page_table, vaddr, phys, pflags) != 0) {
             free(virt_block); 
-            return 0;
+            return SCRC(0);
         }
     }
 
-    return target_vaddr;
+    return SCRC(target_vaddr);
 }
 
 SYSCALL_DEFINE_LINUX(access) {
     (void)thread;
-    if (!process) return -EINVAL; 
+    if (!process) return SCRC(-EINVAL); 
 
     const char* pathname = (const char*)regs->arg1;
     int mode = (int)regs->arg2;
 
-    if (!pathname) return -EFAULT; 
+    if (!pathname) return SCRC(-EFAULT); 
 
     dprintk("Syscall", "Accessing %s", pathname);
 
     vnode_t* vnode = NULL;
     int res = vfs_open(pathname, 0, &vnode);
     if (res != 0) {
-        return res;
+        return SCRC(res);
     }
 
     if (mode == F_OK) {
-        return 0;
+        return SCRC(0);
     }
 
     uint32_t st_mode;
@@ -723,16 +722,16 @@ SYSCALL_DEFINE_LINUX(access) {
         st_mode = 0100000 | 0644;
     }
 
-    if ((mode & R_OK) && !(st_mode & 0444)) return -EACCES;
-    if ((mode & W_OK) && !(st_mode & 0222)) return -EACCES;
-    if ((mode & X_OK) && !(st_mode & 0111)) return -EACCES;
+    if ((mode & R_OK) && !(st_mode & 0444)) return SCRC(-EACCES);
+    if ((mode & W_OK) && !(st_mode & 0222)) return SCRC(-EACCES);
+    if ((mode & X_OK) && !(st_mode & 0111)) return SCRC(-EACCES);
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(newfstatat) {
     (void)thread;
-    if (!process) return -EINVAL;
+    if (!process) return SCRC(-EINVAL);
 
     int dfd = (int)regs->arg1;
     const char* filename = (const char*)regs->arg2;
@@ -742,12 +741,12 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
     (void)dfd;  
     (void)flag;
 
-    if (!filename || !statbuf) return -EFAULT; 
+    if (!filename || !statbuf) return SCRC(-EFAULT); 
 
     vnode_t* vnode = NULL;
     int res = vfs_open(filename, 0, &vnode);
     if (res != 0) {
-        return res;
+        return SCRC(res);
     }
 
     memset(statbuf, 0, sizeof(struct stat));
@@ -763,26 +762,26 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
         statbuf->st_mode = 0100000 | 0644;
     }
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(getdents64) {
     (void)thread;
 
     if (!process)
-        return -EINVAL;
+        return SCRC(-EINVAL);
 
     int fd = (int)regs->arg1;
     void* user_buf = (void*)regs->arg2;
     size_t count = (size_t)regs->arg3;
 
-    if (!user_buf) return -EFAULT;
-    if (count == 0) return 0;
+    if (!user_buf) return SCRC(-EFAULT);
+    if (count == 0) return SCRC(0);
 
     vnode_t* dir = process->fds[fd].vnode;
-    if (!dir) return -EBADF;
-    if (dir->type != VNODE_TYPE_DIR) return -ENOTDIR;
-    if (!dir->ops || !dir->ops->readdir) return -ENOTDIR;
+    if (!dir) return SCRC(-EBADF);
+    if (dir->type != VNODE_TYPE_DIR) return SCRC(-ENOTDIR);
+    if (!dir->ops || !dir->ops->readdir) return SCRC(-ENOTDIR);
 
     size_t written = 0;
     uint64_t index = process->fds[fd].offset;
@@ -833,7 +832,7 @@ SYSCALL_DEFINE_LINUX(getdents64) {
 
     process->fds[fd].offset = index;
 
-    return (int)written; 
+    return SCRC((int)written); 
 }
 
 SYSCALL_DEFINE_LINUX(set_tid_address) {
@@ -843,7 +842,7 @@ SYSCALL_DEFINE_LINUX(set_tid_address) {
         *((int32_t*)regs->arg1) = thread->id;
     }
 
-    return thread->id;
+    return SCRC(thread->id);
 }
 
 SYSCALL_DEFINE_LINUX(getrandom) {
@@ -852,12 +851,12 @@ SYSCALL_DEFINE_LINUX(getrandom) {
     uint8_t* buf = (uint8_t*)regs->arg1;
     size_t count = regs->arg2;
 
-    if (!buf) return -EFAULT;
+    if (!buf) return SCRC(-EFAULT);
     
     for (size_t i = 0; i < count; i++) {
         buf[i] = (char)(i ^ 0x5A); 
     }
-    return count; 
+    return SCRC(count); 
 }
 
 SYSCALL_DEFINE_LINUX(ioctl) {
@@ -872,17 +871,17 @@ SYSCALL_DEFINE_LINUX(ioctl) {
         winsize->ws_row = framebuffer_get_width() / framebuffer_font_height();
     }
 
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(gettid) {
     (void)process; (void)regs;
-    return thread->id;
+    return SCRC(thread->id);
 }
 
 SYSCALL_DEFINE_LINUX(getpid) {
     (void)thread; (void)regs;
-    return process->pid;
+    return SCRC(process->pid);
 }
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64

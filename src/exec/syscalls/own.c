@@ -11,7 +11,7 @@
 SYSCALL_DEFINE_OWN(exit) {
     (void)regs; (void)process; (void)thread;
     thread_exit();
-    return 0;
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_OWN(write) {
@@ -23,10 +23,10 @@ SYSCALL_DEFINE_OWN(write) {
 
     if (fd == 1 || fd == 2) {
         user_print(data, len);
-        return len;
+        return SCRC(len);
     }
 
-    return -1;
+    return SCRC(-1);
 }
 
 SYSCALL_DEFINE_OWN(spawn) {
@@ -40,7 +40,7 @@ SYSCALL_DEFINE_OWN(spawn) {
     vfs_lookup(path, &node);
     
     if (!node) 
-        return -3;
+        return SCRC(-3);
 
     uint64_t size = node->size;
     void* buffer = malloc(size);
@@ -49,11 +49,11 @@ SYSCALL_DEFINE_OWN(spawn) {
     if (bytes_read == size) {
         int response = elf_start(buffer, size, conv, startup_arg);
         if (response != 0)
-            return -8;
+            return SCRC(-8);
     } else 
-        return -8;
+        return SCRC(-8);
 
-    return 0;
+    return SCRC(0);
 }
 
 static const syscall_fn_t syscall_own_table[] = {

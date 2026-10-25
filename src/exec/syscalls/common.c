@@ -47,8 +47,8 @@ void syscall_handler(registers_t* regs) {
         syscall_num < current_abi.table_size && 
         (*current_abi.table)[syscall_num]
     ) {
-        int64_t res = (*current_abi.table)[syscall_num](&sregs, current_process, current_thread);
-        current_abi.set_ret_value(res, regs); 
+        syscall_result_t res = (*current_abi.table)[syscall_num](&sregs, current_process, current_thread);
+        current_abi.set_ret_value(res.code, regs); 
     } else {
         dprintk("Syscall", "Called non-existing syscall %d", regs->rax);
         current_abi.set_ret_value(current_abi.not_found_error, regs); 
