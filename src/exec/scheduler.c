@@ -192,7 +192,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     regs->rax    = arg;  
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     regs->x[1]  = (uintptr_t)thread_exit; /* ra */
-    regs->x[2]  = sp;
+    regs->x[2]  = (uintptr_t)stack->ptr;
     regs->x[10] = arg;
     regs->sepc  = (uintptr_t)entry_point;
     regs->sstatus &= ~(3ULL << 13);
