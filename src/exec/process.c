@@ -1,3 +1,4 @@
+#include <exec/scheduler.h>
 #include <exec/process.h>
 #include <panic.h>
 #include <memory.h>
@@ -15,7 +16,7 @@ void process_init(void) {
     process_list_head = NULL;
 }
 
-process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
+process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, thread_stack_t* stack) {
     process_t* proc = (process_t*)malloc(sizeof(process_t));
     if (!proc) {
         printk("Process", "Failed to allocate PCB for '%s'!", name);
@@ -33,7 +34,7 @@ process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t
     strcpy(proc->name, name);
     proc->page_table = pt;
 
-    thread_t* main_thread = thread_create(name, entry_point, arg, ring, stack_base, sp, stack_size);
+    thread_t* main_thread = thread_create(name, entry_point, arg, ring, stack);
     if (!main_thread) {
         printk("Process", "Failed to create main thread for '%s'!", name);
         free_page_table(pt);

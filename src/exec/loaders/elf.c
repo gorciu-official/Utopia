@@ -742,7 +742,12 @@ int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     #undef VEC_PUSH
     #undef VEC_AUX
 
-    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, arg, 3, (uintptr_t)stack_base, sp, stack_size);
+    thread_stack_t* stack_request = malloc(sizeof(thread_stack_t));
+    stack_request->ptr = (void*)sp;
+    stack_request->base = stack_base;
+    stack_request->size = stack_size;
+
+    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, arg, 3, stack_request);
     if (!proc) {
         free_page_table(proc_l4);
         return -1;

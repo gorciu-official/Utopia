@@ -3,8 +3,6 @@
 #include <types.h>
 #include <arch/common.h>
 
-struct process; // smth like this works lol
-
 typedef enum {
     THREAD_STATE_READY,
     THREAD_STATE_RUNNING,
@@ -13,17 +11,31 @@ typedef enum {
     THREAD_STATE_UNINITIALISED
 } thread_state_t;
 
+typedef struct {
+    void*  ptr; 
+    void*  base;
+    size_t size;
+} thread_stack_t;
+
 typedef struct thread {
+    // base
     uint32_t id;
     char name[32];
     thread_state_t state;
-    void* stack_ptr; 
-    void* stack_base;
-    size_t stack_size;
-    struct thread* next;
-    int ring;
     struct process* process;
+
+    // stack
+    struct {
+        thread_stack_t* main;
+        thread_stack_t* kernel;
+    } stacks;
+
+    // saved state
+    int ring;
     registers_t* regs;
+
+    // list
+    struct thread* next;
 } thread_t;
 
 typedef struct {
@@ -37,7 +49,7 @@ typedef struct {
 
 void scheduler_init(void);
 void scheduler_ap_init(void);
-thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size);
+thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, thread_stack_t* stack);
 registers_t* scheduler_schedule(registers_t* regs);
 void thread_exit(void);
 thread_t* scheduler_get_current_thread(void);

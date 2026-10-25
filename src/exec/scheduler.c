@@ -106,8 +106,15 @@ void scheduler_reap(void) {
 
     while (list) {
         thread_t* next = list->next;
-        if (list->stack_base) free(list->stack_base);
-        if (list->regs)       free(list->regs);
+        if (list->stacks.kernel) {
+            free(list->stacks.kernel->base);
+            free(list->stacks.kernel);
+        }
+        if (list->stacks.main) {
+            free(list->stacks.main->base);
+            free(list->stacks.main);
+        }
+        if (list->regs)          free(list->regs);
         free(list);
         list = next;
     }
@@ -154,7 +161,7 @@ void scheduler_enqueue(thread_t* t) {
 }
 
 thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring,
-                        uintptr_t stack_base, uintptr_t sp, uintptr_t stack_size) {
+                        thread_stack_t* stack) {
     scheduler_reap();
 
     thread_t* t = tcb_alloc(name);
@@ -164,18 +171,14 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     }
 
     if (ring == 3) {
-        uintptr_t start = stack_base & ~(uintptr_t)0xFFF;
-        uintptr_t end   = (stack_base + stack_size + 0xFFF) & ~(uintptr_t)0xFFF;
+        uintptr_t start = (uintptr_t)stack->base & ~(uintptr_t)0xFFF;
+        uintptr_t end   = ((uintptr_t)stack->base + stack->size + 0xFFF) & ~(uintptr_t)0xFFF;
         for (uintptr_t a = start; a < end; a += 4096) {
             set_page_permissions(a, VMF_USER | VMF_WRITE);
         }
-    } else {
-        sp = (sp & ~(uintptr_t)0xF) - 8;
-        *(uint64_t*)sp = (uint64_t)(uintptr_t)thread_exit;
     }
 
-    t->stack_base = (void*)stack_base;
-    t->stack_size = stack_size;
+    t->stacks.main = stack;
 
     registers_t* regs = t->regs;
 
@@ -184,10 +187,9 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     regs->cs     = ring == 0 ? 0x08 : (0x28 | 3);
     regs->ss     = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
-    regs->rsp    = sp;
+    regs->rsp    = (uintptr_t)stack->ptr;
     regs->rdi    = arg; 
     regs->rax    = arg;  
-    t->stack_ptr = (void*)stack_base;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     regs->x[1]  = (uintptr_t)thread_exit; /* ra */
     regs->x[2]  = sp;
