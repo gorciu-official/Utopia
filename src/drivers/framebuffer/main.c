@@ -48,6 +48,8 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
         if (cursor_x >= fb_width)
             cursor_x = 0;
 
+        printk("Framebuffer", "Applied default font.");
+
         return;
     }
 
@@ -75,6 +77,8 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
 
     if (cursor_y >= fb_height)
         cursor_y = 0;
+    
+    printk("Framebuffer", "Applied PSF1 font.");
 }
 
 void framebuffer_init(

@@ -20,3 +20,7 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
     - [ ] x86_64's PCI
     - [ ] RISC-V 64's device tree
 - [ ] TCP/IP
+- [ ] Improve clock stack
+    - [ ] Replace legacy `PIT`
+    - [ ] Find a better clock source for calibrating LAPIC
+- [ ] Improve keyboard stack

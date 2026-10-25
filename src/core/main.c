@@ -2,6 +2,7 @@
 #include <constants.h>
 
 #include <lib/screen.h>
+#include <lib/extensions.h>
 
 #include <arch/common.h>
 #include <boot/common.h>
@@ -25,9 +26,10 @@ void kmain(common_boot_structure_t* cbs) {
     );
 
     printk("Core", "Utopia %s", UTOPIA_VERSION);
-    printk("Core", "  Source code: https://github.com/gorciu-official/Utopia");
-    printk("Core", "  Licensed under GPL-v3.0");
-    printk("Core", "---");
+    printk("Core", "    * Copyright: 2026 Gorciu and contributors");
+    printk("Core", "    * Source code: https://github.com/gorciu-official/Utopia");
+    printk("Core", "    * Licensed under GPL-v3.0");
+    printk("Core", "-----");
 
     if (cbs->modules.font_addr != NULL) {
         framebuffer_switch_font((psf1_header_t*)cbs->modules.font_addr, cbs->modules.font_size);
@@ -85,7 +87,7 @@ void kmain(common_boot_structure_t* cbs) {
 
     vnode_t* init_file = 0;
     vfs_lookup("/init", &init_file);
-    if (init_file) {
+    if likely (init_file) {
         uint64_t size = init_file->size;
         void* buffer = malloc(size);
         uint64_t bytes_read = 0;
@@ -116,8 +118,6 @@ void ap_main() {
 
     arch_ap_init();
 
-    printk("Core", "CPU ID %d fully ready, handing control to the scheduler.", id);
-    
     scheduler_ap_init();
 
     for (;;)
