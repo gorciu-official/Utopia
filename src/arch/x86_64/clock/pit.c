@@ -8,7 +8,7 @@ bool used_before = false;
 void timer_init(uint32_t frequency) {
     if (!used_before) {
         printk(
-            "PIT", "Initializing PIT interrupts at frequency %u for CPU %d", 
+            KMT_LOG, "PIT", "Initializing PIT interrupts at frequency %u for CPU %d", 
             frequency, current_processor_id()
         );
 

@@ -13,7 +13,7 @@ static inline void io_wait(void) {
 }
 
 void pic_remap(int offset1, int offset2) {
-    printk("PIC", "Remapping PIC interrupts");
+    printk(KMT_LOG, "PIC", "Remapping PIC interrupts");
 
     uint8_t a1 = 0;
     uint8_t a2 = 0;

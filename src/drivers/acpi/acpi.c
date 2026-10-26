@@ -37,7 +37,7 @@ static acpi_rsdp_t* scan_region(uintptr_t start, uintptr_t end) {
                     continue;
             }
 
-            printk("ACPI", "Table RSDP found at %p", rsdp);
+            printk(KMT_LOG, "ACPI", "Table RSDP found at %p", rsdp);
 
             return rsdp;
         }
@@ -58,7 +58,7 @@ acpi_rsdp_t* find_rsdp(void) {
     // TODO: there has to be a better way for this tho,
     //       it works in QEMU and in real hardware but
     //       is quite dirty 
-    printk("ACPI", "Searching BIOS region");
+    printk(KMT_LOG, "ACPI", "Searching BIOS region");
     return scan_region(0xE0000, 0x100000);
 }
 
@@ -142,32 +142,32 @@ int acpi_get_cpus(uint8_t* apic_ids, int max_cpus) {
         ptr += e->length;
     }
 
-    printk("ACPI", "Found %d available CPUs.", count);
+    printk(KMT_LOG, "ACPI", "Found %d available CPUs.", count);
 
     return count;
 }
 
 void acpi_init() {
-    printk("ACPI", "Initializing ACPI");
+    printk(KMT_LOG, "ACPI", "Initializing ACPI");
 
     rsdp = find_rsdp();
     if (!rsdp) {
-        printk("ACPI", "No RSDP found");
+        printk(KMT_LOG, "ACPI", "No RSDP found");
         return;
     }
 
     madt = acpi_find_madt();
     if (!madt) {
-        printk("ACPI", "No MADT found");
+        printk(KMT_LOG, "ACPI", "No MADT found");
         return;
     }
 
     hpet = acpi_find_hpet();
     if (!hpet) {
-        printk("ACPI", "No HPET found");
+        printk(KMT_LOG, "ACPI", "No HPET found");
     }
 
-    printk("ACPI", "ACPI has been initialized successfully.");
+    printk(KMT_LOG, "ACPI", "ACPI has been initialized successfully.");
 }
 
 #endif

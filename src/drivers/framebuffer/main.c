@@ -48,7 +48,7 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
         if (cursor_x >= fb_width)
             cursor_x = 0;
 
-        printk("Framebuffer", "Applied default font.");
+        printk(KMT_LOG, "Framebuffer", "Applied default font.");
 
         return;
     }
@@ -78,7 +78,7 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
     if (cursor_y >= fb_height)
         cursor_y = 0;
     
-    printk("Framebuffer", "Applied PSF1 font.");
+    printk(KMT_LOG, "Framebuffer", "Applied PSF1 font.");
 }
 
 void framebuffer_init(
@@ -87,7 +87,7 @@ void framebuffer_init(
     uint32_t pitch, uint8_t  bpp
 ) {
     if (!addr) 
-        return printk("Framebuffer", "No framebuffer information provided by bootloader");
+        return printk(KMT_LOG, "Framebuffer", "No framebuffer information provided by bootloader");
 
     fb_addr     = (uint32_t*)addr;
     fb_width    = width;
@@ -156,7 +156,7 @@ void framebuffer_enable_backbuffer() {
     if (backbuffer) {
         memcpy(backbuffer, fb_addr, size);
     } else {
-        printk("Framebuffer", "Failed to allocate backbuffer, using direct access to VRAM.");
+        printk(KMT_LOG, "Framebuffer", "Failed to allocate backbuffer, using direct access to VRAM.");
     }
 }
 

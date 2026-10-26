@@ -25,11 +25,11 @@ void kmain(common_boot_structure_t* cbs) {
         cbs->framebuffer.pitch, cbs->framebuffer.bpp
     );
 
-    printk("Core", "Utopia %s", UTOPIA_VERSION);
-    printk("Core", "    * Copyright: 2026 Gorciu and contributors");
-    printk("Core", "    * Source code: https://github.com/gorciu-official/Utopia");
-    printk("Core", "    * Licensed under GPL-v3.0");
-    printk("Core", "-----");
+    printk(KMT_LOG, "Core", "Utopia %s", UTOPIA_VERSION);
+    printk(KMT_LOG, "Core", "    * Copyright: 2026 Gorciu and contributors");
+    printk(KMT_LOG, "Core", "    * Source code: https://github.com/gorciu-official/Utopia");
+    printk(KMT_LOG, "Core", "    * Licensed under GPL-v3.0");
+    printk(KMT_LOG, "Core", "-----");
 
     if (cbs->modules.font_addr != NULL) {
         framebuffer_switch_font((psf1_header_t*)cbs->modules.font_addr, cbs->modules.font_size);
@@ -83,7 +83,7 @@ void kmain(common_boot_structure_t* cbs) {
     vfs_mount("devtmpfs", 0, "/dev/");
 
     // run base tasks
-    printk("Core", "Starting init process");
+    printk(KMT_LOG, "Core", "Starting init process");
 
     vnode_t* init_file = 0;
     vfs_lookup("/init", &init_file);

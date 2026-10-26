@@ -411,8 +411,8 @@ elf_load_result_t elf_load(
         ehdr->e_machine != 
         (ARCHITECTURE == ARCHITECTURE_CODE_x86_64 ? EM_X86_64 : EM_RISCV64)
     ) {
-        printk("ELF Loader", "Tried to load an executable that is incompatibile with this processor architecture");
-        printk("ELF Loader", "This may occur if you use the same initramfs across different architectures");
+        printk(KMT_LOG, "ELF Loader", "Tried to load an executable that is incompatibile with this processor architecture");
+        printk(KMT_LOG, "ELF Loader", "This may occur if you use the same initramfs across different architectures");
         result.status = ELF_ERR_BAD_MACHINE;
         return result;
     }
@@ -610,7 +610,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     elf_load_result_t main_res = elf_load(image, image_size, l4_table, bias, NULL, 0, false);
     if (out_main) *out_main = main_res;
     if (main_res.status != ELF_OK) {
-        printk("ELF Loader", "Failed to load main ELF image, status %d", main_res.status);
+        printk(KMT_LOG, "ELF Loader", "Failed to load main ELF image, status %d", main_res.status);
         return -1;
     }
 
@@ -631,7 +631,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     uint8_t* interp_buf = NULL;
     uint64_t interp_size = 0;
     if (elf_vfs_read_whole(main_res.interp_path, &interp_buf, &interp_size) != 0) {
-        printk("ELF Loader", "Failed to load an ELF interpretter, path %s", main_res.interp_path);
+        printk(KMT_LOG, "ELF Loader", "Failed to load an ELF interpretter, path %s", main_res.interp_path);
         return ELF_ERR_INTERP_LOAD_FAILED;
     }
     elf_image_t main_img = {
@@ -655,7 +655,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     free(interp_buf); // segments were copied into their own pages
 
     if (interp_res.status != ELF_OK) {
-        printk("ELF Loader", "Could not load ELF program interpretter, error: %d", interp_res.status);
+        printk(KMT_LOG, "ELF Loader", "Could not load ELF program interpretter, error: %d", interp_res.status);
         return ELF_ERR_INTERP_LOAD_FAILED;
     }
 
@@ -684,7 +684,7 @@ int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     size_t stack_size = 8192 * 1024;
     void* stack_base = page_alloc(stack_size / 0x1000);
     if (!stack_base) {
-        printk("ELF Loader", "Failed to allocate stack for process thread!");
+        printk(KMT_LOG, "ELF Loader", "Failed to allocate stack for process thread!");
         free(stack_base);
         free_page_table(proc_l4);
         return -1;

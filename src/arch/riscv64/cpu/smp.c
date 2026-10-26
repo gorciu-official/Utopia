@@ -65,27 +65,27 @@ bool smp_boot_ap(int hart) {
     );
 
     if (call.error == -6) {
-        printk("SMP", "Hart %d is allegedly already online", hart);
+        printk(KMT_LOG, "SMP", "Hart %d is allegedly already online", hart);
         return true;
     } else if (call.error != 0) {
-        printk("SMP", "Could not start hart %d, error %d", hart, call.error);
+        printk(KMT_LOG, "SMP", "Could not start hart %d, error %d", hart, call.error);
         return false;
     }
 
     for (int i = 0; i < 1000000; i++) {
         if (ap_alive_table[hart + 1] == 1) {
-            printk("SMP", "Hart %d is up.", hart);
+            printk(KMT_LOG, "SMP", "Hart %d is up.", hart);
             return true;
         }
     }
 
-    printk("SMP", "Hart %d failed to register in time, considered offline.", hart);
+    printk(KMT_LOG, "SMP", "Hart %d failed to register in time, considered offline.", hart);
 
     return false;
 }
 
 void arch_boot_aps() {
-    printk("SMP", "Starting non-BSP hardware threads...");
+    printk(KMT_LOG, "SMP", "Starting non-BSP hardware threads...");
 
     int online = 0;
 
@@ -93,5 +93,5 @@ void arch_boot_aps() {
         online += smp_boot_ap(hart_id); // assuming 1 is true
     }
 
-    printk("SMP", "Finished, %d harts are online.", online);
+    printk(KMT_LOG, "SMP", "Finished, %d harts are online.", online);
 }

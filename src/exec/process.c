@@ -19,13 +19,13 @@ void process_init(void) {
 process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, thread_stack_t* stack) {
     process_t* proc = (process_t*)malloc(sizeof(process_t));
     if (!proc) {
-        printk("Process", "Failed to allocate PCB for '%s'!", name);
+        printk(KMT_LOG, "Process", "Failed to allocate PCB for '%s'!", name);
         return NULL;
     }
 
     uint64_t* pt = clone_page_table();
     if (!pt) {
-        printk("Process", "Failed to clone page table for '%s'!", name);
+        printk(KMT_LOG, "Process", "Failed to clone page table for '%s'!", name);
         free(proc);
         return NULL;
     }
@@ -36,7 +36,7 @@ process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t
 
     thread_t* main_thread = thread_create(name, entry_point, arg, ring, stack);
     if (!main_thread) {
-        printk("Process", "Failed to create main thread for '%s'!", name);
+        printk(KMT_LOG, "Process", "Failed to create main thread for '%s'!", name);
         free_page_table(pt);
         free(proc);
         return NULL;

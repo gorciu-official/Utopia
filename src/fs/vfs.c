@@ -25,7 +25,7 @@ int vfs_register_driver(filesystem_driver_t* driver) {
 
     g_drivers[g_driver_count++] = driver;
 
-    printk("Filesystem", "Registered filesystem driver: %s", driver->name);
+    printk(KMT_LOG, "Filesystem", "Registered filesystem driver: %s", driver->name);
     return 0;
 }
 
@@ -49,7 +49,7 @@ static filesystem_driver_t* vfs_find_driver(const char* type) {
 void vfs_init() {
     // it quite literally does nothing but maybe it will need to do 
     // something in the future?
-    printk("Filesystem", "VFS initialized successfully.");
+    printk(KMT_LOG, "Filesystem", "VFS initialized successfully.");
 }
 
 int vfs_mount(const char* type, const char* source, const char* target) {
@@ -60,7 +60,7 @@ int vfs_mount(const char* type, const char* source, const char* target) {
     filesystem_driver_t* driver = vfs_find_driver(type);
 
     if (!driver) {
-        printk("Filesystem", "Unknown filesystem: %s", type);
+        printk(KMT_LOG, "Filesystem", "Unknown filesystem: %s", type);
         return -1;
     }
 
@@ -84,14 +84,14 @@ int vfs_mount(const char* type, const char* source, const char* target) {
     }
 
     if (driver->mount(mount, source, target) != 0) {
-        printk("Filesystem", "Mount failed for %s", type);
+        printk(KMT_LOG, "Filesystem", "Mount failed for %s", type);
         free(mount);
         return -1;
     }
 
     g_mounts[g_mount_count++] = mount;
 
-    printk("Filesystem", "Mounted filesystem %s at %s", type, target);
+    printk(KMT_LOG, "Filesystem", "Mounted filesystem %s at %s", type, target);
     return 0;
 }
 

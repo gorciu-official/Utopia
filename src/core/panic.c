@@ -86,10 +86,10 @@ void panic(const char* reason, registers_t* regs) {
     context_switch_lock = true;
 
     if (__atomic_exchange_n(&panicked, true, __ATOMIC_SEQ_CST)) {
-        printk("Core", "\x1b[91mDouble kernel panic\x1b[0m: %s", reason);
-        printk("Core", "  - A kernel panic occured while handling the first kernel panic.");
-        printk("Core", "  - Please file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
-        printk("Core", "  - The system enters a halted state, please restart the computer manually");
+        printk(KMT_ERROR, "Core", "\x1b[91mDouble kernel panic\x1b[0m: %s", reason);
+        printk(KMT_ERROR, "Core", "  - A kernel panic occured while handling the first kernel panic.");
+        printk(KMT_ERROR, "Core", "  - Please file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
+        printk(KMT_ERROR, "Core", "  - The system enters a halted state, please restart the computer manually");
 
         while (true) {
             arch_cli();
@@ -103,48 +103,48 @@ void panic(const char* reason, registers_t* regs) {
 #endif
     
     printk_remove_console_suspension();
-    printk("Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
+    printk(KMT_ERROR, "Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
     if (regs != NULL) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        printk("Core", "  - CPU exception: %s", cpu_exception_name(regs->int_no));
-        printk("Core", "  - Basic info:    interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
-        printk("Core", "  - Registers:     rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
-        printk("Core", "  - Registers:     rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
-        printk("Core", "  - Registers:     cr2=%p  rip=%p", read_pf_addr(), regs->rip);
+        printk(KMT_ERROR, "Core", "  - CPU exception: %s", cpu_exception_name(regs->int_no));
+        printk(KMT_ERROR, "Core", "  - Basic info:    interrupt_number=%d   apic_cpu_id=%d  err_code=%p", regs->int_no, current_processor_id(), regs->err_code);
+        printk(KMT_ERROR, "Core", "  - Registers:     rax=%p  rbx=%p  rcx=%p  rdx=%p", regs->rax, regs->rbx, regs->rcx, regs->rdx);
+        printk(KMT_ERROR, "Core", "  - Registers:     rsi=%p  rdi=%p  rbp=%p  rsp=%p", regs->rsi, regs->rdi, regs->rbp, regs->rsp);
+        printk(KMT_ERROR, "Core", "  - Registers:     cr2=%p  rip=%p", read_pf_addr(), regs->rip);
 
         if (regs->int_no == 14) {
             printk(
-                "Core", "  - Page fault:    %s mode, %s %p", (regs->err_code & (1 << 2)) ? "user" : "kernel",
+                KMT_ERROR, "Core", "  - Page fault:    %s mode, %s %p", (regs->err_code & (1 << 2)) ? "user" : "kernel",
                 (regs->err_code & (1 << 1)) ? "writing to" : "reading", read_pf_addr()
             );
         }
 
-        printk("Core", "  - Stack dump:");
+        printk(KMT_ERROR, "Core", "  - Stack dump:");
 
         uint64_t* stack = (uint64_t*)regs->rsp;
         
         for (int i = 0; i < 16; i++) {
-            printk("Core", "      * [%p] = %p",
+            printk(KMT_ERROR, "Core", "      * [%p] = %p",
                    stack + i,
                    stack[i]);
         }
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-        printk("Core", "  - CPU exception: %s", cpu_exception_name(regs->scause));
-        printk("Core", "  - Basic info:    cause=%p  cpu_id=%d  stval=%p", regs->scause, current_processor_id(), regs->stval);
-        printk("Core", "  - Registers:     ra=%p  sp=%p  gp=%p  tp=%p", regs->x[1], regs->x[2], regs->x[3], regs->x[4]);
-        printk("Core", "  - Registers:     a0=%p  a1=%p  a2=%p  a3=%p", regs->x[10], regs->x[11], regs->x[12], regs->x[13]);
-        printk("Core", "  - Registers:     a4=%p  a5=%p  a6=%p  a7=%p", regs->x[14], regs->x[15], regs->x[16], regs->x[17]);
-        printk("Core", "  - Registers:     sepc=%p  stval=%p", regs->sepc, regs->stval);
+        printk(KMT_ERROR, "Core", "  - CPU exception: %s", cpu_exception_name(regs->scause));
+        printk(KMT_ERROR, "Core", "  - Basic info:    cause=%p  cpu_id=%d  stval=%p", regs->scause, current_processor_id(), regs->stval);
+        printk(KMT_ERROR, "Core", "  - Registers:     ra=%p  sp=%p  gp=%p  tp=%p", regs->x[1], regs->x[2], regs->x[3], regs->x[4]);
+        printk(KMT_ERROR, "Core", "  - Registers:     a0=%p  a1=%p  a2=%p  a3=%p", regs->x[10], regs->x[11], regs->x[12], regs->x[13]);
+        printk(KMT_ERROR, "Core", "  - Registers:     a4=%p  a5=%p  a6=%p  a7=%p", regs->x[14], regs->x[15], regs->x[16], regs->x[17]);
+        printk(KMT_ERROR, "Core", "  - Registers:     sepc=%p  stval=%p", regs->sepc, regs->stval);
 #endif
     } else {
-        printk("Core", "  - No register dump available, panic not invoked via hardware interrupt.");
+        printk(KMT_ERROR, "Core", "  - No register dump available, panic not invoked via hardware interrupt.");
     }
     
     invoker = current_processor_id();
     panicked = true; 
    
-    printk("Core", "  - You can try to file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
-    printk("Core", "  - The system enters a halted state, please restart the computer manually.");
+    printk(KMT_ERROR, "Core", "  - You can try to file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
+    printk(KMT_ERROR, "Core", "  - The system enters a halted state, please restart the computer manually.");
 
     while (true) {
         arch_cli();

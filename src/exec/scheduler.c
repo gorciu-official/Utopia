@@ -136,7 +136,7 @@ void scheduler_init(void) {
 
     thread_t* main_thread = tcb_alloc("main");
     if (!main_thread) {
-        printk("Scheduler", "Failed to allocate main thread TCB!");
+        printk(KMT_LOG, "Scheduler", "Failed to allocate main thread TCB!");
         return;
     }
     register_idle_for_this_cpu(main_thread);
@@ -148,7 +148,7 @@ void scheduler_ap_init(void) {
     char name[5] = { 'a', 'p', '_', (char)('0' + (cpu_id % 10)), '\0' };
     thread_t* ap_thread = tcb_alloc(name);
     if (!ap_thread) {
-        printk("Scheduler", "Failed to allocate AP thread TCB for CPU %d!", cpu_id);
+        printk(KMT_LOG, "Scheduler", "Failed to allocate AP thread TCB for CPU %d!", cpu_id);
         return;
     }
     register_idle_for_this_cpu(ap_thread);
@@ -166,7 +166,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
 
     thread_t* t = tcb_alloc(name);
     if (!t) {
-        printk("Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
+        printk(KMT_LOG, "Scheduler", "Failed to allocate TCB for new thread '%s'!", name);
         return NULL;
     }
 

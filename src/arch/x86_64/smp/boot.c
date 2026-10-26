@@ -83,7 +83,7 @@ void boot_ap(uint8_t target_apic_id) {
 void boot_all_aps(uint8_t* core_apic_ids, int count) {
     uint32_t bsp_apic_id = current_processor_id();
 
-    printk("SMP", "Starting all application processors (total: %d)", count - 1);
+    printk(KMT_LOG, "SMP", "Starting all application processors (total: %d)", count - 1);
 
     uint32_t failed_to_boot = 0;
 
@@ -97,12 +97,12 @@ void boot_all_aps(uint8_t* core_apic_ids, int count) {
         boot_ap(apic_id);
 
         if (ap_alive_table[apic_id] == 1) {
-            printk("SMP", "CPU %d is online", apic_id);
+            printk(KMT_LOG, "SMP", "CPU %d is online", apic_id);
         } else {
-            printk("SMP", "CPU %d failed to register in time or is offline!", apic_id);
+            printk(KMT_LOG, "SMP", "CPU %d failed to register in time or is offline!", apic_id);
             failed_to_boot++;
         }
     }
 
-    printk("SMP", "Finished - %d CPUs are up", count - failed_to_boot);
+    printk(KMT_LOG, "SMP", "Finished - %d CPUs are up", count - failed_to_boot);
 }

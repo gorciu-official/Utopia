@@ -17,12 +17,12 @@ bool cpu_has_umip(void) {
 // enabling this blocks programs from fingerprinting certain parts of your kernel
 void enable_umip(void) {
     if (!cpu_has_umip())
-        return printk("Mitigations", "Skipping UIMP for CPU %d, feature unavailable", current_processor_id());
+        return printk(KMT_LOG, "Mitigations", "Skipping UIMP for CPU %d, feature unavailable", current_processor_id());
 
 
     unsigned long cr4 = read_cr4();
     cr4 |= CPU_CR4_UMIP;
     write_cr4(cr4);
 
-    printk("Mitigations", "Enabled User Mode Instruction Prevention for CPU %d", current_processor_id());
+    printk(KMT_LOG, "Mitigations", "Enabled User Mode Instruction Prevention for CPU %d", current_processor_id());
 }

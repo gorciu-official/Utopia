@@ -60,7 +60,7 @@ static uint64_t lapic_calibrate(void) {
     uint32_t elapsed = 0xFFFFFFFF - current;
 
     if (!has_itsc)
-        printk("Clock", "Warning: Used PIT to calibrate LAPIC timer, this is generally a bad idea");
+        printk(KMT_LOG, "Clock", "Warning: Used PIT to calibrate LAPIC timer, this is generally a bad idea");
 
     uint64_t ticks_per_second = (uint64_t)elapsed * 100;
     ticks_per_second *= TIMER_DIVIDE;

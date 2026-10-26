@@ -170,6 +170,7 @@ void memory_init_base(void) {
                 0) != 0) {
 
             printk(
+                KMT_LOG,
                 "Memory",
                 "Warning: failure in mappping region above 4GB at %p",
                 map_start
@@ -177,11 +178,7 @@ void memory_init_base(void) {
         }
     }
 
-    printk(
-        "Memory",
-        "Memory map initialized with %d E820 entries",
-        memory_map_count
-    );
+    printk(KMT_LOG, "Memory", "Memory map initialized with %d E820 entries", memory_map_count);
 }
 
 void memory_init(void) {
@@ -236,15 +233,12 @@ void memory_init(void) {
     head->free = true;
 
     printk(
-        "Memory",
-        "Heap initialized at %p with %lu bytes",
-        head,
-        head->size
+        KMT_LOG, "Memory", "Heap initialized at %p with %lu bytes",
+        head, head->size
     );
 
     printk(
-        "Memory",
-        "Final memory map (%d entries):",
+        KMT_LOG, "Memory", "Final memory map (%d entries):",
         memory_map_count
     );
 
@@ -277,7 +271,7 @@ void memory_init(void) {
         }
 
         printk(
-            "Memory",
+            KMT_LOG, "Memory",
             "e820: [%p - %p] %s (%lu bytes)",
             kernel_memory_map[i].addr,
             kernel_memory_map[i].addr +
@@ -295,7 +289,7 @@ int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
     if (reserve_start >= reserve_end)
         return 0;
 
-    printk("Memory", "Reserving region [%p-%p]", reserve_start, reserve_end);
+    printk(KMT_LOG, "Memory", "Reserving region [%p-%p]", reserve_start, reserve_end);
 
     for (uint32_t i = 0; i < memory_map_count; i++) {
         if (kernel_memory_map[i].type != 1)
@@ -339,7 +333,7 @@ int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
             reserve_end < region_end) {
 
             if (memory_map_count >= 64) {
-                printk("Memory",
+                printk(KMT_LOG, "Memory",
                        "ERROR: memory map full while reserving [%p - %p]",
                        reserve_start,
                        reserve_end);

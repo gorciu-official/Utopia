@@ -54,7 +54,7 @@ uint64_t calibrate_tsc(uint64_t delay_ms) {
     uint64_t ticks = end - start;
     uint64_t calibval =  (ticks * 1000ULL) / delay_ms;
 
-    printk("Clock", "Invariant TSC clock source calibrated to %p Hz", calibval); 
+    printk(KMT_LOG, "Clock", "Invariant TSC clock source calibrated to %p Hz", calibval); 
 
     return calibval;
 }
@@ -65,7 +65,7 @@ static bool tsc_initialized = false;
 
 void tsc_init() {
     if (!has_invariant_tsc()) {
-        return printk("Clock", "Warning: invariant TSC not present, clock will return 0. PIT is no longer a clock source.");
+        return printk(KMT_LOG, "Clock", "Warning: invariant TSC not present, clock will return 0. PIT is no longer a clock source.");
     }
 
     tsc_frequency = calibrate_tsc(10);

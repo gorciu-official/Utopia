@@ -1,4 +1,5 @@
 #include <lib/spinlock.h>
+#include <lib/screen.h>
 #include <drivers/framebuffer.h>
 #include <arguments.h>
 #include <lib/numbers.h>
@@ -213,7 +214,7 @@ void user_print(char* fmt, uint64_t size) {
 
 static volatile bool console_suspended = false;
 
-void printk(const char* module, const char *fmt, ...) {
+void printk(const kernel_message_type_t type, const char* module, const char *fmt, ...) {
     uint64_t flags = arch_save_interrupts();
 
     // that should be pretty safe because
@@ -255,9 +256,22 @@ void printk(const char* module, const char *fmt, ...) {
     }
     time_str[len] = '\0';
 
-    printf("\x1b[37m[%s]\x1b[0m ", time_str); 
-    printf("\x1b[36m%s\x1b[0m", module);
-    print_string_internal(": ");
+    const char *level =
+        type == KMT_LOG         ? "\x1b[36mLOG" :
+        type == KMT_ERROR       ? "\x1b[31mERR" :
+        type == KMT_DEBUG       ? "\x1b[90mDBG" :
+    #if UTOPIA_DEBUG == 1
+        type == KMT_EXTRA_DEBUG ? "\x1b[90mEBG" :
+    #endif
+                                  "\x1b[97mUNK";
+    
+    printf(
+        "\x1b[37m[%s]\x1b[0m %s\x1b[0m "
+        "\x1b[38;2;39;159;219m%s\x1b[0m: ",
+        time_str,
+        level,
+        module
+    );
 
     va_list args;
     va_start(args, fmt);
@@ -272,11 +286,11 @@ void printk(const char* module, const char *fmt, ...) {
 }
 
 void printk_suspend_console() {
-    printk("Framebuffer", "Suspending kernel console output");
+    printk(KMT_LOG, "Framebuffer", "Suspending kernel console output");
     console_suspended = true;
 }
 
 void printk_remove_console_suspension() {
     console_suspended = false;
-    printk("Framebuffer", "Ensuring kernel console output is not suspended");
+    printk(KMT_LOG, "Framebuffer", "Ensuring kernel console output is not suspended");
 }
