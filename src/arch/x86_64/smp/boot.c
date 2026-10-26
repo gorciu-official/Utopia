@@ -57,8 +57,8 @@ void boot_ap(uint8_t target_apic_id) {
 
     ap_alive_table[target_apic_id] = 0;
 
-    volatile uint32_t* lapic_high = (uint32_t*)0xFEE00310;
-    volatile uint32_t* lapic_low  = (uint32_t*)0xFEE00300;
+    volatile uint32_t* lapic_high = (uint32_t*)phys_to_virt(0xFEE00310);
+    volatile uint32_t* lapic_low  = (uint32_t*)phys_to_virt(0xFEE00300);
     
     *lapic_high = (target_apic_id << 24);
     *lapic_low  = 0x00004500; 

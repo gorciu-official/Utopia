@@ -23,23 +23,29 @@ void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
     idt_entries[num].reserved = 0;
 }
 
+static volatile int idt_built = 0;
+
 void idt_init() {
-    idt_ptr.limit = (sizeof(idt_entry_t) * 256) - 1;
-    idt_ptr.base = (uint64_t)&idt_entries;
+    if (!idt_built) {
+        idt_ptr.limit = (sizeof(idt_entry_t) * 256) - 1;
+        idt_ptr.base = (uint64_t)&idt_entries;
 
-    for (int i = 0; i < 256; ++i) {
-        idt_set_gate(i, 0, 0, 0);
+        for (int i = 0; i < 256; ++i) {
+            idt_set_gate(i, 0, 0, 0);
+        }
+
+        for (int i = 0; i < 32; ++i) {
+            idt_set_gate(i, isr_stub_table[i], 0x08, 0x8E);
+        }
+
+        for (int i = 0; i < 16; ++i) {
+            idt_set_gate(32 + i, irq_stub_table[i], 0x08, 0x8E);
+        }
+
+        idt_set_gate(0x40, (uintptr_t)isr0x40, 0x08, 0x8E);
+
+        __atomic_store_n(&idt_built, 1, __ATOMIC_RELEASE);
     }
-
-    for (int i = 0; i < 32; ++i) {
-        idt_set_gate(i, isr_stub_table[i], 0x08, 0x8E);
-    }
-
-    for (int i = 0; i < 16; ++i) {
-        idt_set_gate(32 + i, irq_stub_table[i], 0x08, 0x8E);
-    }
-
-    idt_set_gate(0x40, (uintptr_t)isr0x40, 0x08, 0x8E);
 
     idt_load((uint64_t)&idt_ptr);
     

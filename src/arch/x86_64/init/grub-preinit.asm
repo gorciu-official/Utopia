@@ -4,7 +4,7 @@ extern kinit
 
 %define KERNEL_VMA     0xffffffff80000000
 %define KERNEL_LMA     0x00200000
-%define KERNEL_OFFSET  0xffffffff7ff00000
+%define KERNEL_OFFSET  (KERNEL_VMA - KERNEL_LMA)
 
 %define HHDM_BASE      0xffff800000000000
 %define PHYS(addr) ((addr) - KERNEL_OFFSET)
@@ -337,7 +337,7 @@ setup_page_tables:
 
     xor ecx, ecx
 
-    mov edi, 0x00100000
+    mov edi, KERNEL_LMA
 
 .loop_kernel_l1:
     mov eax, edi
@@ -357,7 +357,7 @@ setup_page_tables:
 
     mov ecx, 1
 
-    mov edi, 0x00200000
+    mov edi, KERNEL_LMA + 0x00200000
 
 .loop_kernel_l2:
     mov eax, edi
