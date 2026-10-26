@@ -27,7 +27,7 @@ Jokes aside but should work everywhere (with a few exceptions of course). Tested
 | Architecture | Boot protocol | Support level | Note                                                                             |
 | ------------ | ------------- | ------------- | -------------------------------------------------------------------------------- |
 | x86_64       | Limine        | Full          | -                                                                                |
-| x86_64       | Multiboot1    | Partial       | SMP triple faulting; not detecting init file in initramfs.                       |
+| x86_64       | Multiboot1    | Partial       | Userspace issues and shit.                                                       |
 | RISC-V 64    | Limine        | Full          | -                                                                                |
 | RISC-V 64    | Multiboot1    | Unsupported   | Trying to get Limine version to boot first.                                      |
 
@@ -41,7 +41,9 @@ If you want to compile the project yourself, refer to the [docs/BUILDING.md](doc
 
 ## Software
 
-The Linux syscall compatibility layer has been found out to be good enough to run some software quite well after literally copy-pasting the files from a Linux host (this process has been automated by [fsstrap](https://github.com/MoreUtopia/fsstrap), make sure to check it out). That does not mean everything works, but the kernel is being adapted to run more and more software with every release. Some checked programs and applications are listed here.
+The Linux syscall compatibility layer has been found out to be good enough to run some software quite well after literally copy-pasting the files from a Linux host (this process has been automated by [fsstrap](https://github.com/MoreUtopia/fsstrap), make sure to check it out). That does not mean everything works, but the kernel is being adapted to run more and more software with every release. 
+
+Some checked programs and applications are listed here.
 
 **Software that I checked and works:**
 
