@@ -266,7 +266,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
                                   "\x1b[97mUNK";
     
     printf(
-        "\x1b[37m[%s]\x1b[0m %s\x1b[0m "
+        "\x1b[37m[%s]\x1b[0m %s\x1b[90m:\x1b[0m "
         "\x1b[38;2;39;159;219m%s\x1b[0m: ",
         time_str,
         level,

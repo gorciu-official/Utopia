@@ -17,4 +17,5 @@ typedef struct {
         uint32_t  pitch;
     } framebuffer;
     void* plain_mbd;
+    char* cmdline;
 } common_boot_structure_t;
