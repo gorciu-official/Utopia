@@ -25,7 +25,7 @@ void kmain(common_boot_structure_t* cbs) {
         cbs->framebuffer.pitch, cbs->framebuffer.bpp
     );
 
-    printk(KMT_LOG, "Core", "Utopia %s", UTOPIA_VERSION);
+    printk(KMT_LOG, "Core", "Utopia %s (for %s %s, from commit %s)", UTOPIA_VERSION, BOOTLOADER_NAME, ARCHITECTURE_NAME, UTOPIA_COMMIT);
     printk(KMT_LOG, "Core", "    * Copyright: 2026 Gorciu and contributors");
     printk(KMT_LOG, "Core", "    * Source code: https://github.com/gorciu-official/Utopia");
     printk(KMT_LOG, "Core", "    * Licensed under GPL-v3.0");
