@@ -8,7 +8,7 @@ iso: kernel
 	@mkdir -p $(GRUB_DIR)
 	@make bootmodules
 	@cp $(KERNEL_BIN) $(BOOT_DIR)/kernel.bin
-	@cp $(SRC_DIR)/build/grub.cfg $(GRUB_DIR)/grub.cfg
+	@cp $(GRUB_CONFIG) $(GRUB_DIR)/grub.cfg
 	@echo -e "\033[1;33m[*]\033[0m Generating ISO with GRUB"
 	@grub-mkrescue -o $(ISO_FILE) $(ISO_DIR)
 endif
