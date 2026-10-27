@@ -6,5 +6,4 @@ font.psf1
 target
 
 # bootloader configurations
-src/build/grub.cfg
-src/build/limine.conf
+src/build/bootloader-*-*
