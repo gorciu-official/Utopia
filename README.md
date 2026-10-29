@@ -26,10 +26,10 @@ Jokes aside but should work everywhere (with a few exceptions of course). Tested
 
 | Architecture | Boot protocol | Support level | Note                                                                             |
 | ------------ | ------------- | ------------- | -------------------------------------------------------------------------------- |
-| x86_64       | Limine        | Full          | -                                                                                |
-| x86_64       | Multiboot1    | Partial       | Userspace issues and shit.                                                       |
-| RISC-V 64    | Limine        | Full          | -                                                                                |
-| RISC-V 64    | Multiboot1    | Unsupported   | Trying to get Limine version to boot first.                                      |
+| x86_64       | Limine        | Full          | `-`                                                                              |
+| x86_64       | Multiboot1    | Full          | `-`                                                                              |
+| RISC-V 64    | Limine        | Full          | `-`                                                                              |
+| RISC-V 64    | Multiboot1    | Unsupported   | I just haven't tried creating GRUB's ASM startup code for RISC-V 64.             |
 
 I copied the idea of this table from [here](https://git.evalyngoemer.com/evalynOS/evalynOS).
 

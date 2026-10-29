@@ -7,12 +7,12 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
 ## Software porting
 
 - [X] `nsh` ([this thingy](https://github.com/na-razie-bez-nicku/nsh/tree/main))
-- [ ] `bash`
+- [~] `bash`
 - [ ] telnet client from `inetutils`
 
 ## Internal tasks 
 
-- [ ] Add a prekernel setting up paging independently from bootloader and finally fix GRUB's version issues
+- [X] Finally fix GRUB's version issues
 - [ ] Add pseudo-randomness source for `getrandom`
 - [ ] Expand support for Utopia syscall ABI
     - [ ] Add capabilities
