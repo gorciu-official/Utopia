@@ -384,8 +384,8 @@ void* malloc(size_t size) {
         curr = curr->next;
     }
 
-    arch_restore_interrupts(flags);
     spinlock_release(&spin);
+    arch_restore_interrupts(flags);
     return result;
 }
 
@@ -408,8 +408,8 @@ void free(void* ptr) {
         }
     }
 
-    arch_restore_interrupts(flags);
     spinlock_release(&spin);
+    arch_restore_interrupts(flags);
 }
 
 void* page_alloc(uint64_t pages) {
@@ -464,7 +464,7 @@ void* page_alloc(uint64_t pages) {
         curr = curr->next;
     }
 
-    arch_restore_interrupts(flags);
     spinlock_release(&spin);
+    arch_restore_interrupts(flags);
     return result;
 }

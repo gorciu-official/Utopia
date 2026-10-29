@@ -48,13 +48,13 @@ void kmain(common_boot_structure_t* cbs) {
     #endif
     if (cbs->modules.initramfs_addr != NULL)
         memory_reserve_range(
-            (uintptr_t)cbs->modules.initramfs_addr, 
-            (uintptr_t)((char*)cbs->modules.initramfs_addr + cbs->modules.initramfs_size)
+            hhdm_virt_to_phys(cbs->modules.initramfs_addr),
+            hhdm_virt_to_phys(cbs->modules.initramfs_addr) + cbs->modules.initramfs_size
         );
     if (cbs->modules.font_addr != NULL)
         memory_reserve_range(
-            (uintptr_t)cbs->modules.font_addr, 
-            (uintptr_t)((char*)cbs->modules.font_addr + cbs->modules.font_size)
+            hhdm_virt_to_phys(cbs->modules.font_addr),
+            hhdm_virt_to_phys(cbs->modules.font_addr) + cbs->modules.font_size
         );
     memory_init();
     framebuffer_enable_backbuffer();

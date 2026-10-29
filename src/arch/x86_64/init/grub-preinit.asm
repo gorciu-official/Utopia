@@ -464,7 +464,7 @@ enable_paging:
 
     mov ecx, 0xC0000080
     rdmsr
-    or eax, 1 << 8
+    or eax, (1 << 8) | (1 << 11)    ; LME | NXE
     wrmsr
 
     mov eax, cr0
