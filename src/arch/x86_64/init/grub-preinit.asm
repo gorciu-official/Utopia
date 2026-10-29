@@ -377,7 +377,7 @@ setup_page_tables:
     jne .loop_kernel_l2
 
     mov eax, PHYS(page_table_l3_hhdm)
-    or eax, 0b11
+    or eax, 0b111
 
     mov [esi + 256*8], eax
     mov dword [esi + 256*8 + 4], 0
@@ -385,28 +385,28 @@ setup_page_tables:
     mov edi, PHYS(page_table_l3_hhdm)
 
     mov eax, PHYS(page_table_l2_hhdm)
-    or eax, 0b11
+    or eax, 0b111
 
     mov [edi + 0*8], eax
     mov dword [edi + 0*8 + 4], 0
 
 
     mov eax, PHYS(page_table_l2_hhdm) + 4096
-    or eax, 0b11
+    or eax, 0b111
 
     mov [edi + 1*8], eax
     mov dword [edi + 1*8 + 4], 0
 
 
     mov eax, PHYS(page_table_l2_hhdm) + 8192
-    or eax, 0b11
+    or eax, 0b111
 
     mov [edi + 2*8], eax
     mov dword [edi + 2*8 + 4], 0
 
 
     mov eax, PHYS(page_table_l2_hhdm) + 12288
-    or eax, 0b11
+    or eax, 0b111
 
     mov [edi + 3*8], eax
     mov dword [edi + 3*8 + 4], 0
