@@ -17,6 +17,9 @@ endif
 
 SRC_DIR        := $(ROOT_DIR)/src
 
+# bootloader configuration
+include scripts/make/bootloaders.mk
+
 # binary dirs
 
 ifeq ($(DEBUG),true)
@@ -33,9 +36,6 @@ GRUB_DIR       := $(BOOT_DIR)/grub
 # final outputs
 KERNEL_BIN     := $(TARGET_DIR)/Utopia.bin
 ISO_FILE       := $(TARGET_DIR)/Utopia.iso
-
-# bootloader configuration
-include scripts/make/bootloaders.mk
 
 # linker script
 LINKER_SCRIPT  := $(SRC_DIR)/build/linker-$(ARCH)-$(BOOTLOADER).ld
