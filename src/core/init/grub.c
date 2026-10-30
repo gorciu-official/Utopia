@@ -15,6 +15,10 @@ void kinit(multiboot_info_t* mbd) {
     // TODO: this is temporary. it should be removed after memory map porting
     cbs.plain_mbd = mbd;
 
+    if (mbd->cmdline && ((char*)phys_to_virt(mbd->cmdline))[0] != '\0') {
+        cbs.cmdline = (char*)phys_to_virt(mbd->cmdline);
+    }
+
     if (
         mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER 
         && mbd->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB
