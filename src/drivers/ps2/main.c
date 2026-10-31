@@ -10,6 +10,9 @@ bool keyboard_should_putchar = false;
 #include <drivers/framebuffer.h>
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/pmio.h>
+#include <arch/common.h>
+#include <exec/scheduler.h>
+#include <lib/spinlock.h>
 
 // keymaps copied from https://github.com/Interpuce/AurorOS/blob/main/src/drivers/keyboard/input.c 
 // some code was adapted from there as well 
@@ -40,37 +43,59 @@ static uint8_t read_scancode() {
     return arch_inb(0x60);
 }
 
-volatile uint64_t   positions[CPU_ARCH_MAX_CPUS] = {0};
-volatile bool        finished[CPU_ARCH_MAX_CPUS] = {[0 ... CPU_ARCH_MAX_CPUS-1] = true};
-volatile char*        buffers[CPU_ARCH_MAX_CPUS] = {0};
-volatile uint64_t       sizes[CPU_ARCH_MAX_CPUS] = {0};
+#define KBD_BUF_SIZE 256
+
+static char            kbd_buf[KBD_BUF_SIZE];
+static uint32_t        kbd_head = 0, kbd_tail = 0;
+static spinlock_t      kbd_lock = { 0 };
+static wait_queue_t    kbd_wq   = WAIT_QUEUE_INIT;
+
+static void kbd_push(char c) {
+    unsigned long flags = arch_save_interrupts();
+    spinlock_acquire(&kbd_lock);
+    uint32_t next = (kbd_head + 1) % KBD_BUF_SIZE;
+    if (next != kbd_tail) { // full -> drop
+        kbd_buf[kbd_head] = c;
+        kbd_head = next;
+    }
+    spinlock_release(&kbd_lock);
+    arch_restore_interrupts(flags);
+
+    scheduler_wake_all(&kbd_wq);
+}
+
+static bool kbd_pop(char* c) {
+    unsigned long flags = arch_save_interrupts();
+    spinlock_acquire(&kbd_lock);
+    bool ok = kbd_head != kbd_tail;
+    if (ok) {
+        *c = kbd_buf[kbd_tail];
+        kbd_tail = (kbd_tail + 1) % KBD_BUF_SIZE;
+    }
+    spinlock_release(&kbd_lock);
+    arch_restore_interrupts(flags);
+    return ok;
+}
 
 int ps2_read(char* buffer, uint64_t size) {
-    int processor = current_processor_id();
+    uint64_t n = 0;
+    if (size == 0) return 0;
 
-    finished   [processor] = false;
-    buffers    [processor] = buffer;
-    sizes      [processor] = size;
-    positions  [processor] = 0;
+    for (;;) {
+        uint64_t seq = wait_queue_snapshot(&kbd_wq); 
 
-    while (!finished[processor]) 
-        asm volatile ("pause");
+        char c;
+        while (n < size && kbd_pop(&c)) {
+            buffer[n++] = c;
+            if (c == '\n') return n;
+        }
+        if (n == size) return n;
 
-    while (arch_inb(0x64) & 0x01) {
-        (void)arch_inb(0x60); // flush stale byte
+        scheduler_wait(&kbd_wq, seq);
     }
-
-    // i think we can leave garbage in arrays, since finished is true and it wont matter anyways 
-    return sizes[processor];
 }
 
 void ps2_interrupt_handler() {
-    // TODO: PS/2 interrupts fire up on bootstrap processor 
-    //       so for APs this handler will never fire
-    int processor = current_processor_id();
-
-    if (finished[processor]) return;
-
     uint8_t scancode = read_scancode();
     uint8_t SHIFT_RELEASED = scancode & 0x80;
     uint8_t key = scancode & ~0x80;
@@ -97,9 +122,7 @@ void ps2_interrupt_handler() {
         SHIFT_RIGHT_PRESSED = 1;
         return;
     } else if (key == 0x1C) {
-        buffers[processor][positions[processor]++] = '\n';
-        sizes[processor] = positions[processor];
-        finished[processor] = true;
+        kbd_push('\n');
         return;
     }
 
@@ -110,18 +133,11 @@ void ps2_interrupt_handler() {
     if (character == 0) {
         return;
     }
-   
-    uint64_t pos = positions[processor];
 
-    buffers[processor][pos] = character;
-    positions[processor]++;
-
-    if (keyboard_should_putchar) 
+    if (keyboard_should_putchar)
         framebuffer_putchar(character, 0xFFFFFF, 0x000000);
 
-    if (positions[processor] == sizes[processor]) {
-        finished[processor] = true;
-    }
+    kbd_push(character);
 }
 
 #endif

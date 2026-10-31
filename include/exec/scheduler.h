@@ -11,11 +11,22 @@ typedef enum {
     THREAD_STATE_UNINITIALISED
 } thread_state_t;
 
+#define THREAD_KERNEL_STACK_SIZE (16 * 1024)
+
 typedef struct {
     void*  ptr; 
     void*  base;
     size_t size;
 } thread_stack_t;
+
+struct thread;
+
+typedef struct wait_queue {
+    struct thread* head;
+    uint64_t       seq;
+} wait_queue_t;
+
+#define WAIT_QUEUE_INIT { NULL, 0 }
 
 typedef struct thread {
     // base
@@ -23,6 +34,7 @@ typedef struct thread {
     char name[32];
     thread_state_t state;
     struct process* process;
+    uint64_t      fs_base;
 
     // stack
     struct {
@@ -33,6 +45,10 @@ typedef struct thread {
     // saved state
     int ring;
     registers_t* regs;
+
+    // blocking
+    wait_queue_t* waiting_on;
+    uint64_t      wait_seq;
 
     // list
     struct thread* next;
@@ -55,3 +71,7 @@ void thread_exit(void);
 thread_t* scheduler_get_current_thread(void);
 void scheduler_enqueue(thread_t* t);
 void scheduler_reap(void);
+
+uint64_t wait_queue_snapshot(wait_queue_t* wq);
+void scheduler_wait(wait_queue_t* wq, uint64_t seq);
+void scheduler_wake_all(wait_queue_t* wq);

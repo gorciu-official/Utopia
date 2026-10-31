@@ -7,6 +7,9 @@
 #include <lib/string.h>
 #include <lib/spinlock.h>
 #include <panic.h>
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+#include <arch/x86_64/msr.h>
+#endif
 
 static spinlock_t scheduler_lock;
 
@@ -18,6 +21,8 @@ static uintptr_t active_cr3[CPU_ARCH_MAX_CPUS];
 static thread_t* ready_queue_head = NULL;
 static thread_t* ready_queue_tail = NULL;
 static thread_t* zombie_list = NULL; 
+static thread_t* pending_zombie[CPU_ARCH_MAX_CPUS];
+static thread_t* pending_park[CPU_ARCH_MAX_CPUS];
 static uint32_t  next_thread_id = 0;
 
 bool context_switch_lock = false;
@@ -64,6 +69,27 @@ static thread_t* dequeue_locked(void) {
         t->next = NULL;
     }
     return t;
+}
+
+static inline uintptr_t kernel_stack_top(thread_t* t) {
+    if (!t || !t->stacks.kernel)
+        return 0; // 0 = use the per-CPU default stack
+    return ((uintptr_t)t->stacks.kernel->base + t->stacks.kernel->size) & ~(uintptr_t)0xF;
+}
+
+static thread_stack_t* kernel_stack_alloc(void) {
+    thread_stack_t* ks = (thread_stack_t*)malloc(sizeof(thread_stack_t));
+    if (!ks) return NULL;
+
+    ks->size = THREAD_KERNEL_STACK_SIZE;
+    ks->base = malloc(ks->size);
+    if (!ks->base) {
+        free(ks);
+        return NULL;
+    }
+    memset(ks->base, 0, ks->size);
+    ks->ptr = (void*)((uintptr_t)ks->base + ks->size);
+    return ks;
 }
 
 static void thread_set_name(thread_t* t, const char* name) {
@@ -171,6 +197,16 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     }
 
     if (ring == 3) {
+        t->stacks.kernel = kernel_stack_alloc();
+        if (!t->stacks.kernel) {
+            printk(KMT_LOG, "Scheduler", "Failed to allocate kernel stack for thread '%s'!", name);
+            free(t->regs);
+            free(t);
+            return NULL;
+        }
+    }
+
+    if (ring == 3) {
         uintptr_t start = (uintptr_t)stack->base & ~(uintptr_t)0xFFF;
         uintptr_t end   = ((uintptr_t)stack->base + stack->size + 0xFFF) & ~(uintptr_t)0xFFF;
         for (uintptr_t a = start; a < end; a += 4096) {
@@ -216,13 +252,39 @@ registers_t* scheduler_schedule(registers_t* regs) {
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     bool interrupted_kernel = (regs->sstatus & (1UL << 8)) != 0; /* SPP */
 #endif
-    if (interrupted_kernel && curr->process != NULL)
+    if (interrupted_kernel && curr->process != NULL && curr->state != THREAD_STATE_BLOCKED)
         return regs;
 
-    if (curr->regs)
+    if (curr->regs) {
         memcpy(curr->regs, regs, sizeof(registers_t));
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+        if (interrupted_kernel) {
+            curr->regs->rsp = (uint64_t)&regs->rsp;
+            curr->regs->ss  = 0x10;
+        }
+#endif
+    }
 
     unsigned long flags = sched_lock();
+
+    if (pending_park[cpu_id]) {
+        thread_t* t = pending_park[cpu_id];
+        pending_park[cpu_id] = NULL;
+        wait_queue_t* wq = t->waiting_on;
+        if (!wq || wq->seq != t->wait_seq) {
+            t->waiting_on = NULL; 
+            enqueue_locked(t);
+        } else {
+            t->next  = wq->head;
+            wq->head = t;
+        }
+    }
+
+    if (pending_zombie[cpu_id]) {
+        pending_zombie[cpu_id]->next = zombie_list;
+        zombie_list = pending_zombie[cpu_id];
+        pending_zombie[cpu_id] = NULL;
+    }
 
     thread_t* idle = idle_threads[cpu_id];
 
@@ -234,18 +296,28 @@ registers_t* scheduler_schedule(registers_t* regs) {
         next = idle ? idle : curr;
 
     if (next == curr) {
+        curr->waiting_on = NULL;
         curr->state = THREAD_STATE_RUNNING;
         sched_unlock(flags);
         return regs;
     }
 
+    if (curr->state == THREAD_STATE_BLOCKED)
+        pending_park[cpu_id] = curr;
+
     if (curr->state == THREAD_STATE_TERMINATED && curr != idle) {
-        curr->next  = zombie_list;
-        zombie_list = curr;
+        pending_zombie[cpu_id] = curr;
     }
 
     next->state = THREAD_STATE_RUNNING;
     current_threads[cpu_id] = next;
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    if (curr->process) curr->fs_base = read_msr(IA32_FS_BASE);
+    if (next->process) write_msr(IA32_FS_BASE, next->fs_base);
+#endif
+
+    arch_set_kernel_stack(cpu_id, kernel_stack_top(next));
 
     uintptr_t cr3 = 0;
     bool force = false;
@@ -298,6 +370,61 @@ void thread_exit(void) {
     arch_restore_interrupts(flags);
     for (;;)
         arch_wfi();
+}
+
+uint64_t wait_queue_snapshot(wait_queue_t* wq) {
+    return __atomic_load_n(&wq->seq, __ATOMIC_ACQUIRE);
+}
+
+void scheduler_wait(wait_queue_t* wq, uint64_t seq) {
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    unsigned long flags = arch_save_interrupts();
+
+    if (__atomic_load_n(&wq->seq, __ATOMIC_ACQUIRE) != seq) {
+        arch_restore_interrupts(flags);
+        return;
+    }
+
+    uint32_t cpu_id = current_processor_id();
+    thread_t* curr = current_threads[cpu_id];
+
+    if (!curr || curr == idle_threads[cpu_id]) {
+        __asm__ volatile("sti; hlt; cli" ::: "memory");
+        arch_restore_interrupts(flags);
+        return;
+    }
+
+    curr->waiting_on = wq;
+    curr->wait_seq   = seq;
+    curr->state      = THREAD_STATE_BLOCKED;
+
+    arch_invi(0x41);
+
+    if (curr->state == THREAD_STATE_BLOCKED) {
+        curr->waiting_on = NULL;
+        curr->state = THREAD_STATE_RUNNING;
+    }
+    arch_restore_interrupts(flags);
+#else
+    (void)wq; (void)seq;
+    arch_wfi();
+#endif
+}
+
+void scheduler_wake_all(wait_queue_t* wq) {
+    unsigned long flags = sched_lock();
+
+    wq->seq++;
+    thread_t* t = wq->head;
+    wq->head = NULL;
+    while (t) {
+        thread_t* next = t->next;
+        t->waiting_on = NULL;
+        enqueue_locked(t);
+        t = next;
+    }
+
+    sched_unlock(flags);
 }
 
 thread_t* scheduler_get_current_thread(void) {

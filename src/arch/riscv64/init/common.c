@@ -35,6 +35,11 @@ void arch_late_init() {
 
 }
 
+void arch_set_kernel_stack(uint32_t cpu_id, uintptr_t stack_top) {
+    // TODO: RISC-V traps still use the per-hart stack
+    (void)cpu_id; (void)stack_top;
+}
+
 void arch_ap_init() {
     arch_init_interrupts();
     timer_init();

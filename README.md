@@ -47,12 +47,14 @@ Some checked programs and applications are listed here.
 
 **Software that I checked and works:**
 
-- [nsh](https://github.com/na-razie-bez-nicku/nsh)
+- [bash](https://www.gnu.org/software/bash/) [^1]
+- [nsh](https://github.com/na-razie-bez-nicku/nsh) [^1]
 - [JUAMP](https://github.com/gorciu-official/JUAMP)
+
+[^1]: Shells noted here are ported, but due to missing `fork` and `execve` implementation in Linux syscall layer, they are not able to launch external programs. 
 
 **In active porting:**
 
-- [bash](https://www.gnu.org/software/bash/)
 - certain parts of [inetutils](https://www.gnu.org/software/inetutils/)
 
 ## Additional notes

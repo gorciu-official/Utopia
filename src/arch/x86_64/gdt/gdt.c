@@ -38,6 +38,15 @@ void tss_set_rsp0(int cpu_id, uint64_t stack_top) {
     }
 }
 
+void arch_set_kernel_stack(uint32_t cpu_id, uintptr_t stack_top) {
+    if (cpu_id >= MAX_CPUS) return;
+    if (!stack_top)
+        stack_top = (uint64_t)&tss_kernel_stacks[cpu_id][16384];
+
+    tss_per_cpu[cpu_id].rsp0 = stack_top;
+    cpu_local_data[cpu_id].kernel_stack = stack_top; // gs:0x00, read by syscall_entry
+}
+
 static void tss_init_per_cpu(int cpu_id) {
     memset(&tss_per_cpu[cpu_id], 0, sizeof(tss_t));
 

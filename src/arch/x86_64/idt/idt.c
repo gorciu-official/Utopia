@@ -10,6 +10,7 @@ static idt_ptr_t idt_ptr;
 extern uint64_t isr_stub_table[];
 extern uint64_t irq_stub_table[];
 extern void     isr0x40(void);
+extern void     isr0x41(void);
 
 extern void idt_load(uint64_t);
 
@@ -43,6 +44,7 @@ void idt_init() {
         }
 
         idt_set_gate(0x40, (uintptr_t)isr0x40, 0x08, 0x8E);
+        idt_set_gate(0x41, (uintptr_t)isr0x41, 0x08, 0x8E); // DPL0: kernel only
 
         __atomic_store_n(&idt_built, 1, __ATOMIC_RELEASE);
     }

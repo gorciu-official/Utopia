@@ -7,7 +7,7 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
 ## Software porting
 
 - [X] `nsh` ([this thingy](https://github.com/na-razie-bez-nicku/nsh/tree/main))
-- [~] `bash`
+- [X] `bash`
 - [ ] telnet client from `inetutils`
 
 ## Internal tasks 
@@ -23,4 +23,4 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
 - [ ] Improve clock stack
     - [ ] Replace legacy `PIT`
     - [ ] Find a better clock source for calibrating LAPIC
-- [ ] Improve keyboard stack
+- [X] Improve keyboard stack

@@ -60,6 +60,8 @@ registers_t* isr_handler(registers_t* regs) {
         ps2_interrupt_handler();
     } else if (regs->int_no == 0x40) {
         regs = lapic_timer_handler(regs);
+    } else if (regs->int_no == 0x41) {
+        regs = scheduler_schedule(regs); // thread put itself to sleep, switch away
     }
 
     return regs;

@@ -61,12 +61,31 @@ ISR_NOERR 29
 ISR_ERR   30
 ISR_NOERR 31
 ISR_NOERR 0x40
+ISR_NOERR 0x41 
 
 %assign n 0
 %rep 16
     IRQ n
     %assign n n+1
 %endrep
+
+%macro POP_GPRS 0
+    pop rax
+    pop rbx
+    pop rcx
+    pop rdx
+    pop rsi
+    pop rdi
+    pop rbp
+    pop r8
+    pop r9
+    pop r10
+    pop r11
+    pop r12
+    pop r13
+    pop r14
+    pop r15
+%endmacro
 
 isr_common:
     push r15
@@ -91,31 +110,36 @@ isr_common:
 .no_swapgs_entry:
 
     mov rdi, rsp
+    mov rbx, rdi 
     sub rsp, 8
     call isr_handler
+    cmp rax, rbx  
     mov rsp, rax
+    je .exit_same_frame
+    test qword [rsp + 144], 3
+    jnz .exit_same_frame 
 
+    mov rdx, [rsp + 160]
+    sub rdx, 24
+    mov rcx, [rsp + 136]
+    mov [rdx], rcx
+    mov rcx, [rsp + 144]
+    mov [rdx + 8], rcx   
+    mov rcx, [rsp + 152]
+    mov [rdx + 16], rcx   
+    mov [rsp + 160], rdx  
+
+    POP_GPRS
+    add rsp, 16   
+    mov rsp, [rsp + 24] 
+    iretq
+
+.exit_same_frame:
     test qword [rsp + 144], 3
     jz .no_swapgs_exit
     swapgs
 .no_swapgs_exit:
-
-    pop rax
-    pop rbx
-    pop rcx
-    pop rdx
-    pop rsi
-    pop rdi
-    pop rbp
-    pop r8
-    pop r9
-    pop r10
-    pop r11
-    pop r12
-    pop r13
-    pop r14
-    pop r15
-
+    POP_GPRS
     add rsp, 16
     iretq
 

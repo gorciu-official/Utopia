@@ -105,6 +105,8 @@ static inline void arch_restore_interrupts(uint64_t flags) {
 #endif
 }
 
+void arch_set_kernel_stack(uint32_t cpu_id, uintptr_t stack_top);
+
 int arch_init_serial();
 void arch_serial_putchar(char c);
 uint64_t arch_get_ns_time(void);
