@@ -1,11 +1,14 @@
 CROSS_COMPILE  ?= 
 CC             := $(CROSS_COMPILE)gcc 
 LD             := $(CROSS_COMPILE)ld
+RUSTC          ?= rustc
 
 ifeq ($(ARCH),x86_64)
     AS := nasm
+    RUST_TARGET := x86_64-unknown-none
 else ifeq ($(ARCH),riscv64)
     AS := $(CROSS_COMPILE)as
+    RUST_TARGET := riscv64gc-unknown-none-elf
 endif
 
 ifeq ($(ARCH),x86_64)

@@ -80,6 +80,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S include/config.h
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(AS) $(ASFLAGS) -g $< -o $@
 
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.rs
+	@mkdir -p $(dir $@)
+	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
+	@$(RUSTC) --crate-type lib --emit=obj --target $(RUST_TARGET) -C no-redzone=yes -C panic=abort $< -o $@
+
 # misc
 
 clean:
