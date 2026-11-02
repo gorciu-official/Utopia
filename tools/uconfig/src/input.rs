@@ -51,6 +51,11 @@ impl App {
             return;
         }
 
+        if let Err(e) = std::fs::write(".config", config::export(&self.namespace)) {
+            self.status = format!("failed to save .config: {e}");
+            return;
+        }
+
         self.status = "saved".to_string();
     }
 

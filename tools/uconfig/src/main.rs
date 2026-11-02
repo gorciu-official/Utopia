@@ -41,6 +41,9 @@ impl App {
 }
 
 fn main() -> io::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    let subcommand = args.get(1).map(|s| s.as_str()).unwrap_or("menuconfig");
+
     let file = "Uconfig";
 
     let mut namespace = Namespace::default();
@@ -50,9 +53,24 @@ fn main() -> io::Result<()> {
         panic!("Config file has no options to display")
     }
 
-    if let Ok(contents) = std::fs::read_to_string(".config") {
-        config::import(&mut namespace, &contents);
-    }
+    match subcommand {
+        "defconfig" => {
+            let _ = std::fs::create_dir_all("include");
+            std::fs::write("include/config.h", config::export_c_header(&namespace))?;
+            std::fs::write(".config", config::export(&namespace))?;
+            Ok(())
+        }
+        "menuconfig" => {
+            if let Ok(contents) = std::fs::read_to_string(".config") {
+                config::import(&mut namespace, &contents);
+            }
 
-    ratatui::run(|terminal| App::default().run(namespace, terminal))
+            ratatui::run(|terminal| App::default().run(namespace, terminal))
+        }
+        other => {
+            eprintln!("Unknown subcommand: {other}");
+            eprintln!("Usage: uconfig [defconfig|menuconfig]");
+            std::process::exit(1);
+        }
+    }
 }

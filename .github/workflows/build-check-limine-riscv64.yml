@@ -2,9 +2,9 @@ name: Build check for Limine RISC-V 64
 
 on:
   push:
-    branches: [main, dev-microkernel]
+    branches: [main]
   pull_request:
-    branches: [main, dev-microkernel]
+    branches: [main]
 
 jobs:
   build:
@@ -33,6 +33,9 @@ jobs:
           riscv64-unknown-elf-gcc --version
           riscv64-unknown-elf-ld --version
           riscv64-unknown-elf-objcopy --version
+
+      - name: Generate default configuration
+        run: make defconfig
 
       - name: Build project
         run: |

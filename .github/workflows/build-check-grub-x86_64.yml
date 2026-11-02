@@ -2,9 +2,9 @@ name: Build check for GRUB x86_64
 
 on:
   push:
-    branches: [main, dev-microkernel]
+    branches: [main]
   pull_request:
-    branches: [main, dev-microkernel]
+    branches: [main]
 
 jobs:
   build:
@@ -18,6 +18,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential clang cmake pkg-config nasm xorriso mtools
+
+      - name: Generate default configuration
+        run: make defconfig
 
       - name: Build project
         run: make BOOTLOADER=grub ARCH=x86_64 -j
