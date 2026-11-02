@@ -1,0 +1,11 @@
+proj "Utopia"
+
+opt CONFIG_SYSCALL_ABI_LINUX(bool) {
+    display: "Linux syscall ABI support"
+    default: true
+}
+
+opt CONFIG_SYSCALL_SMP(bool) {
+    display: "Symmetric multiprocessing support"
+    default: true
+}

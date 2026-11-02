@@ -39,5 +39,5 @@ run: all
 	$(QEMU) $(QEMU_FLAGS)
 
 run_dbg: all
-	@chmod +x scripts/run_debug_mode.sh 
-	./scripts/run_debug_mode.sh $(QEMU) $(KERNEL_BIN) $(QEMU_FLAGS)
+	@chmod +x tools/run_debug_mode.sh 
+	./tools/run_debug_mode.sh $(QEMU) $(KERNEL_BIN) $(QEMU_FLAGS)

@@ -17,8 +17,11 @@ endif
 
 SRC_DIR        := $(ROOT_DIR)/src
 
+# random tools 
+include tools/make/uconfig.mk
+
 # bootloader configuration
-include scripts/make/bootloaders.mk
+include tools/make/bootloaders.mk
 
 # binary dirs
 
@@ -41,10 +44,10 @@ ISO_FILE       := $(TARGET_DIR)/Utopia.iso
 LINKER_SCRIPT  := $(SRC_DIR)/build/linker-$(ARCH)-$(BOOTLOADER).ld
 
 # toolchain 
-include scripts/make/toolchain.mk 
+include tools/make/toolchain.mk 
 
 # sources and object files
-include scripts/make/src-obj.mk 
+include tools/make/src-obj.mk 
 
 # common build rules
 
@@ -56,7 +59,7 @@ kernel: $(OBJECTS)
 	@$(LD) $(LDFLAGS) -o $(KERNEL_BIN) $(OBJECTS)
 
 bootmodules:
-	@chmod +x scripts/mk_bootloader_cfg.sh && ./scripts/mk_bootloader_cfg.sh -e
+	@chmod +x tools/mk_bootloader_cfg.sh && ./tools/mk_bootloader_cfg.sh -e
 	@if [ -d initramfs-$(ARCH) ]; then tar --format=ustar -cf $(ISO_DIR)/initramfs.tar -C $(ROOT_DIR)/initramfs-$(ARCH) . ; fi
 	@if [ -f font.psf1 ]; then cp font.psf1 $(ISO_DIR)/ ; fi
 
@@ -86,11 +89,11 @@ clean:
 recompile: clean all
 
 hooks:
-	@chmod +x scripts/git/*
-	@git config core.hooksPath scripts/git
+	@chmod +x tools/git/*
+	@git config core.hooksPath tools/git
 
 # qemu commands
-include scripts/make/qemu.mk
+include tools/make/qemu.mk
 
 # header tracking if present
 -include $(C_OBJECTS:.o=.d)

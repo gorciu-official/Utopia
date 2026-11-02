@@ -35,8 +35,8 @@ Support levels for certain architecture & boot protocol pairs are listed in `REA
 By default, `make` does it the first time you try to compile the project. But if you for some reason need to rebuild it again (e.g. after removing initramfs or adding a custom font), you will need to execute these commands:
 
 ```
-chmod +x scripts/mk_bootloader_cfg.sh 
-./scripts/mk_bootloader_cfg.sh
+chmod +x tools/mk_bootloader_cfg.sh 
+./tools/mk_bootloader_cfg.sh
 ```
 
 This will build bootloader configuration for **x86_64** (every architecture detects other initramfs). To change architecture, prefix the second command with `ARCH=your_architecture_here`.

@@ -6,8 +6,8 @@ ifeq ($(filter $(BOOTLOADER),$(SUPPORTED_BOOTLOADERS)),)
 endif
 
 # make expects us to write shit relative to the root Makefile
-include scripts/make/grub.mk
-include scripts/make/limine.mk
+include tools/make/grub.mk
+include tools/make/limine.mk
 
 ifeq ($(BOOTLOADER),limine)
 BOOTLOADER_VAL := 1
