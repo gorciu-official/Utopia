@@ -18,7 +18,7 @@ API="https://api.github.com/repos/$REPO/releases/latest"
 URL="$(
     curl -fsSL "$API" |
         grep '"browser_download_url"' |
-        grep 'edk2-ovmf.tar.xz' |
+        grep 'edk2-ovmf-bins.tar.xz' |
         sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/'
 )"
 
