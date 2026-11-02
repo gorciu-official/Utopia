@@ -2,6 +2,9 @@
 #include <arch/common.h>
 #include <lib/screen.h>
 #include <memory.h>
+#include <config.h>
+
+#ifdef CONFIG_SMP
 
 #include "sbi.h"
 
@@ -95,3 +98,5 @@ void arch_boot_aps() {
 
     printk(KMT_LOG, "SMP", "Finished, %d harts are online.", online);
 }
+
+#endif

@@ -4,6 +4,9 @@
 #include <lib/screen.h>
 #include <arch/x86_64/common.h>
 #include <memory.h>
+#include <config.h>
+
+#ifdef CONFIG_SMP
 
 void delay(uint64_t count) {
     for (volatile uint64_t i = 0; i < count; i++) {
@@ -106,3 +109,5 @@ void boot_all_aps(uint8_t* core_apic_ids, int count) {
 
     printk(KMT_LOG, "SMP", "Finished - %d CPUs are up", count - failed_to_boot);
 }
+
+#endif

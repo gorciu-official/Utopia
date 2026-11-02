@@ -1,6 +1,7 @@
 #include <arch/memory.h>
 #include <drivers/framebuffer.h>
 #include <constants.h>
+#include <config.h>
 #include <exec/process.h>
 #include <exec/scheduler.h>
 #include <panic.h>
@@ -8,6 +9,8 @@
 #include <drivers/filesystem.h>
 #include <memory.h>
 #include <lib/string.h>
+
+#ifdef CONFIG_SYSCALL_ABI_LINUX
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/common.h>
@@ -976,5 +979,7 @@ static void syscall_set_return_val(int64_t val, registers_t* regs) {
 }
 
 SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_set_return_val, -ENOSYS);
+
+#endif
 
 #endif

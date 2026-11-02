@@ -3,12 +3,17 @@
 
 proj "Utopia"
 
+opt CONFIG_SYSCALLS(null) -> menu {
+    display: "Syscalls"
+}
+
 opt CONFIG_SYSCALL_ABI_LINUX(bool) {
     display: "Linux syscall ABI support"
     default: true
+    within: CONFIG_SYSCALLS
 }
 
-opt CONFIG_SYSCALL_SMP(bool) {
+opt CONFIG_SMP(bool) {
     display: "Symmetric multiprocessing support"
     default: true
 }

@@ -7,12 +7,17 @@
 #include "common.h"
 
 extern SYSCALL_ABI_DECLARE(own);
+
+#ifdef CONFIG_SYSCALL_ABI_LINUX
 extern SYSCALL_ABI_DECLARE(linux);
+#endif
 
 static inline syscall_abi_t get_process_abi(process_t* proc) {
     switch (proc->syscall_conv) {
+#ifdef CONFIG_SYSCALL_ABI_LINUX
     case 1:
         return syscall_abi_linux;
+#endif
     case 0: default:
         return syscall_abi_own;
     }

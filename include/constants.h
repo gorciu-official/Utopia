@@ -1,5 +1,7 @@
 #pragma once
 
+#include <config.h>
+
 #define UTOPIA_VERSION_MAJOR "2"
 #define UTOPIA_VERSION_MINOR "0"
 #define UTOPIA_VERSION_PATCH "0"

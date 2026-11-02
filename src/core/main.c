@@ -1,4 +1,5 @@
 #include <types.h> 
+#include <config.h>
 #include <constants.h>
 
 #include <lib/screen.h>
@@ -64,7 +65,11 @@ void kmain(common_boot_structure_t* cbs) {
     scheduler_init();
     process_init();
 
+#ifdef CONFIG_SMP
     arch_boot_aps();
+#else
+    printk(KMT_LOG, "SMP", "SMP support not present in this kernel configuration.");
+#endif 
     arch_late_init();
 
     // init filesystem
@@ -112,6 +117,8 @@ void kmain(common_boot_structure_t* cbs) {
         arch_wfi();
 }
 
+#ifdef CONFIG_SMP
+
 extern uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
 
 void ap_main() {
@@ -125,3 +132,5 @@ void ap_main() {
     for (;;)
         scheduler_reap();
 }
+
+#endif
