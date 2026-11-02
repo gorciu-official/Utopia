@@ -1,3 +1,6 @@
+// Kernel configuration for Utopia. For `uconfig`'s parser and 
+// related code, please see `tools/uconfig`
+
 proj "Utopia"
 
 opt CONFIG_SYSCALL_ABI_LINUX(bool) {

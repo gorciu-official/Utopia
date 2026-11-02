@@ -1,4 +1,4 @@
-name: Build Check for Limine x86_64
+name: Build check for Limine x86_64
 
 on:
   push:

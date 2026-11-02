@@ -1,4 +1,4 @@
-name: Build Check for Limine RISC-V 64
+name: Build check for Limine RISC-V 64
 
 on:
   push:
