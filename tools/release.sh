@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 echo "This is the version. Please review it."
-
+ 
 echo
 
 grep -ir "#define UTOPIA_VERSION" include/constants.h | head -n 3 
