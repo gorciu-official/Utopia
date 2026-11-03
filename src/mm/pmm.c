@@ -389,6 +389,17 @@ void* malloc(size_t size) {
     return result;
 }
 
+void* calloc(size_t num, size_t size) {
+    size_t total_size = num * size;
+    void* ptr = malloc(total_size);
+
+    if (ptr != NULL) {
+        memset(ptr, 0, total_size);
+    }
+
+    return ptr;
+}
+
 void free(void* ptr) {
     if (!ptr) return;
 

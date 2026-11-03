@@ -8,6 +8,7 @@ void vmm_init(void);
 int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end);
 
 void* malloc(size_t size);
+void* calloc(size_t count, size_t size);
 void free(void* ptr);
 
 void* phys_to_virt(uint64_t phys);

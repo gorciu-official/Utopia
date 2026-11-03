@@ -28,7 +28,7 @@ unsafe fn arch_outb(port: u16, value: u8) {
     );
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn arch_init_serial() -> i32 {
 	unsafe {
 		arch_outb(COM1 + 1, 0x00);
@@ -52,7 +52,7 @@ pub extern "C" fn arch_init_serial() -> i32 {
 	0
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn arch_serial_putchar(character: i8) {
 unsafe {
 	while arch_inb(COM1 + 5) & 0x20 == 0 {}
