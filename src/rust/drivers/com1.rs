@@ -8,24 +8,28 @@ const COM1: u16 = 0x3F8;
 unsafe fn arch_inb(port: u16) -> u8 {
     let result: u8;
 
-    asm!(
-        "in al, dx",
-        in("dx") port,
-        out("al") result,
-        options(nomem, nostack, preserves_flags)
-    );
+    unsafe {
+        asm!(
+            "in al, dx",
+            in("dx") port,
+            out("al") result,
+            options(nomem, nostack, preserves_flags)
+        );
+    }
 
     result
 }
 
 #[inline]
 unsafe fn arch_outb(port: u16, value: u8) {
+unsafe {
     asm!(
         "out dx, al",
         in("dx") port,
         in("al") value,
         options(nomem, nostack, preserves_flags)
     );
+}
 }
 
 #[unsafe(no_mangle)]

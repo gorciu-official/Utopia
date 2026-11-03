@@ -1,5 +1,5 @@
 [package]
-name = "RustForUtopia"
+name = "rust_for_utopia"
 version = "0.1.0"
 edition = "2024"
 autobins = false
@@ -7,6 +7,6 @@ autobins = false
 [lib]
 name = "rust_for_utopia"
 crate-type = ["staticlib"]
-path = "src/main.rs"
+path = "main.rs"
 
 [dependencies]

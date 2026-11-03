@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "RustForUtopia"
+name = "rust_for_utopia"
 version = "0.1.0"

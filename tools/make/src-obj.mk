@@ -12,7 +12,7 @@ else
     ASM_SOURCES += $(shell find $(SRC_DIR)/arch/$(ARCH) -type f \( -name '*.asm' -o -name '*.S' \))
 endif
 
-RUST_SOURCES := $(shell find $(SRC_DIR)/rust/src -type f -name '*.rs')
+RUST_SOURCES := $(shell find $(SRC_DIR)/rust -type f -name '*.rs')
 
 C_OBJECTS      := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SOURCES))
 RUST_ARCHIVE   := $(TARGET_DIR)/rust/$(RUST_TARGET)/release/librust_for_utopia.a
