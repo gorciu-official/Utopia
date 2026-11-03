@@ -365,8 +365,10 @@ void framebuffer_putchar(char c, uint32_t fg, uint32_t bg) {
     if (!serial_used) 
         serial_used = !(bool)arch_init_serial();
 
+#ifdef CONFIG_SCREEN_SERIAL_MIRRRORING
     if (serial_used)
         arch_serial_putchar(c);
+#endif
 
     uint32_t font_height = framebuffer_font_height();
 

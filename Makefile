@@ -85,6 +85,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.rs target/rust-flags.txt
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(RUSTC) --crate-type staticlib --target $(RUST_TARGET) \
 		-C no-redzone=yes -C panic=abort \
+		$(shell cat target/rust-flags.txt) \
 		--emit=link,dep-info=$(@:.o=.d) \
 		$< -o $@
 
