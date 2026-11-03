@@ -137,7 +137,7 @@ impl Component for MainMenu  {
         ]).areas(inner);
 
         let list = List::new(list_items)
-            .highlight_style(Style::new().reversed().yellow())
+            .highlight_style(Style::new().reversed().blue())
             .highlight_symbol(">> ")
             .repeat_highlight_symbol(true);
 

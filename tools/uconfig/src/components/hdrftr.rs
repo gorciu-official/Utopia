@@ -12,7 +12,7 @@ impl Widget for Header {
 
 impl Widget for Footer {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let line = Line::from("[TAB] Help | [UP] / [DOWN] Navigate | [ENTER] / [SPACE] Select | [ESC] / [BACKSPACE] Back | [F9] Save | [F12] Exit").on_black();
+        let line = Line::from("[TAB] Help | [UP] / [DOWN] Navigate | [ENTER] / [SPACE] Select | [ESC] / [BACKSPACE] Back | [F9] Save | [F12] Exit").on_gray().black();
         line.render(area, buf)
     }
 }

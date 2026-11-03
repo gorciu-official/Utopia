@@ -56,8 +56,10 @@ fn main() -> io::Result<()> {
     match subcommand {
         "defconfig" => {
             let _ = std::fs::create_dir_all("include");
+            let _ = std::fs::create_dir_all("target");
             std::fs::write("include/config.h", config::export_c_header(&namespace))?;
             std::fs::write(".config", config::export(&namespace))?;
+            std::fs::write("target/rust-flags.txt", config::export_rustflags(&namespace))?;
             Ok(())
         }
         "menuconfig" => {

@@ -56,6 +56,12 @@ impl App {
             return;
         }
 
+        let _ = std::fs::create_dir_all("target");
+        if let Err(e) = std::fs::write("target/rust-flags.txt", config::export_rustflags(&self.namespace)) {
+            self.status = format!("failed to save rust-flags.txt: {e}");
+            return;
+        }
+
         self.status = "saved".to_string();
     }
 

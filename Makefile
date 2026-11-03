@@ -80,7 +80,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S include/config.h
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(AS) $(ASFLAGS) -g $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.rs
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.rs target/rust-flags.txt
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(RUSTC) --crate-type staticlib --target $(RUST_TARGET) \

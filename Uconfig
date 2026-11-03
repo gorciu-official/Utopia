@@ -1,7 +1,9 @@
-// Kernel configuration for Utopia. For `uconfig`'s parser and 
-// related code, please see `tools/uconfig`
+// Kernel configuration for Utopia. For `uconfig`'s parser and related code, 
+// please see `tools/uconfig`.
 
 proj "Utopia"
+
+// ----- syscalls
 
 opt CONFIG_SYSCALLS(null) -> menu {
     display: "Syscalls"
@@ -12,6 +14,20 @@ opt CONFIG_SYSCALL_ABI_LINUX(bool) {
     default: true
     within: CONFIG_SYSCALLS
 }
+
+// ----- screen
+
+opt CONFIG_SCREEN(null) -> menu {
+    display: "Screen options"
+}
+
+opt CONFIG_SCREEN_SERIAL_MIRRRORING(bool) {
+    display: "Print screen messages to serial output"
+    default: true
+    within: CONFIG_SCREEN
+}
+
+// ----- smp
 
 opt CONFIG_SMP(bool) {
     display: "Symmetric multiprocessing support"

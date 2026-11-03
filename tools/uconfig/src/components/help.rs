@@ -66,7 +66,7 @@ impl Component for HelpMenu {
             KeyCode::PageDown => self.scroll_by(20),
             KeyCode::Home => self.scroll_by(i32::MIN),
             KeyCode::End => self.scroll_by(i32::MAX),
-            KeyCode::Tab | KeyCode::Backspace => return MenuStackAction::Pop,
+            KeyCode::Tab | KeyCode::Backspace | KeyCode::Esc => return MenuStackAction::Pop,
             _ => {}
         }
 
