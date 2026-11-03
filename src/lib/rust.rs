@@ -33,7 +33,7 @@ static ALLOCATOR: KernelAllocator = KernelAllocator;
 fn rust_panic(_info: &PanicInfo) -> ! {
 unsafe {
     panic(
-        "Reached panic path in Rust!\0".as_ptr() as *const i8, ptr::null()
+        "Reached panic path in Rust!\0".as_ptr() as *const c_char, ptr::null()
     );
 
     // to satisfy rust's compiler, not gonna run anyways
