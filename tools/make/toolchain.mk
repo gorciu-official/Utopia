@@ -21,7 +21,8 @@ ifeq ($(ARCH),x86_64)
     endif
 endif
 
-CFLAGS         := $(shell tr '\n' ' ' < compile_flags.txt) -DUTOPIA_COMMIT=\"$(shell git rev-parse --short HEAD)\"
+CFLAGS         ?= 
+CFLAGS         += $(shell tr '\n' ' ' < compile_flags.txt) -DUTOPIA_COMMIT=\"$(shell git rev-parse --short HEAD)\"
 ASFLAGS        :=
 LDFLAGS        := -T $(LINKER_SCRIPT)
 
