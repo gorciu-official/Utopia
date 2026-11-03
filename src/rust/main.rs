@@ -1,7 +1,9 @@
 #![no_std]
 #![no_main]
 
-#![allow(special_module_name)]
+extern crate alloc;
 
-mod lib; 
+mod allocator;
+mod panic;
+
 mod drivers;
