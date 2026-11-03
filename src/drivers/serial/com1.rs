@@ -1,4 +1,3 @@
-#![no_std]
 #![cfg(target_arch = "x86_64")]
 
 use core::arch::asm;
@@ -55,8 +54,8 @@ pub extern "C" fn arch_init_serial() -> i32 {
 
 #[no_mangle]
 pub extern "C" fn arch_serial_putchar(character: i8) {
-	unsafe {
-		while arch_inb(COM1 + 5) & 0x20 == 0 {}
-		arch_outb(COM1, character as u8);
-	}
+unsafe {
+	while arch_inb(COM1 + 5) & 0x20 == 0 {}
+	arch_outb(COM1, character as u8);
+}
 }

@@ -1,5 +1,5 @@
 C_SOURCES := $(shell find $(SRC_DIR) -type f -name '*.c' ! -name '*.excluded.c' ! -path '$(SRC_DIR)/arch/*')
-RUST_SOURCES := $(shell find $(SRC_DIR) -type f -name '*.rs' ! -path '$(SRC_DIR)/arch/*')
+RUST_SOURCES := $(SRC_DIR)/main.rs
 RUST_SOURCES += $(shell find $(SRC_DIR)/arch/$(ARCH) -type f -name '*.rs')
 ifeq ($(BOOTLOADER),limine)
     ASM_SOURCES := $(shell find $(SRC_DIR) -type f \( -name '*.asm' -o -name '*.S' \) ! -path '$(SRC_DIR)/arch/*')

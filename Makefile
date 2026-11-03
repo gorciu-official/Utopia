@@ -83,7 +83,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S include/config.h
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.rs
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@$(RUSTC) --crate-type lib --emit=obj --target $(RUST_TARGET) -C no-redzone=yes -C panic=abort $< -o $@
+	@$(RUSTC) --crate-type staticlib --target $(RUST_TARGET) \
+		-C no-redzone=yes -C panic=abort \
+		--emit=link,dep-info=$(@:.o=.d) \
+		$< -o $@
 
 # misc
 
@@ -102,3 +105,4 @@ include tools/make/qemu.mk
 
 # header tracking if present
 -include $(C_OBJECTS:.o=.d)
+-include $(RUST_OBJECTS:.o=.d)
