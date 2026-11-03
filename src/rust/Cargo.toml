@@ -1,0 +1,12 @@
+[package]
+name = "rust_for_utopia"
+version = "0.1.0"
+edition = "2024"
+autobins = false
+
+[lib]
+name = "rust_for_utopia"
+crate-type = ["staticlib"]
+path = "main.rs"
+
+[dependencies]

@@ -80,14 +80,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S include/config.h
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
 	@$(AS) $(ASFLAGS) -g $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.rs target/rust-flags.txt
-	@mkdir -p $(dir $@)
-	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@$(RUSTC) --crate-type staticlib --target $(RUST_TARGET) \
-		-C no-redzone=yes -C panic=abort \
-		$(shell cat target/rust-flags.txt) \
-		--emit=link,dep-info=$(@:.o=.d) \
-		$< -o $@
+$(RUST_ARCHIVE): $(SRC_DIR)/rust/Cargo.toml $(SRC_DIR)/rust/Cargo.lock $(RUST_SOURCES)
+	@echo -e "\033[1;36m[*]\033[0m Building Rust static library for $(RUST_TARGET)"
+	@cd $(SRC_DIR)/rust && RUSTFLAGS="-C no-redzone=yes -C panic=abort" \
+		cargo build --release --target $(RUST_TARGET) --target-dir $(abspath $(TARGET_DIR)/rust)
 
 # misc
 
@@ -106,4 +102,3 @@ include tools/make/qemu.mk
 
 # header tracking if present
 -include $(C_OBJECTS:.o=.d)
--include $(RUST_OBJECTS:.o=.d)
