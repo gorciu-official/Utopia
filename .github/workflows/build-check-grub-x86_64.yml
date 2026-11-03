@@ -19,6 +19,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang cmake pkg-config nasm xorriso mtools
 
+          rustup target add x86_64-unknown-none
+
       - name: Generate default configuration
         run: make defconfig
 
