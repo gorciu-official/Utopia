@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <arch/common.h>
 #include <exec/process.h>
+#include <exec/loaders/elf.h>
 #include <exec/scheduler.h>
 #include <lib/screen.h>
 #include <drivers/filesystem.h>
@@ -666,7 +667,7 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     return 0;
 }
 
-int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
+int elf_start(create_elf_process_request_t req) {
     uint64_t* proc_l4 = clone_page_table();
     if (!proc_l4) return -1;
 
@@ -674,7 +675,7 @@ int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     elf_auxv_info_t auxv;
     uint64_t entry;
 
-    int rc = elf_load_full(elf, size, proc_l4, &main_res, &auxv, &entry);
+    int rc = elf_load_full(req.image.data, req.image.size, proc_l4, &main_res, &auxv, &entry);
     if (rc != 0) {
         free_page_table(proc_l4);
         return rc;
@@ -747,7 +748,7 @@ int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     stack_request->base = stack_base;
     stack_request->size = stack_size;
 
-    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, arg, 3, stack_request);
+    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, req.arg, 3, stack_request);
     if (!proc) {
         free_page_table(proc_l4);
         return -1;
@@ -760,7 +761,7 @@ int elf_start(const uint8_t* elf, uintptr_t size, int syscall_conv, int arg) {
     proc->brk_current = proc->brk_start;
     proc->mmap_start = 0x400000000000;
     proc->mmap_current = proc->mmap_start;
-    proc->syscall_conv = syscall_conv;
+    proc->syscall_conv = req.syscall_conv;
 
     scheduler_enqueue(proc->main_thread);
 

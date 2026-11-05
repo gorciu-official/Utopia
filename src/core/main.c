@@ -100,7 +100,12 @@ void kmain(common_boot_structure_t* cbs) {
         uint64_t bytes_read = 0;
         init_file->ops->read(init_file, buffer, size, 0, &bytes_read);
         if (bytes_read == size) {
-            int response = elf_start(buffer, size, 0, 0);
+            int response = elf_start((create_elf_process_request_t){
+                .image = {
+                    .data = buffer,
+                    .size = size
+                }
+            });
             if (response != 0)
                 panic("Failed to load init file", NULL);
         }

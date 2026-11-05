@@ -47,7 +47,14 @@ SYSCALL_DEFINE_OWN(spawn) {
     uint64_t bytes_read = 0;
     node->ops->read(node, buffer, size, 0, &bytes_read);
     if (bytes_read == size) {
-        int response = elf_start(buffer, size, conv, startup_arg);
+        int response = elf_start((create_elf_process_request_t){
+            .syscall_conv = conv,
+            .arg = startup_arg,
+            .image = {
+                .data = buffer, 
+                .size = size
+            }
+        });
         if (response != 0)
             return SCRC(-8);
     } else 
