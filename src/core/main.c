@@ -62,7 +62,9 @@ void kmain(common_boot_structure_t* cbs) {
     memory_init();
     framebuffer_enable_backbuffer();
     arch_general_init();
-    pcie_log();
+    #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    pci_log();
+    #endif
 
     // scheduler init
     scheduler_init();
