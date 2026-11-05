@@ -5,9 +5,7 @@ const UART_THR: usize = 0;
 const UART_LSR: usize = 5;
 const UART_READY: u8 = 1 << 5;
 
-unsafe extern "C" {
-    fn phys_to_virt(phys: usize) -> usize;
-}
+use crate::krnl::ffi::phys_to_virt;
 
 #[unsafe(no_mangle)]
 extern "C" fn arch_serial_putchar(c: i8) {

@@ -1,36 +1,8 @@
 #![cfg(target_arch = "x86_64")]
 
-use core::arch::asm;
-
 const COM1: u16 = 0x3F8;
 
-#[inline]
-unsafe fn arch_inb(port: u16) -> u8 {
-    let result: u8;
-
-    unsafe {
-        asm!(
-            "in al, dx",
-            in("dx") port,
-            out("al") result,
-            options(nomem, nostack, preserves_flags)
-        );
-    }
-
-    result
-}
-
-#[inline]
-unsafe fn arch_outb(port: u16, value: u8) {
-unsafe {
-    asm!(
-        "out dx, al",
-        in("dx") port,
-        in("al") value,
-        options(nomem, nostack, preserves_flags)
-    );
-}
-}
+use crate::arch::pmio::{arch_inb, arch_outb};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn arch_init_serial() -> i32 {
