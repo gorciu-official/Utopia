@@ -17,6 +17,8 @@
 #include <exec/process.h>
 #include <exec/loaders/elf.h>
 
+#include <drivers/arch-specific/pci.h>
+
 #include <panic.h>
 
 void kmain(common_boot_structure_t* cbs) {
@@ -60,6 +62,7 @@ void kmain(common_boot_structure_t* cbs) {
     memory_init();
     framebuffer_enable_backbuffer();
     arch_general_init();
+    pcie_log();
 
     // scheduler init
     scheduler_init();
