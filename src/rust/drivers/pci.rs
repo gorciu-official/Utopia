@@ -85,7 +85,7 @@ pub unsafe fn pci_scan() -> Vec<PciDevice> {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn pcie_log() {
+pub unsafe extern "C" fn pci_log() {
     let devices = unsafe { pci_scan() };
 
     for dev in devices.iter() {
