@@ -1,11 +1,9 @@
 use core::{
     ptr, panic::PanicInfo,
-    ffi::{ c_char, c_void }
+    ffi::c_char
 };
 
-unsafe extern "C" {
-    fn panic(msg: *const c_char, int_frame: *const c_void) -> i32;
-}
+use crate::krnl::ffi::panic;
 
 #[panic_handler]
 fn rust_panic(info: &PanicInfo) -> ! {

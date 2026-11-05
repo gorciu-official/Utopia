@@ -3,7 +3,6 @@
 
 extern crate alloc;
 
-mod allocator;
-mod panic;
-
+mod krnl;
 mod drivers;
+mod arch;
