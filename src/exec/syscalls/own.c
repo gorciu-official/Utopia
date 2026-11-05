@@ -53,6 +53,11 @@ SYSCALL_DEFINE_OWN(spawn) {
             .image = {
                 .data = buffer, 
                 .size = size
+            },
+            .args = {
+                .envp = NULL,
+                .argc = 1,
+                .argv = &(char*){ path }
             }
         });
         if (response != 0)

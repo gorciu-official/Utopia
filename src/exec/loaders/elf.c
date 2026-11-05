@@ -7,6 +7,7 @@
 #include <exec/scheduler.h>
 #include <lib/screen.h>
 #include <drivers/filesystem.h>
+#include <lib/string.h>
 
 #include "arch/memory.h"
 #include "elf_constants.h"
@@ -695,11 +696,42 @@ int elf_start(create_elf_process_request_t req) {
     sp &= ~0xFULL;
 
     // --- data blobs living above the argv/envp/auxv vector ---
-    static const char argv0_str[] = "/init";
-    sp -= (sizeof(argv0_str) + 15) & ~15ULL;
-    uint64_t argv0_addr = sp;
-    for (size_t i = 0; i < sizeof(argv0_str); i++) ((char*)argv0_addr)[i] = argv0_str[i];
+    int envc = 0;
+    if (req.args.envp) {
+        while (req.args.envp[envc]) envc++;
+    }
 
+    uint64_t envp_addrs[envc ? envc : 1];
+    for (int i = envc - 1; i >= 0; i--) {
+        size_t len = strlen(req.args.envp[i]) + 1;
+        sp -= len;
+        strcpy((char*)sp, req.args.envp[i]);
+        envp_addrs[i] = sp;
+    }
+
+    int argc = req.args.argc;
+    char** argv = req.args.argv;
+    static const char default_argv0[] = "/init";
+    uint64_t argv_addrs[argc > 0 ? argc : 1];
+
+    if (argc > 0 && argv) {
+        for (int i = argc - 1; i >= 0; i--) {
+            size_t len = strlen(argv[i]) + 1;
+            sp -= len;
+            strcpy((char*)sp, argv[i]);
+            argv_addrs[i] = sp;
+        }
+    } else {
+        argc = 1;
+        size_t len = sizeof(default_argv0);
+        sp -= len;
+        strcpy((char*)sp, default_argv0);
+        argv_addrs[0] = sp;
+    }
+
+    uint64_t execfn_addr = argv_addrs[0];
+
+    sp &= ~15ULL;
     sp -= 16;
     uint64_t random_addr = sp;
     for (int i = 0; i < 16; i++) {
@@ -707,15 +739,21 @@ int elf_start(create_elf_process_request_t req) {
     }
 
     // --- initial process stack, lowest address first:
-    //     argc | argv[0] | NULL | envp NULL | auxv pairs (type, value)... | AT_NULL, 0
-    uint64_t vec[64];
+    //     argc | argv... | NULL | envp... | NULL | auxv pairs (type, value)... | AT_NULL, 0
+    uint64_t vec[256];
     int n = 0;
     #define VEC_PUSH(v) (vec[n++] = (uint64_t)(v))
     #define VEC_AUX(t, v) do { VEC_PUSH(t); VEC_PUSH(v); } while (0)
 
-    VEC_PUSH(1);            // argc
-    VEC_PUSH(argv0_addr);   // argv[0] (used to be NULL with argc == 1, which is invalid)
+    VEC_PUSH(argc);
+    for (int i = 0; i < argc; i++) {
+        VEC_PUSH(argv_addrs[i]);
+    }
     VEC_PUSH(0);            // argv terminator
+
+    for (int i = 0; i < envc; i++) {
+        VEC_PUSH(envp_addrs[i]);
+    }
     VEC_PUSH(0);            // envp terminator
 
     VEC_AUX(AT_PHDR,    auxv.at_phdr);
@@ -731,7 +769,7 @@ int elf_start(create_elf_process_request_t req) {
     VEC_AUX(AT_SECURE,  0);
     VEC_AUX(AT_CLKTCK,  100);
     VEC_AUX(AT_RANDOM,  random_addr);
-    VEC_AUX(AT_EXECFN,  argv0_addr);
+    VEC_AUX(AT_EXECFN,  execfn_addr);
     VEC_AUX(AT_NULL,    0);
 
     // rsp must be 16-byte aligned and point exactly at argc when the entry point runs.

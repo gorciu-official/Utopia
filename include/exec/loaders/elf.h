@@ -8,6 +8,12 @@ typedef struct {
         uintptr_t size;
     } image;
 
+    struct {
+        char** argv;
+        int argc;
+        char** envp;
+    } args;
+
     int syscall_conv;
     int arg;
 } create_elf_process_request_t;
