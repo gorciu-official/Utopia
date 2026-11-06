@@ -11,9 +11,9 @@
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <drivers/arch-specific/ps2.h>
+#endif
 
 extern bool keyboard_should_putchar;
-#endif
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
 
