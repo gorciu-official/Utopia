@@ -1,4 +1,4 @@
-# Rust For Utopia kernel project
+# Rust in Utopia kernel
 
 This catalog is where all the Rust code in the kernel (excluding tools) lives.
 
