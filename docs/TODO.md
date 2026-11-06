@@ -26,5 +26,7 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
     - [ ] Replace legacy `PIT`
     - [ ] Find a better clock source for calibrating LAPIC
 - [X] Improve keyboard stack
-- [ ] Tracking of allocatted frames
+- [X] Implement `fork`
+- [X] Implement `execve`
+- [X] Tracking of allocatted frames
 - [ ] Mount `ramfs` to `/tmp`

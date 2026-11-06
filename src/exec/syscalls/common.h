@@ -2,6 +2,7 @@
 
 #include <arch/common.h>
 #include <types.h>
+#include <config.h>
 #include <exec/process.h>
 
 typedef struct {
@@ -37,11 +38,12 @@ typedef struct {
 #define USER_HEAP_MAX 0x0000800000000000ULL
 
 #define SYSCALL_DEFINE(platform, syscall_name) \
-    static __attribute__((used)) \
     syscall_result_t syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread) 
 
+#ifdef CONFIG_SYSCALL_ABI_LINUX
 #define SYSCALL_DEFINE_LINUX(syscall_name) \
     SYSCALL_DEFINE(linux, syscall_name)
+#endif
 
 #define SYSCALL_DEFINE_OWN(syscall_name) \
     SYSCALL_DEFINE(own, syscall_name)

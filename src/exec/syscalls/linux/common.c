@@ -24,7 +24,7 @@
 #include <drivers/arch-specific/ps2.h>
 #endif
 
-#include "linux.h"
+#include "../common.h"
 #include "common.h"
 
 extern bool context_switch_lock;
@@ -209,181 +209,6 @@ SYSCALL_DEFINE_LINUX(pselect6) {
         *(uint64_t*)exceptfds_ptr = ready_exceptfds;
 
     return SCRC(ready_count);
-}
-
-#define EXEC_MAX_ARGS       1024
-#define EXEC_MAX_PATH       4096
-#define EXEC_MAX_ARG_BYTES  (256 * 1024)
-#define USER_VA_LIMIT       (1ULL << USER_VA_BITS)
-
-static void exec_free_strvec(char** vec, int count) {
-    if (!vec) return;
-    for (int i = 0; i < count; i++) free(vec[i]);
-    free(vec);
-}
-
-static int exec_copy_strvec(char* const* user_vec, char*** out_vec, int* out_count, size_t* budget) {
-    *out_vec = NULL;
-    *out_count = 0;
-
-    if (!user_vec) return 0;
-    if ((uint64_t)(uintptr_t)user_vec >= USER_VA_LIMIT) return -EFAULT;
-
-    int count = 0;
-    while (user_vec[count]) {
-        if (++count > EXEC_MAX_ARGS) return -7; // E2BIG
-    }
-
-    char** vec = (char**)calloc((size_t)count + 1, sizeof(char*));
-    if (!vec) return -ENOMEM;
-
-    for (int i = 0; i < count; i++) {
-        const char* src = user_vec[i];
-        if ((uint64_t)(uintptr_t)src >= USER_VA_LIMIT) { exec_free_strvec(vec, i); return -EFAULT; }
-
-        size_t len = strlen(src) + 1;
-        if (len > *budget) { exec_free_strvec(vec, i); return -7; }
-        *budget -= len;
-
-        vec[i] = (char*)malloc(len);
-        if (!vec[i]) { exec_free_strvec(vec, i); return -ENOMEM; }
-        memcpy(vec[i], src, len);
-    }
-
-    *out_vec = vec;
-    *out_count = count;
-    return 0;
-}
-
-SYSCALL_DEFINE_LINUX(execve) {
-    if (!process || !thread || !regs->frame) return SCRC(-EINVAL);
-
-    const char* user_path = (const char*)regs->arg1;
-    if (!user_path || (uint64_t)(uintptr_t)user_path >= USER_VA_LIMIT) return SCRC(-EFAULT);
-
-    size_t path_len = strlen(user_path) + 1;
-    if (path_len > EXEC_MAX_PATH) return SCRC(-36); // ENAMETOOLONG
-    char* path = (char*)malloc(path_len);
-    if (!path) return SCRC(-ENOMEM);
-    memcpy(path, user_path, path_len);
-
-    char** argv = NULL; int argc = 0;
-    char** envp = NULL; int envc = 0;
-    uint8_t* image = NULL;
-    int err = 0;
-    vnode_t* node = NULL;
-    uint64_t size = 0, total = 0;
-    create_elf_process_request_t req;
-    elf_prepared_t prepared;
-    const char* base = NULL;
-
-    size_t budget = EXEC_MAX_ARG_BYTES;
-    err = exec_copy_strvec((char* const*)regs->arg2, &argv, &argc, &budget);
-    if (err) goto out;
-    err = exec_copy_strvec((char* const*)regs->arg3, &envp, &envc, &budget);
-    if (err) goto out;
-
-    if (argc == 0) {
-        argv = (char**)calloc(2, sizeof(char*));
-        if (!argv) { err = -ENOMEM; goto out; }
-        argv[0] = path;   
-        argc = 1;
-    }
-
-    vfs_lookup(path, &node);
-    if (!node) { err = -ENOENT; goto out; }
-    if (node->type == VNODE_TYPE_DIR) { err = -13; goto out; } // EACCES
-    if (!node->ops || !node->ops->read) { err = -ENOEXEC; goto out; }
-
-    size = node->size;
-    if (size < 4) { err = -ENOEXEC; goto out; }
-
-    image = (uint8_t*)malloc(size);
-    if (!image) { err = -ENOMEM; goto out; }
-
-    while (total < size) {
-        uint64_t got = 0;
-        if (node->ops->read(node, image + total, size - total, total, &got) != 0 || got == 0) break;
-        total += got;
-    }
-    if (total != size) { err = -ENOEXEC; goto out; }
-
-    req = (create_elf_process_request_t){
-        .syscall_conv = process->syscall_conv,
-        .image = { .data = image, .size = size },
-        .args  = { .envp = envp, .argc = argc, .argv = argv }
-    };
-
-    if (elf_prepare(&req, &prepared) != 0) { 
-        err = -ENOEXEC; goto out; 
-    }
-
-    base = path;
-    for (const char* c = path; *c; c++) if (*c == '/' && c[1]) base = c + 1;
-
-    process_exec_commit(process, thread, regs->frame, &prepared, base);
-
-out:
-    if (argv && argc == 1 && argv[0] == path) argv[0] = NULL;
-    exec_free_strvec(argv, argc);
-    exec_free_strvec(envp, envc);
-    if (image) free(image);
-    free(path);
-    return SCRC(err);
-}
-
-#define CLONE_VM             0x00000100
-#define CLONE_FS             0x00000200
-#define CLONE_FILES          0x00000400
-#define CLONE_SIGHAND        0x00000800
-#define CLONE_VFORK          0x00004000
-#define CLONE_PARENT         0x00008000
-#define CLONE_THREAD         0x00010000
-#define CLONE_NEWNS          0x00020000
-#define CLONE_SYSVSEM        0x00040000
-#define CLONE_SETTLS         0x00080000
-#define CLONE_PARENT_SETTID  0x00100000
-#define CLONE_CHILD_CLEARTID 0x00200000
-#define CLONE_CHILD_SETTID   0x01000000
-#define CLONE_CSIGNAL        0x000000FF
-#define SIGCHLD_VALUE        17
-
-#define CLONE_UNSUPPORTED (CLONE_VM | CLONE_SIGHAND | CLONE_PARENT | CLONE_THREAD | CLONE_NEWNS | CLONE_SYSVSEM)
-
-static syscall_result_t do_clone(syscall_regs_t* regs, process_t* process, thread_t* thread, uint64_t flags, uint64_t child_stack, uint64_t ptid, uint64_t ctid, uint64_t tls) {
-    if (!process || !thread || !regs->frame) return SCRC(-EINVAL);
-    if (flags & CLONE_UNSUPPORTED) return SCRC(-EINVAL);
-
-    process_clone_opts_t opts = {
-        .child_stack    = child_stack,
-        .set_tls        = (flags & CLONE_SETTLS) != 0,
-        .tls            = tls,
-        .child_tid_addr = (flags & CLONE_CHILD_SETTID) && ctid < USER_VA_LIMIT ? ctid : 0,
-    };
-
-    process_t* child = process_clone(process, thread, regs->frame, &opts);
-    if (!child) return SCRC(-ENOMEM);
-
-    if ((flags & CLONE_PARENT_SETTID) && ptid && ptid < USER_VA_LIMIT)
-        *(uint32_t*)ptid = child->main_thread->id;
-
-    return SCRC(child->pid);
-}
-
-SYSCALL_DEFINE_LINUX(fork) {
-    return do_clone(regs, process, thread, SIGCHLD_VALUE, 0, 0, 0, 0);
-}
-
-SYSCALL_DEFINE_LINUX(vfork) {
-    return do_clone(regs, process, thread, CLONE_VFORK | SIGCHLD_VALUE, 0, 0, 0, 0);
-}
-
-SYSCALL_DEFINE_LINUX(clone) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    return do_clone(regs, process, thread, regs->arg1, regs->arg2, regs->arg3, regs->arg4, regs->arg5);
-#else
-    return do_clone(regs, process, thread, regs->arg1, regs->arg2, regs->arg3, regs->arg5, regs->arg4);
-#endif
 }
 
 SYSCALL_DEFINE_LINUX(getcwd) {
@@ -1064,6 +889,11 @@ SYSCALL_DEFINE_LINUX(getpid) {
     (void)thread; (void)regs;
     return SCRC(process->pid);
 }
+
+extern SYSCALL_DEFINE_LINUX(vfork);
+extern SYSCALL_DEFINE_LINUX(fork);
+extern SYSCALL_DEFINE_LINUX(clone);
+extern SYSCALL_DEFINE_LINUX(execve);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {

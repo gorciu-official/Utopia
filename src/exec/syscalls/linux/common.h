@@ -2,6 +2,8 @@
 
 #include <types.h>
 
+#ifdef CONFIG_SYSCALL_ABI_LINUX
+
 typedef struct {
     void* iov_base;
     size_t iov_len;
@@ -95,16 +97,17 @@ struct winsize {
 #define AT_FDCWD -100
 #define AT_SYMLINK_NOFOLLOW 0x100
 
-#define ENOENT    2
-#define ENOEXEC   8
-#define EBADF     9
-#define ENOMEM    12
-#define EACCES    13
-#define EFAULT    14
-#define ENOTDIR   20
-#define EINVAL    22
-#define EMFILE    24
-#define ENOSYS    38
+#define ENOENT       2
+#define ENOEXEC      8
+#define EBADF        9
+#define ENOMEM       12
+#define EACCES       13
+#define EFAULT       14
+#define ENOTDIR      20
+#define EINVAL       22
+#define EMFILE       24
+#define ENAMETOOLONG 36
+#define ENOSYS       38
 
 #define DT_UNKNOWN  0
 #define DT_FIFO     1
@@ -127,3 +130,23 @@ struct winsize {
 #define TERMIOS_ECHO	0000010
 
 #define SIGABRT 6
+#define SIGCHLD 17
+
+#define CLONE_VM             0x00000100
+#define CLONE_FS             0x00000200
+#define CLONE_FILES          0x00000400
+#define CLONE_SIGHAND        0x00000800
+#define CLONE_VFORK          0x00004000
+#define CLONE_PARENT         0x00008000
+#define CLONE_THREAD         0x00010000
+#define CLONE_NEWNS          0x00020000
+#define CLONE_SYSVSEM        0x00040000
+#define CLONE_SETTLS         0x00080000
+#define CLONE_PARENT_SETTID  0x00100000
+#define CLONE_CHILD_CLEARTID 0x00200000
+#define CLONE_CHILD_SETTID   0x01000000
+#define CLONE_CSIGNAL        0x000000FF
+
+#define CLONE_UNSUPPORTED (CLONE_VM | CLONE_SIGHAND | CLONE_PARENT | CLONE_THREAD | CLONE_NEWNS | CLONE_SYSVSEM)
+
+#endif
