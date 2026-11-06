@@ -3,6 +3,6 @@
 
 extern crate alloc;
 
-mod krnl;
-mod drivers;
 mod arch;
+mod drivers;
+mod krnl;
