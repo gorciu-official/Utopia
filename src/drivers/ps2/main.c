@@ -1,7 +1,7 @@
 #include <types.h>
 #include <constants.h>
 
-bool keyboard_should_putchar = false;
+bool keyboard_should_putchar = true;
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 
@@ -122,6 +122,7 @@ void ps2_interrupt_handler() {
         SHIFT_RIGHT_PRESSED = 1;
         return;
     } else if (key == 0x1C) {
+        framebuffer_putchar('\n', 0xFFFFFF, 0x000000);
         kbd_push('\n');
         return;
     }

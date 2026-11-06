@@ -134,8 +134,7 @@ static void thread_stack_release(thread_stack_t* st) {
     free(st);
 }
 
-process_t* process_clone(process_t* parent, thread_t* parent_thread, const struct registers* frame,
-                         const process_clone_opts_t* opts) {
+process_t* process_clone(process_t* parent, thread_t* parent_thread, const struct registers* frame, const process_clone_opts_t* opts) {
     if (!parent || !parent_thread || !frame) return NULL;
 
     const uint64_t stack_lo = USER_STACK_TOP - USER_STACK_SIZE;
@@ -146,7 +145,7 @@ process_t* process_clone(process_t* parent, thread_t* parent_thread, const struc
 
     child->page_table = clone_user_address_space(parent->page_table, stack_lo, USER_STACK_TOP, &child->owned_pages);
     if (!child->page_table) {
-        printk(KMT_LOG, "Process", "fork: failed to copy the address space of pid %d", parent->pid);
+        printk(KMT_LOG, "Process", "clone: failed to copy the address space of pid %d", parent->pid);
         free(child);
         return NULL;
     }
@@ -240,8 +239,7 @@ fail_pt:
     return NULL;
 }
 
-void process_exec_commit(process_t* proc, thread_t* thread, struct registers* frame,
-                         struct elf_prepared* prepared, const char* name) {
+void process_replace(process_t* proc, thread_t* thread, struct registers* frame, struct elf_prepared* prepared, const char* name) {
     uint64_t* old_pt = proc->page_table;
     thread_stack_t* old_stack = thread->stacks.main;
 

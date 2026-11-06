@@ -50,4 +50,4 @@ typedef struct {
 
 process_t* process_clone(process_t* parent, thread_t* parent_thread, const struct registers* frame, const process_clone_opts_t* opts);
 
-void process_exec_commit(process_t* proc, thread_t* thread, struct registers* frame, struct elf_prepared* prepared, const char* name);
+void process_replace(process_t* proc, thread_t* thread, struct registers* frame, struct elf_prepared* prepared, const char* name);

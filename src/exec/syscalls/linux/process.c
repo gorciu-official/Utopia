@@ -138,7 +138,7 @@ SYSCALL_DEFINE_LINUX(execve) {
     base = path;
     for (const char* c = path; *c; c++) if (*c == '/' && c[1]) base = c + 1;
 
-    process_exec_commit(process, thread, regs->frame, &prepared, base);
+    process_replace(process, thread, regs->frame, &prepared, base);
 
 out:
     if (argv && argc == 1 && argv[0] == path) argv[0] = NULL;

@@ -143,6 +143,9 @@ SYSCALL_DEFINE_LINUX(ioctl) {
     if (regs->arg2 == TCSETS) {
         struct termios* tos = (struct termios*)regs->arg3;
         keyboard_should_putchar = !!(tos->c_lflag & TERMIOS_ECHO);
+    } else if (regs->arg2 == TCGETS) {
+        struct termios* tos = (struct termios*)regs->arg3;
+        tos->c_lflag = 0;
     } else if (regs->arg2 == TIOCGWINSZ) {
         struct winsize* winsize = (struct winsize*)regs->arg3;
         winsize->ws_col = framebuffer_get_height() / framebuffer_font_height();
