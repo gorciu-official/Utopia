@@ -2,7 +2,7 @@
 
 set -Eeuo pipefail
 
-echo "This is the version. Please review it."
+echo "This is the current version of the kernel defined in header files. Please make sure it matches the release you are trying to make."
 
 echo
 
@@ -11,6 +11,10 @@ grep -ir "#define UTOPIA_SUBVERSION" include/constants.h | head -n 1
 grep -ir "#define UTOPIA_BETA_STATE" include/constants.h | head -n 1
 
 echo
+
+echo "Please also review versions listed in: docs/SECURITY.md"
+
+echo 
 
 readonly OUTPUT_DIR="target/kernel.release-binaries"
 

@@ -5,8 +5,9 @@
 | Version        | Supported? | Notes |
 |----------------|------------|-------|
 | latest git     | ✅ Yes.    | Always was and always will be. | 
+| beta@2.0.0     | ✅ Yes.    | `-` |
+| beta@1.0.0     | ❌ No.     | `-` |
 | beta@1.0.0-rc1 | ❌ No.     | This so f*cking old, doesn't even have proper userspace. There is nothing to support. |
-| beta@1.0.0     | ✅ Yes.    | `-` |
 
 ## Disclosing vulnerabilities
 
