@@ -27,66 +27,6 @@
 #include "../common.h"
 #include "common.h"
 
-extern bool context_switch_lock;
-extern bool keyboard_should_putchar;
-
-static uint64_t page_align_up(uint64_t value) {
-    return (value + 0xFFFULL) & ~0xFFFULL;
-}
-
-static int grow_process_brk(process_t* process, uint64_t new_break) {
-    uint64_t old_end = page_align_up(process->brk_current);
-    uint64_t new_end = page_align_up(new_break);
-
-    for (uint64_t addr = old_end; addr < new_end; addr += 0x1000) {
-        uint64_t* page = pt_pool_alloc();
-        if (!page) return -1;
-        uint64_t phys = hhdm_virt_to_phys(page);
-
-        if (map_page_4k(process->page_table, addr, phys, VMF_USER | VMF_WRITE) != 0) {
-            free(page);
-            return -1;
-        }
-        // released when the process exits or execs
-        if (vm_page_list_add(&process->owned_pages, page) != 0) return -1;
-    }
-
-    return 0;
-}
-
-static uintptr_t write_internal(process_t* process, void* data, uintptr_t len, int fd) {
-    if (!process) return -1;
-
-    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; 
-    }
-
-    if (fd == 1 || fd == 2) {
-        user_print(data, len);
-        return len;
-    }
-
-    vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -EBADF; 
-
-    if (vnode->type == VNODE_TYPE_DIR) {
-        return -21; // -EISDIR
-    }
-
-    if (!vnode->ops || !vnode->ops->write) {
-        return -30; // -EROFS
-    }
-
-    uint64_t bytes_written = 0;
-    int res = vnode->ops->write(vnode, data, len, process->fds[fd].offset, &bytes_written);
-    if (res != 0) {
-        return res;
-    }
-
-    process->fds[fd].offset += bytes_written;
-    return bytes_written;
-}
-
 SYSCALL_DEFINE_LINUX(tgkill) {
     uint64_t tgid = regs->arg1;
     uint64_t pid = regs->arg2;
@@ -267,144 +207,6 @@ SYSCALL_DEFINE_LINUX(fstat) {
     return SCRC(0);
 }
 
-static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintptr_t offset, bool update_offset) {
-    if (!process) return -1;
-
-    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; 
-    }
-
-    if (fd == 0) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-        return ps2_read(buf, count);
-#endif
-    }
-
-    vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -EBADF; 
-
-    if (vnode->type == VNODE_TYPE_DIR) {
-        return -21; 
-    }
-
-    if (!vnode->ops || !vnode->ops->read) {
-        return -EINVAL; 
-    }
-
-    uint64_t bytes_read = 0;
-    int res = vnode->ops->read(vnode, buf, count, offset, &bytes_read);
-    if (res != 0) {
-        return res;
-    }
-
-    if (update_offset) {
-        process->fds[fd].offset += bytes_read;
-    }
-
-    return bytes_read;
-}
-
-SYSCALL_DEFINE_LINUX(read) {
-    (void)thread;
-    int fd = regs->arg1;
-    char* buf = (char*)regs->arg2;
-    size_t count = regs->arg3;
-
-    return SCRC(do_read(process, fd, buf, count, process->fds[fd].offset, true));
-}
-
-SYSCALL_DEFINE_LINUX(pread64) {
-    (void)thread;
-    int fd = regs->arg1;
-    char* buf = (char*)regs->arg2;
-    size_t count = regs->arg3;
-    uintptr_t offset = regs->arg4;
-
-    return SCRC(do_read(process, fd, buf, count, offset, false));
-}
-
-SYSCALL_DEFINE_LINUX(write) {
-    (void)thread;
-    return SCRC(write_internal(process, (void*)regs->arg2, regs->arg3, regs->arg1));
-}
-
-SYSCALL_DEFINE_LINUX(writev) {
-    (void)thread;
-    if (!process) return SCRC(-1);
-
-    int fd = regs->arg1;
-    iovec_t* iov = (iovec_t*)regs->arg2;
-    int iovcnt = regs->arg3;
-
-    size_t total = 0;
-
-    for (int i = 0; i < iovcnt; i++) {
-        size_t ret = write_internal(process, iov[i].iov_base, iov[i].iov_len, fd);
-        if (ret == (uintptr_t)-EBADF) {
-            if (total == 0) return SCRC(-EBADF);
-            break;
-        }
-        total += ret;
-
-        if ((size_t)ret < iov[i].iov_len) {
-            break;
-        }
-    }
-
-    return SCRC(total);
-}
-
-SYSCALL_DEFINE_LINUX(mprotect) {
-    (void)thread;
-    if (!process) return SCRC(-EINVAL);
-    
-    uint64_t addr   = regs->arg1;
-    uint64_t length = regs->arg2;
-    uint64_t prot   = regs->arg3;
-    
-    dprintk("Syscall", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
-
-    if (length == 0) return SCRC(0);
-    if (addr & 0xFFF) return SCRC(-EINVAL); 
-
-    uint64_t aligned_len = page_align_up(length);
-
-    uint64_t pflags = VMF_USER;
-    if (prot & 0x2) pflags |= VMF_WRITE;
-    if (prot & 0x4) pflags |= VMF_EXEC;
-
-    for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
-        if (protect_page_4k(process->page_table, va, pflags) != 0) {
-            return SCRC(-ENOMEM);
-        }
-    }
-
-    return SCRC(0);
-}
-
-SYSCALL_DEFINE_LINUX(munmap) {
-    (void)thread;
-    if (!process) return SCRC(-EINVAL); 
-
-    uint64_t addr   = regs->arg1;
-    uint64_t length = regs->arg2;
-    
-    dprintk("Syscall", "munmap called with addr=%p length=%p", addr, length);
-
-    if (length == 0) return SCRC(-EINVAL);
-    if (addr & 0xFFF) return SCRC(-EINVAL); 
-
-    uint64_t aligned_len = page_align_up(length);
-
-    for (uint64_t va = addr; va < addr + aligned_len; va += 0x1000) {
-        if (unmap_page_4k(process->page_table, va) != 0) {
-            return SCRC(-12);
-        }
-    }
-
-    return SCRC(0);
-}
-
 SYSCALL_DEFINE_LINUX(open) {
     (void)thread;
     if (!process) return SCRC(-EINVAL);
@@ -542,31 +344,6 @@ SYSCALL_DEFINE_LINUX(poll) {
     return SCRC(0);
 }
 
-SYSCALL_DEFINE_LINUX(brk) {
-    (void)thread;
-
-    uint64_t requested_break = regs->arg1;
-
-    if (!process) {
-        return SCRC(-ENOSYS);
-    }
-
-    if (requested_break == 0) {
-        return SCRC(process->brk_current);
-    }
-
-    if (requested_break < process->brk_start || requested_break >= USER_HEAP_MAX) {
-        return SCRC(process->brk_current);
-    }
-
-    if (requested_break > process->brk_current && grow_process_brk(process, requested_break) != 0) {
-        return SCRC(process->brk_current);
-    }
-
-    process->brk_current = requested_break;
-    return SCRC(process->brk_current);
-}
-
 SYSCALL_DEFINE_LINUX(arch_prctl) {
     (void)process; (void)thread;
 
@@ -631,73 +408,6 @@ SYSCALL_DEFINE_LINUX(uname) {
     strcpy(ptr->domainname, "");
 
     return SCRC(0);
-}
-
-SYSCALL_DEFINE_LINUX(mmap) {
-    (void)thread;
-    if (!process) return SCRC(-1);
-    
-    uint64_t addr   = regs->arg1;
-    uint64_t length = regs->arg2;
-    uint64_t prot   = regs->arg3;
-    uint64_t flags  = regs->arg4;
-    int64_t  fd     = (int64_t)regs->arg5;
-    uint64_t offset = regs->arg6;
-
-    if (length == 0) return SCRC(0);
-
-    uint64_t alloc_size = page_align_up(length);
-    uint64_t pages_count = alloc_size / 0x1000;
-
-    uint64_t target_vaddr;
-    if (addr == 0) {
-        target_vaddr = process->mmap_current;
-        process->mmap_current += alloc_size;
-    } else {
-        target_vaddr = page_align_up(addr);
-    }
-
-    dprintk("mmap", "addr=%p len=%p prot=%p flags=%p fd=%d offset=%p -> %p",
-        addr, length, prot, flags, (int)fd, offset, target_vaddr);
-
-    uint64_t pflags = VMF_USER;
-    if (prot & 0x2) pflags |= VMF_WRITE;
-    if (prot & 0x1) pflags |= VMF_EXEC;
-
-    bool anonymous = (flags & MAP_ANONYMOUS) || fd < 0;
-    vnode_t *node = NULL;
-    if (!anonymous) {
-        if (fd < 0 || !process->fds[fd].vnode) return SCRC(-EBADF); 
-        node = process->fds[fd].vnode;
-    }
-
-    void *virt_block = page_alloc(pages_count);
-    if (!virt_block) return SCRC(0);
-
-    uint64_t phys_base = hhdm_virt_to_phys(virt_block);
-    memset(virt_block, 0, alloc_size);
-
-    if (node) {
-        if (offset < node->size) {
-            uint64_t want = node->size - offset;
-            if (want > alloc_size) want = alloc_size;
-            
-            uint64_t bytes_read = 0;
-            node->ops->read(node, virt_block, want, offset, &bytes_read);
-        }
-    }
-
-    for (uint64_t i = 0; i < pages_count; i++) {
-        uint64_t vaddr = target_vaddr + (i * 0x1000);
-        uint64_t phys  = phys_base + (i * 0x1000);
-
-        if (map_page_4k(process->page_table, vaddr, phys, pflags) != 0) {
-            free(virt_block); 
-            return SCRC(0);
-        }
-    }
-
-    return SCRC(target_vaddr);
 }
 
 SYSCALL_DEFINE_LINUX(access) {
@@ -865,35 +575,24 @@ SYSCALL_DEFINE_LINUX(getrandom) {
     return SCRC(count); 
 }
 
-SYSCALL_DEFINE_LINUX(ioctl) {
-    (void)process; (void)thread;
-
-    if (regs->arg2 == TCSETS) {
-        struct termios* tos = (struct termios*)regs->arg3;
-        keyboard_should_putchar = !!(tos->c_lflag & TERMIOS_ECHO);
-    } else if (regs->arg2 == TIOCGWINSZ) {
-        struct winsize* winsize = (struct winsize*)regs->arg3;
-        winsize->ws_col = framebuffer_get_height() / framebuffer_font_height();
-        winsize->ws_row = framebuffer_get_width() / framebuffer_font_height();
-    }
-
-    return SCRC(0);
-}
-
-SYSCALL_DEFINE_LINUX(gettid) {
-    (void)process; (void)regs;
-    return SCRC(thread->id);
-}
-
-SYSCALL_DEFINE_LINUX(getpid) {
-    (void)thread; (void)regs;
-    return SCRC(process->pid);
-}
-
 extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
 extern SYSCALL_DEFINE_LINUX(execve);
+
+extern SYSCALL_DEFINE_LINUX(gettid);
+extern SYSCALL_DEFINE_LINUX(getpid);
+
+extern SYSCALL_DEFINE_LINUX(brk);
+extern SYSCALL_DEFINE_LINUX(mmap);
+extern SYSCALL_DEFINE_LINUX(mprotect);
+extern SYSCALL_DEFINE_LINUX(munmap);
+
+extern SYSCALL_DEFINE_LINUX(read);
+extern SYSCALL_DEFINE_LINUX(pread64);
+extern SYSCALL_DEFINE_LINUX(write);
+extern SYSCALL_DEFINE_LINUX(writev);
+extern SYSCALL_DEFINE_LINUX(ioctl);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {

@@ -185,4 +185,14 @@ SYSCALL_DEFINE_LINUX(clone) {
 #endif
 }
 
+SYSCALL_DEFINE_LINUX(gettid) {
+    (void)process; (void)regs;
+    return SCRC(thread->id);
+}
+
+SYSCALL_DEFINE_LINUX(getpid) {
+    (void)thread; (void)regs;
+    return SCRC(process->pid);
+}
+
 #endif
