@@ -20,14 +20,14 @@ pub unsafe fn arch_inb(port: u16) -> u8 {
 
 #[unsafe(no_mangle)]
 pub unsafe fn arch_outb(port: u16, value: u8) {
-unsafe {
-    asm!(
-        "out dx, al",
-        in("dx") port,
-        in("al") value,
-        options(nomem, nostack, preserves_flags)
-    );
-}
+    unsafe {
+        asm!(
+            "out dx, al",
+            in("dx") port,
+            in("al") value,
+            options(nomem, nostack, preserves_flags)
+        );
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -48,14 +48,14 @@ pub unsafe fn arch_inw(port: u16) -> u16 {
 
 #[unsafe(no_mangle)]
 pub unsafe fn arch_outw(port: u16, value: u16) {
-unsafe {
-    asm!(
-        "out dx, ax",
-        in("dx") port,
-        in("ax") value,
-        options(nomem, nostack, preserves_flags)
-    );
-}
+    unsafe {
+        asm!(
+            "out dx, ax",
+            in("dx") port,
+            in("ax") value,
+            options(nomem, nostack, preserves_flags)
+        );
+    }
 }
 
 #[unsafe(no_mangle)]

@@ -12,9 +12,7 @@ extern "C" fn arch_serial_putchar(c: i8) {
     let virt_addr: usize = unsafe { phys_to_virt(UART_BASE) };
     let uart = virt_addr as *mut u8;
 
-    while (unsafe { uart.add(UART_LSR).read_volatile() } & UART_READY) == 0 {
-
-    }
+    while (unsafe { uart.add(UART_LSR).read_volatile() } & UART_READY) == 0 {}
 
     unsafe { uart.add(UART_THR).write_volatile(c as u8) };
 }

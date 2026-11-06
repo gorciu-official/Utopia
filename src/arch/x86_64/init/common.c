@@ -1,5 +1,6 @@
 #include <config.h>
 #include <drivers/arch-specific/acpi.h>
+#include <drivers/arch-specific/pci.h>
 #include <arch/common.h>
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/timer.h>
@@ -37,6 +38,7 @@ void arch_late_init() {
 
 void arch_general_init() {
     acpi_init();
+    pci_log();
 }
 
 uint64_t arch_get_ns_time() {
