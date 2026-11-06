@@ -1,14 +1,20 @@
-#include <arch/memory.h>
-#include <drivers/framebuffer.h>
 #include <constants.h>
 #include <config.h>
+
+#include <drivers/framebuffer.h>
+#include <drivers/filesystem.h>
+
 #include <exec/process.h>
 #include <exec/scheduler.h>
-#include <panic.h>
+#include <exec/loaders/elf.h>
+
 #include <lib/screen.h>
-#include <drivers/filesystem.h>
-#include <memory.h>
 #include <lib/string.h>
+#include <lib/extensions.h>
+
+#include <panic.h>
+#include <memory.h>
+#include <arch/memory.h>
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
 
@@ -203,6 +209,46 @@ SYSCALL_DEFINE_LINUX(pselect6) {
     return SCRC(ready_count);
 }
 
+SYSCALL_DEFINE_LINUX(execve) {
+    (void)thread; (void)process;
+
+    char* path = (char*)regs->arg1;
+
+    vnode_t* node = NULL;
+    vfs_lookup(path, &node);
+    
+    if (!node) 
+        return SCRC(-3);
+
+    uint64_t size = node->size;
+    autofree void* buffer = malloc(size);
+    uint64_t bytes_read = 0;
+    node->ops->read(node, buffer, size, 0, &bytes_read);
+    if (bytes_read != size) {
+        return SCRC(-ENOEXEC);
+    }
+
+    int response = elf_start((create_elf_process_request_t){
+        .syscall_conv = 1,
+        .image = {
+            .data = buffer, 
+            .size = size
+        },
+        .args = {
+            .envp = NULL,
+            .argc = 1,
+            .argv = &(char*){ path }
+        }
+    });
+
+    if (response != 0)
+        return SCRC(-ENOEXEC);
+
+    thread_exit();
+
+    return SCRC(0);
+}
+
 SYSCALL_DEFINE_LINUX(getcwd) {
     (void)thread; (void)process;
 
@@ -254,7 +300,7 @@ SYSCALL_DEFINE_LINUX(fstat) {
         statbuf->st_mode = 0100000 | 0644;
     }
 
-    dprintk(KMT_LOG, "Syscall", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
+    dprintk("Syscall", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
 
     return SCRC(0);
 }
@@ -354,7 +400,7 @@ SYSCALL_DEFINE_LINUX(mprotect) {
     uint64_t length = regs->arg2;
     uint64_t prot   = regs->arg3;
     
-    dprintk(KMT_LOG, "Syscall", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
+    dprintk("Syscall", "mprotect called with addr=%p length=%p prot=%p", addr, length, prot);
 
     if (length == 0) return SCRC(0);
     if (addr & 0xFFF) return SCRC(-EINVAL); 
@@ -381,7 +427,7 @@ SYSCALL_DEFINE_LINUX(munmap) {
     uint64_t addr   = regs->arg1;
     uint64_t length = regs->arg2;
     
-    dprintk(KMT_LOG, "Syscall", "munmap called with addr=%p length=%p", addr, length);
+    dprintk("Syscall", "munmap called with addr=%p length=%p", addr, length);
 
     if (length == 0) return SCRC(-EINVAL);
     if (addr & 0xFFF) return SCRC(-EINVAL); 
@@ -420,7 +466,7 @@ SYSCALL_DEFINE_LINUX(open) {
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
-    dprintk(KMT_LOG, "Syscall", "Accessing through open %s, code %d", path, res);
+    dprintk("Syscall", "Accessing through open %s, code %d", path, res);
     if (res != 0) {
         return SCRC(res);
     }
@@ -476,7 +522,7 @@ SYSCALL_DEFINE_LINUX(openat) {
 
     vnode_t* vnode = NULL;
     int res = vfs_open(path, flags, &vnode);
-    dprintk(KMT_LOG, "Syscall", "Accessing through openat %s, code %d", path, res);
+    dprintk("Syscall", "Accessing through openat %s, code %d", path, res);
     if (res != 0) {
         return SCRC(res);
     }
@@ -565,7 +611,7 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
     uint64_t code = regs->arg1;
     uint64_t addr = regs->arg2;
 
-    dprintk(KMT_LOG, "Syscall", "Calling arch_ptrctl with code %d addr %p", code, addr);
+    dprintk("Syscall", "Calling arch_ptrctl with code %d addr %p", code, addr);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     switch (code) {
@@ -606,7 +652,7 @@ SYSCALL_DEFINE_LINUX(exit) {
 
 SYSCALL_DEFINE_LINUX(stub_unimplemented) {
     (void)regs; (void)process; (void)thread;
-    dprintk(KMT_LOG, "Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->syscall_no);
+    dprintk("Syscall", "fixme: syscall %d reached syscall_stub_unimplemented", regs->syscall_no);
     return SCRC(0);
 }
 
@@ -649,7 +695,7 @@ SYSCALL_DEFINE_LINUX(mmap) {
         target_vaddr = page_align_up(addr);
     }
 
-    dprintk(KMT_LOG, "mmap", "addr=%p len=%p prot=%p flags=%p fd=%d offset=%p -> %p",
+    dprintk("mmap", "addr=%p len=%p prot=%p flags=%p fd=%d offset=%p -> %p",
         addr, length, prot, flags, (int)fd, offset, target_vaddr);
 
     uint64_t pflags = VMF_USER;
@@ -701,7 +747,7 @@ SYSCALL_DEFINE_LINUX(access) {
 
     if (!pathname) return SCRC(-EFAULT); 
 
-    dprintk(KMT_LOG, "Syscall", "Accessing %s", pathname);
+    dprintk("Syscall", "Accessing %s", pathname);
 
     vnode_t* vnode = NULL;
     int res = vfs_open(pathname, 0, &vnode);
@@ -901,6 +947,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [20]  = syscall_linux_writev,
     [21]  = syscall_linux_access,
     [39]  = syscall_linux_getpid,
+    [59]  = syscall_linux_execve,
     [60]  = syscall_linux_exit,
     [63]  = syscall_linux_uname,
     [79]  = syscall_linux_getcwd,

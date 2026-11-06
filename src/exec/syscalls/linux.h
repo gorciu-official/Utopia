@@ -96,6 +96,7 @@ struct winsize {
 #define AT_SYMLINK_NOFOLLOW 0x100
 
 #define ENOENT    2
+#define ENOEXEC   8
 #define EBADF     9
 #define ENOMEM    12
 #define EACCES    13

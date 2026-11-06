@@ -51,7 +51,7 @@ Some checked programs and applications are listed here.
 - [nsh](https://github.com/na-razie-bez-nicku/nsh) [^1]
 - [JUAMP](https://github.com/gorciu-official/JUAMP)
 
-[^1]: Shells noted here are ported, but due to missing `fork` and `execve` implementation in Linux syscall layer, they are not able to launch external programs. 
+[^1]: Shells noted here are ported, but due to missing `fork` implementation in Linux syscall layer, their ability to launch external programs is limited. 
 
 **In active porting:**
 

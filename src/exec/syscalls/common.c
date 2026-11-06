@@ -55,9 +55,9 @@ void syscall_handler(registers_t* regs) {
         syscall_result_t res = (*current_abi.table)[syscall_num](&sregs, current_process, current_thread);
         current_abi.set_ret_value(res.code, regs); 
     } else {
-        dprintk(KMT_LOG, "Syscall", "Called non-existing syscall %d", regs->rax);
+        dprintk("Syscall", "Called non-existing syscall %d", regs->rax);
         current_abi.set_ret_value(current_abi.not_found_error, regs); 
     }
 
-    dprintk(KMT_LOG, "Syscall", "Return value %p (decimal %d)", regs->rax, regs->rax_i);
+    dprintk("Syscall", "Return value %p (decimal %d)", regs->rax, regs->rax_i);
 }
