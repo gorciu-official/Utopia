@@ -17,6 +17,7 @@ typedef struct {
     void*  ptr; 
     void*  base;
     size_t size;
+    bool   user_mapped;
 } thread_stack_t;
 
 struct thread;
@@ -55,17 +56,18 @@ typedef struct thread {
 } thread_t;
 
 typedef struct {
-    uint64_t at_entry;   // real program's entry point
-    uint64_t at_phdr;    // vaddr of the real program's phdrs
+    uint64_t at_entry;
+    uint64_t at_phdr; 
     uint16_t at_phent;
     uint16_t at_phnum;
-    uint64_t at_base;    // interpreter's load bias (0 if no interpreter)
+    uint64_t at_base; 
     bool     has_interp;
 } elf_auxv_info_t;
 
 void scheduler_init(void);
 void scheduler_ap_init(void);
 thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, thread_stack_t* stack);
+thread_t* thread_clone_user(const thread_t* parent, const registers_t* frame, thread_stack_t* user_stack, uint64_t fs_base);
 registers_t* scheduler_schedule(registers_t* regs);
 void thread_exit(void);
 thread_t* scheduler_get_current_thread(void);

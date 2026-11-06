@@ -37,6 +37,7 @@ void syscall_handler(registers_t* regs) {
 #endif
 
     syscall_regs_t sregs = current_abi.to_sregs(regs);
+    sregs.frame = regs;
     uint64_t syscall_num = sregs.syscall_no;
 
     dprintk(

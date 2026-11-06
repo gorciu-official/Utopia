@@ -48,6 +48,10 @@ pte_t arch_pte_child_leaf(pte_t parent, uint64_t child_phys, int child_level) {
     return rv_phys_to_ppn(child_phys) | flag_bits;
 }
 
+pte_t arch_pte_with_phys(pte_t existing, uint64_t phys) {
+    return (existing & ((1ULL << RV_PPN_SHIFT) - 1)) | rv_phys_to_ppn(phys);
+}
+
 bool arch_pte_present(pte_t pte) { return pte & RV_PTE_V; }
 
 bool arch_pte_is_leaf(pte_t pte, int level) {

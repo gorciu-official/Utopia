@@ -42,6 +42,10 @@ pte_t arch_pte_child_leaf(pte_t parent, uint64_t child_phys, int child_level) {
     return pte;
 }
 
+pte_t arch_pte_with_phys(pte_t existing, uint64_t phys) {
+    return (existing & ~PAGE_PHYS_MASK) | (phys & PAGE_PHYS_MASK);
+}
+
 bool arch_pte_present(pte_t pte) { return pte & PAGE_PRESENT; }
 
 bool arch_pte_is_leaf(pte_t pte, int level) {

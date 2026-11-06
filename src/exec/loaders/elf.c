@@ -668,92 +668,130 @@ int elf_load_full(const uint8_t* image, uint64_t image_size, uint64_t *l4_table,
     return 0;
 }
 
-int elf_start(create_elf_process_request_t req) {
-    uint64_t* proc_l4 = clone_page_table();
-    if (!proc_l4) return -1;
+void elf_prepared_destroy(elf_prepared_t* p) {
+    if (!p) return;
+    if (p->l4) free_page_table(p->l4);
+    vm_page_list_free(&p->pages);
+    if (p->stack) {
+        if (p->stack->base) free(p->stack->base);
+        free(p->stack);
+    }
+    memset(p, 0, sizeof(*p));
+}
+
+#define ELF_MAX_AUX_WORDS 32
+
+int elf_prepare(const create_elf_process_request_t* req, elf_prepared_t* out) {
+    memset(out, 0, sizeof(*out));
+
+    uint64_t* l4 = clone_page_table();
+    if (!l4) return -1;
 
     elf_load_result_t main_res;
     elf_auxv_info_t auxv;
     uint64_t entry;
 
-    int rc = elf_load_full(req.image.data, req.image.size, proc_l4, &main_res, &auxv, &entry);
+    int rc = elf_load_full(req->image.data, req->image.size, l4, &main_res, &auxv, &entry);
     if (rc != 0) {
-        free_page_table(proc_l4);
+        vm_page_list_t loaded = {0};
+        if (vm_collect_user_pages(l4, 0, 0, &loaded) == 0)
+            vm_page_list_free(&loaded);
+        free_page_table(l4);
         return rc;
     }
+    out->l4 = l4;
+    out->entry = entry;
+    out->brk_start = (main_res.highest_vaddr + 0xFFFULL) & ~0xFFFULL;
 
-    // TODO: this isn't a good idea either but theoretically it works
-    size_t stack_size = 8192 * 1024;
+    if (vm_collect_user_pages(l4, 0, 0, &out->pages) != 0) goto fail;
+
+    const size_t stack_size = USER_STACK_SIZE;
+    const uint64_t utop = USER_STACK_TOP;
+    const uint64_t ulo  = utop - stack_size;
+
     void* stack_base = page_alloc(stack_size / 0x1000);
     if (!stack_base) {
         printk(KMT_LOG, "ELF Loader", "Failed to allocate stack for process thread!");
+        goto fail;
+    }
+    memset(stack_base, 0, stack_size);
+
+    thread_stack_t* stack = (thread_stack_t*)malloc(sizeof(thread_stack_t));
+    if (!stack) {
         free(stack_base);
-        free_page_table(proc_l4);
-        return -1;
+        goto fail;
     }
-    
-    uint64_t sp = (uint64_t)stack_base + stack_size;
-    sp &= ~0xFULL;
+    stack->base = stack_base;
+    stack->size = stack_size;
+    stack->user_mapped = true;
+    out->stack = stack;
 
-    // --- data blobs living above the argv/envp/auxv vector ---
+    for (uint64_t off = 0; off < stack_size; off += 0x1000) {
+        if (map_page_4k(l4, ulo + off, hhdm_virt_to_phys((uint8_t*)stack_base + off), VMF_USER | VMF_WRITE) != 0)
+            goto fail;
+    }
+
+    const uint64_t ktop = (uint64_t)stack_base + stack_size;
+    #define K2U(kp) (utop - (ktop - (uint64_t)(kp)))
+
+    uint64_t sp = ktop;
+    int ret = -1;
+
     int envc = 0;
-    if (req.args.envp) {
-        while (req.args.envp[envc]) envc++;
+    if (req->args.envp) {
+        while (req->args.envp[envc]) envc++;
     }
-
-    uint64_t envp_addrs[envc ? envc : 1];
-    for (int i = envc - 1; i >= 0; i--) {
-        size_t len = strlen(req.args.envp[i]) + 1;
-        sp -= len;
-        strcpy((char*)sp, req.args.envp[i]);
-        envp_addrs[i] = sp;
-    }
-
-    int argc = req.args.argc;
-    char** argv = req.args.argv;
+    int argc = req->args.argc;
+    char** argv = req->args.argv;
     static const char default_argv0[] = "/init";
-    uint64_t argv_addrs[argc > 0 ? argc : 1];
+    bool use_default_argv = !(argc > 0 && argv);
+    if (use_default_argv) argc = 1;
 
-    if (argc > 0 && argv) {
+    uint64_t* envp_addrs = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)(envc ? envc : 1));
+    uint64_t* argv_addrs = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)argc);
+    uint64_t* vec = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)(argc + envc + 3 + ELF_MAX_AUX_WORDS));
+    if (!envp_addrs || !argv_addrs || !vec) goto stack_done;
+
+    for (int i = envc - 1; i >= 0; i--) {
+        size_t len = strlen(req->args.envp[i]) + 1;
+        sp -= len;
+        memcpy((void*)sp, req->args.envp[i], len);
+        envp_addrs[i] = K2U(sp);
+    }
+
+    if (!use_default_argv) {
         for (int i = argc - 1; i >= 0; i--) {
             size_t len = strlen(argv[i]) + 1;
             sp -= len;
-            strcpy((char*)sp, argv[i]);
-            argv_addrs[i] = sp;
+            memcpy((void*)sp, argv[i], len);
+            argv_addrs[i] = K2U(sp);
         }
     } else {
-        argc = 1;
-        size_t len = sizeof(default_argv0);
-        sp -= len;
-        strcpy((char*)sp, default_argv0);
-        argv_addrs[0] = sp;
+        sp -= sizeof(default_argv0);
+        memcpy((void*)sp, default_argv0, sizeof(default_argv0));
+        argv_addrs[0] = K2U(sp);
     }
 
     uint64_t execfn_addr = argv_addrs[0];
 
     sp &= ~15ULL;
     sp -= 16;
-    uint64_t random_addr = sp;
+    uint64_t random_addr = K2U(sp);
     for (int i = 0; i < 16; i++) {
-        ((uint8_t*)random_addr)[i] = (uint8_t)(i ^ 0x42); // TODO: real entropy
+        ((uint8_t*)sp)[i] = (uint8_t)(i ^ 0x42); // TODO: real entropy
     }
 
     // --- initial process stack, lowest address first:
     //     argc | argv... | NULL | envp... | NULL | auxv pairs (type, value)... | AT_NULL, 0
-    uint64_t vec[256];
     int n = 0;
     #define VEC_PUSH(v) (vec[n++] = (uint64_t)(v))
     #define VEC_AUX(t, v) do { VEC_PUSH(t); VEC_PUSH(v); } while (0)
 
     VEC_PUSH(argc);
-    for (int i = 0; i < argc; i++) {
-        VEC_PUSH(argv_addrs[i]);
-    }
+    for (int i = 0; i < argc; i++) VEC_PUSH(argv_addrs[i]);
     VEC_PUSH(0);            // argv terminator
 
-    for (int i = 0; i < envc; i++) {
-        VEC_PUSH(envp_addrs[i]);
-    }
+    for (int i = 0; i < envc; i++) VEC_PUSH(envp_addrs[i]);
     VEC_PUSH(0);            // envp terminator
 
     VEC_AUX(AT_PHDR,    auxv.at_phdr);
@@ -773,7 +811,6 @@ int elf_start(create_elf_process_request_t req) {
     VEC_AUX(AT_NULL,    0);
 
     // rsp must be 16-byte aligned and point exactly at argc when the entry point runs.
-    // (the old code aligned *after* pushing argc, which could move rsp off argc)
     sp -= (uint64_t)n * 8;
     sp &= ~0xFULL;
     for (int i = 0; i < n; i++) ((uint64_t*)sp)[i] = vec[i];
@@ -781,21 +818,39 @@ int elf_start(create_elf_process_request_t req) {
     #undef VEC_PUSH
     #undef VEC_AUX
 
-    thread_stack_t* stack_request = malloc(sizeof(thread_stack_t));
-    stack_request->ptr = (void*)sp;
-    stack_request->base = stack_base;
-    stack_request->size = stack_size;
+    out->sp = K2U(sp);
+    stack->ptr = (void*)out->sp;
+    ret = 0;
 
-    process_t* proc = process_create("jakis-elf", (void (*)(void *))entry, req.arg, 3, stack_request);
+stack_done:
+    #undef K2U
+    if (envp_addrs) free(envp_addrs);
+    if (argv_addrs) free(argv_addrs);
+    if (vec) free(vec);
+    if (ret == 0) return 0;
+
+fail:
+    elf_prepared_destroy(out);
+    return -1;
+}
+
+int elf_start(create_elf_process_request_t req) {
+    elf_prepared_t prep;
+    if (elf_prepare(&req, &prep) != 0)
+        return -1;
+
+    process_t* proc = process_create("jakis-elf", (void (*)(void *))prep.entry, req.arg, 3, prep.stack);
     if (!proc) {
-        free_page_table(proc_l4);
+        elf_prepared_destroy(&prep);
         return -1;
     }
 
+    // process_create() gave the process an empty address space; swap in the prepared one
     if (proc->page_table) free_page_table(proc->page_table);
-    proc->page_table = proc_l4;
+    proc->page_table = prep.l4;
+    proc->owned_pages = prep.pages;
 
-    proc->brk_start = (main_res.highest_vaddr + 0xFFFULL) & ~0xFFFULL;
+    proc->brk_start = prep.brk_start;
     proc->brk_current = proc->brk_start;
     proc->mmap_start = 0x400000000000;
     proc->mmap_current = proc->mmap_start;

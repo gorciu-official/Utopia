@@ -159,25 +159,147 @@ void set_page_executable(uint64_t virt, bool executable) {
 }
 
 static void free_table_level(uint64_t* table, int level) {
-    if (level == 0) return;
-    for (int i = 0; i < PT_ENTRIES; i++) {
-        pte_t entry = table[i];
-        if (!arch_pte_present(entry)) continue;
-        if (arch_pte_is_leaf(entry, level)) continue;
-        uint64_t* child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
-        free_table_level(child, level - 1);
+    if (level > 0) {
+        for (int i = 0; i < PT_ENTRIES; i++) {
+            pte_t entry = table[i];
+            if (!arch_pte_present(entry)) continue;
+            if (arch_pte_is_leaf(entry, level)) continue;
+            uint64_t* child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+            free_table_level(child, level - 1);
+        }
     }
+    free(table);
 }
 
 void free_page_table(uint64_t* l4_table) {
+    if (!l4_table) return;
+
     for (int i = 0; i < 256; i++) {
         pte_t entry = l4_table[i];
         if (!arch_pte_present(entry)) continue;
-        if (arch_pte_is_leaf(entry, PT_TOP_LEVEL)) continue;   // <-- brakujący check
+        if (arch_pte_is_leaf(entry, PT_TOP_LEVEL)) continue;
 
-        uint64_t* l3 = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
-        free_table_level(l3, PT_TOP_LEVEL - 1);
+        uint64_t* next = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+        free_table_level(next, PT_TOP_LEVEL - 1);
     }
+    free(l4_table);
+}
+
+int vm_page_list_add(vm_page_list_t* list, void* page) {
+    if (list->count == list->cap) {
+        size_t new_cap = list->cap ? list->cap * 2 : 64;
+        void** np = (void**)malloc(new_cap * sizeof(void*));
+        if (!np) return -1;
+        if (list->pages) {
+            memcpy(np, list->pages, list->count * sizeof(void*));
+            free(list->pages);
+        }
+        list->pages = np;
+        list->cap = new_cap;
+    }
+    list->pages[list->count++] = page;
+    return 0;
+}
+
+void vm_page_list_free(vm_page_list_t* list) {
+    for (size_t i = 0; i < list->count; i++)
+        free(list->pages[i]);
+    if (list->pages) free(list->pages);
+    list->pages = NULL;
+    list->count = 0;
+    list->cap = 0;
+}
+
+static int clone_user_level(uint64_t* src, uint64_t* dst, int level, uint64_t va_base,
+                            uint64_t skip_lo, uint64_t skip_hi, vm_page_list_t* owned) {
+    int entries = (level == PT_TOP_LEVEL) ? PT_ENTRIES / 2 : PT_ENTRIES; /* user half only at the top */
+
+    for (int i = 0; i < entries; i++) {
+        pte_t entry = src[i];
+        if (!arch_pte_present(entry)) continue;
+
+        uint64_t va = va_base | ((uint64_t)i << (12 + level * 9));
+
+        if (level == 0) {
+            if (va >= skip_lo && va < skip_hi) continue;
+
+            uint64_t* page = pt_pool_alloc();
+            if (!page) return -1;
+            if (vm_page_list_add(owned, page) != 0) { free(page); return -1; }
+
+            memcpy(page, phys_to_virt(arch_pte_phys(entry)), 0x1000);
+            dst[i] = arch_pte_with_phys(entry, (uint64_t)hhdm_virt_to_phys(page));
+            continue;
+        }
+
+        if (arch_pte_is_leaf(entry, level)) {
+            /* user huge pages are never created by the loader/mmap/brk paths */
+            printk(KMT_LOG, "VMM", "clone: unsupported user huge page at %p", va);
+            return -1;
+        }
+
+        /* an entirely skipped subtree needs no table */
+        uint64_t span = 1ULL << (12 + level * 9);
+        if (skip_lo <= va && va + span <= skip_hi) continue;
+
+        uint64_t* child = pt_pool_alloc();
+        if (!child) return -1;
+        dst[i] = arch_pte_table((uint64_t)hhdm_virt_to_phys(child)); /* linked first so cleanup finds it */
+
+        uint64_t* src_child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+        if (clone_user_level(src_child, child, level - 1, va, skip_lo, skip_hi, owned) != 0)
+            return -1;
+    }
+    return 0;
+}
+
+static int collect_user_level(uint64_t* table, int level, uint64_t va_base,
+                              uint64_t skip_lo, uint64_t skip_hi, vm_page_list_t* out) {
+    int entries = (level == PT_TOP_LEVEL) ? PT_ENTRIES / 2 : PT_ENTRIES;
+    for (int i = 0; i < entries; i++) {
+        pte_t entry = table[i];
+        if (!arch_pte_present(entry)) continue;
+        uint64_t va = va_base | ((uint64_t)i << (12 + level * 9));
+
+        if (level == 0) {
+            if (va >= skip_lo && va < skip_hi) continue;
+            if (vm_page_list_add(out, phys_to_virt(arch_pte_phys(entry))) != 0) return -1;
+        } else if (!arch_pte_is_leaf(entry, level)) {
+            uint64_t* child = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+            if (collect_user_level(child, level - 1, va, skip_lo, skip_hi, out) != 0) return -1;
+        }
+    }
+    return 0;
+}
+
+int vm_collect_user_pages(uint64_t* l4, uint64_t skip_lo, uint64_t skip_hi, vm_page_list_t* out) {
+    return collect_user_level(l4, PT_TOP_LEVEL, 0, skip_lo, skip_hi, out);
+}
+
+void* vm_user_to_kernel(uint64_t* l4, uint64_t va) {
+    uint64_t* table = l4;
+    for (int level = PT_TOP_LEVEL; level >= 0; level--) {
+        pte_t entry = table[pt_index(va, level)];
+        if (!arch_pte_present(entry)) return NULL;
+        if (level == 0 || arch_pte_is_leaf(entry, level)) {
+            uint64_t span = 1ULL << (12 + level * 9);
+            return (uint8_t*)phys_to_virt(arch_pte_phys(entry)) + (va & (span - 1));
+        }
+        table = (uint64_t*)phys_to_virt(arch_pte_phys(entry));
+    }
+    return NULL;
+}
+
+uint64_t* clone_user_address_space(uint64_t* src_l4, uint64_t skip_lo, uint64_t skip_hi, vm_page_list_t* owned) {
+    uint64_t* new_l4 = clone_page_table(); /* empty user half + shared kernel half */
+    if (!new_l4) return NULL;
+
+    if (clone_user_level(src_l4, new_l4, PT_TOP_LEVEL, 0, skip_lo, skip_hi, owned) != 0) {
+        free_page_table(new_l4);
+        vm_page_list_free(owned);
+        return NULL;
+    }
+    return new_l4;
 }
 
 uint64_t* clone_page_table(void) {

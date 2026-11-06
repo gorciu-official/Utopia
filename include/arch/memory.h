@@ -16,6 +16,10 @@ typedef uint64_t pte_t;
 #define PT_TOP_LEVEL  (PT_LEVELS - 1)
 #define PT_ENTRIES    512
 
+#define USER_VA_BITS    (12 + PT_LEVELS * 9 - 1)
+#define USER_STACK_TOP  ((1ULL << USER_VA_BITS) - 0x1000ULL)
+#define USER_STACK_SIZE (8ULL * 1024 * 1024)
+
 static inline int pt_index(uint64_t virt, int level) {
     return (int)((virt >> (12 + level * 9)) & 0x1FF);
 }
@@ -28,6 +32,7 @@ pte_t    arch_pte_table(uint64_t child_phys);
 pte_t    arch_pte_leaf(uint64_t phys, vm_flags_t flags, bool huge);
 pte_t    arch_pte_with_flags(pte_t existing, vm_flags_t flags);
 pte_t    arch_pte_set_exec(pte_t existing, bool executable);
+pte_t    arch_pte_with_phys(pte_t existing, uint64_t phys);
 pte_t    arch_pte_child_leaf(pte_t parent_huge, uint64_t child_phys, int child_level);
 bool     arch_pte_present(pte_t pte);
 bool     arch_pte_is_leaf(pte_t pte, int level);

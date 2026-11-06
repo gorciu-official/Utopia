@@ -439,6 +439,11 @@ void* page_alloc(uint64_t pages) {
             uintptr_t aligned_addr = (raw_addr + (alignment - 1)) & ~(alignment - 1);
             size_t padding = aligned_addr - raw_addr;
 
+            if (padding != 0 && padding < sizeof(heap_block_t) + 16) {
+                aligned_addr += alignment;
+                padding += alignment;
+            }
+
             if (curr->size >= size + padding) {
                 heap_block_t* target_block = curr;
 

@@ -6,6 +6,7 @@
 
 typedef struct {
     uint64_t arg1, arg2, arg3, arg4, arg5, arg6, syscall_no;
+    registers_t* frame;   // the live trap frame of the caller (set by syscall_handler)
 } syscall_regs_t;
 
 typedef enum {

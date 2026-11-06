@@ -206,7 +206,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
         }
     }
 
-    if (ring == 3) {
+    if (ring == 3 && !stack->user_mapped) {
         uintptr_t start = (uintptr_t)stack->base & ~(uintptr_t)0xFFF;
         uintptr_t end   = ((uintptr_t)stack->base + stack->size + 0xFFF) & ~(uintptr_t)0xFFF;
         for (uintptr_t a = start; a < end; a += 4096) {
@@ -233,6 +233,41 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     regs->sepc  = (uintptr_t)entry_point;
     regs->sstatus &= ~(3ULL << 13);
     regs->sstatus |=  (1ULL << 13); // FS=Initial
+#endif
+
+    return t;
+}
+
+thread_t* thread_clone_user(const thread_t* parent, const registers_t* frame, thread_stack_t* user_stack, uint64_t fs_base) {
+    scheduler_reap();
+
+    thread_t* t = tcb_alloc(parent->name);
+    if (!t) return NULL;
+
+    t->stacks.kernel = kernel_stack_alloc();
+    if (!t->stacks.kernel) {
+        free(t->regs);
+        free(t);
+        return NULL;
+    }
+
+    t->stacks.main = user_stack;
+    t->ring = 3;
+    t->fs_base = fs_base;
+
+    registers_t* regs = t->regs;
+    memcpy(regs, frame, sizeof(registers_t));
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    regs->rax      = 0;   
+    regs->int_no   = 0;
+    regs->err_code = 0;
+    regs->cs       = 0x28 | 3;          
+    regs->ss       = 0x20 | 3;
+    regs->rflags  |= 0x202;   
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    regs->x[10]    = 0;   
+    regs->sepc    += 4;     
 #endif
 
     return t;
