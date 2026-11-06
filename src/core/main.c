@@ -42,11 +42,11 @@ void kmain(common_boot_structure_t* cbs) {
     arch_early_init();
 
     // misc init 
-    #if BOOTLOADER == BOOTLOADER_CODE_GRUB
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
         memory_init_base(cbs->plain_mbd);
-    #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
+#elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
         memory_init_base();
-    #endif
+#endif
     if (cbs->modules.initramfs_addr != NULL)
         memory_reserve_range(
             hhdm_virt_to_phys(cbs->modules.initramfs_addr),
@@ -96,7 +96,7 @@ void kmain(common_boot_structure_t* cbs) {
     vfs_lookup("/init", &init_file);
     if likely (init_file) {
         uint64_t size = init_file->size;
-        void* buffer = malloc(size);
+        autofree void* buffer = malloc(size);
         uint64_t bytes_read = 0;
         init_file->ops->read(init_file, buffer, size, 0, &bytes_read);
         if (bytes_read == size) {
@@ -114,9 +114,9 @@ void kmain(common_boot_structure_t* cbs) {
     }
 
     // suspend console output 
-    #if UTOPIA_DEBUG == 0
+#if UTOPIA_DEBUG == 0
         printk_suspend_console();
-    #endif
+#endif
 
     for (;;)
         arch_wfi();

@@ -3,6 +3,7 @@
 #include <constants.h>
 #include <arch/common.h>
 #include <lib/screen.h>
+#include <lib/extensions.h>
 #include <drivers/filesystem.h>
 #include <memory.h>
 
@@ -43,7 +44,7 @@ SYSCALL_DEFINE_OWN(spawn) {
         return SCRC(-3);
 
     uint64_t size = node->size;
-    void* buffer = malloc(size);
+    autofree void* buffer = malloc(size);
     uint64_t bytes_read = 0;
     node->ops->read(node, buffer, size, 0, &bytes_read);
     if (bytes_read == size) {

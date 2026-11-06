@@ -8,6 +8,8 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
 
 - [X] `nsh` ([this thingy](https://github.com/na-razie-bez-nicku/nsh/tree/main))
 - [X] `bash`
+- [ ] `gcc` and `ld`
+- [ ] `gmake`
 - [ ] telnet client from `inetutils`
 
 ## Internal tasks 
@@ -24,3 +26,5 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
     - [ ] Replace legacy `PIT`
     - [ ] Find a better clock source for calibrating LAPIC
 - [X] Improve keyboard stack
+- [ ] Tracking of allocatted frames
+- [ ] Mount `ramfs` to `/tmp`
