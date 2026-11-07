@@ -97,21 +97,82 @@ void process_terminate(process_t* proc) {
     }
     vm_page_list_free(&proc->owned_pages);
 
+    proc->main_thread = NULL;
+
+    unsigned long irq = arch_save_interrupts();
     spinlock_acquire(&process_lock);
-    if (process_list_head == proc) {
-        process_list_head = proc->next;
-    } else {
-        process_t* prev = process_list_head;
-        while (prev && prev->next != proc) {
-            prev = prev->next;
-        }
-        if (prev) {
-            prev->next = proc->next;
-        }
+
+    process_t* init = NULL;
+    for (process_t* p = process_list_head; p; p = p->next)
+        if (p->pid == 1 && !p->zombie && p != proc) init = p;
+
+    bool init_has_new_zombie = false;
+    for (process_t* p = process_list_head; p; p = p->next) {
+        if (p == proc || p->ppid != proc->pid) continue;
+        p->ppid = init ? 1 : 0;
+        if (init && p->zombie) init_has_new_zombie = true;
     }
+
+    process_t** pp = &process_list_head;
+    while (*pp) {
+        process_t* p = *pp;
+        if (p != proc && p->zombie && p->ppid == 0) { *pp = p->next; free(p); }
+        else pp = &p->next;
+    }
+    if (init && init_has_new_zombie) scheduler_wake_all(&init->child_wq);
+
+    process_t* parent = NULL;
+    if (proc->ppid) {
+        for (process_t* p = process_list_head; p; p = p->next)
+            if (p->pid == proc->ppid && !p->zombie) { parent = p; break; }
+    }
+
+    if (parent) {
+        proc->zombie = true;
+        scheduler_wake_all(&parent->child_wq);
+        spinlock_release(&process_lock);
+        arch_restore_interrupts(irq);
+        return;
+    }
+
+    pp = &process_list_head;
+    while (*pp && *pp != proc) pp = &(*pp)->next;
+    if (*pp) *pp = proc->next;
     spinlock_release(&process_lock);
+    arch_restore_interrupts(irq);
 
     free(proc);
+}
+
+int process_wait_child(process_t* parent, int pid, int* status_out) {
+    if (!parent) return -1;
+
+    unsigned long irq = arch_save_interrupts();
+    spinlock_acquire(&process_lock);
+
+    bool have_child = false;
+    process_t* found = NULL;
+    for (process_t* p = process_list_head; p; p = p->next) {
+        if (p->ppid != parent->pid) continue;
+        if (pid > 0 && (int)p->pid != pid) continue;
+        have_child = true;
+        if (p->zombie) { found = p; break; }
+    }
+
+    int ret = have_child ? 0 : -1;
+    if (found) {
+        process_t** pp = &process_list_head;
+        while (*pp && *pp != found) pp = &(*pp)->next;
+        if (*pp) *pp = found->next;
+        ret = (int)found->pid;
+        if (status_out) *status_out = found->exit_status;
+    }
+
+    spinlock_release(&process_lock);
+    arch_restore_interrupts(irq);
+
+    if (found) free(found);
+    return ret;
 }
 
 process_t* process_get_current(void) {
@@ -206,6 +267,7 @@ process_t* process_clone(process_t* parent, thread_t* parent_thread, const struc
     }
     t->process = child;
     child->main_thread = t;
+    child->main_tid = t->id;
 
     if (opts) {
         if (opts->child_stack) {

@@ -374,6 +374,10 @@ registers_t* scheduler_schedule(registers_t* regs) {
 }
 
 void thread_exit(void) {
+    thread_exit_status(0);
+}
+
+void thread_exit_status(int status) {
     unsigned long flags = arch_save_interrupts();
     (void)flags; 
 
@@ -396,11 +400,16 @@ void thread_exit(void) {
             active_cr3[cpu_id] = boot_cr3[cpu_id];
         }
 
+        curr->process->exit_status = status;
         process_terminate(curr->process);
         curr->process = NULL;
     }
 
     curr->state = THREAD_STATE_TERMINATED;
+
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+    arch_invi(0x41);
+#endif
 
     arch_restore_interrupts(flags);
     for (;;)

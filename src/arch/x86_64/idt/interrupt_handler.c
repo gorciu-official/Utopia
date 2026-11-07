@@ -29,7 +29,7 @@ registers_t* isr_handler(registers_t* regs) {
                 read_pf_addr(), 
                 (regs->err_code & (1 << 0)) ? "protection violation" : "non-present"
             );
-            thread_exit();
+            thread_exit_status(11); 
             return scheduler_schedule(regs);
         } else if (
             (regs->int_no == 13 && (regs->cs & 3) == 3)
@@ -38,7 +38,7 @@ registers_t* isr_handler(registers_t* regs) {
                 "Segmentation fault at %p (user-mode #GP)",
                 regs->rip
             );
-            thread_exit();
+            thread_exit_status(11); 
             return scheduler_schedule(regs);
         } else {
             panic("Unexpected CPU exception", regs);

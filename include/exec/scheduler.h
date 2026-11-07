@@ -70,6 +70,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
 thread_t* thread_clone_user(const thread_t* parent, const registers_t* frame, thread_stack_t* user_stack, uint64_t fs_base);
 registers_t* scheduler_schedule(registers_t* regs);
 void thread_exit(void);
+void thread_exit_status(int status); 
 thread_t* scheduler_get_current_thread(void);
 void scheduler_enqueue(thread_t* t);
 void scheduler_reap(void);

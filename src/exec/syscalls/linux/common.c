@@ -39,7 +39,7 @@ SYSCALL_DEFINE_LINUX(tgkill) {
         return SCRC(-ENOSYS);
 
     printf("abort.");
-    thread_exit();
+    thread_exit_status(SIGABRT);
 
     return SCRC(0);
 }
@@ -384,8 +384,8 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
 }
 
 SYSCALL_DEFINE_LINUX(exit) {
-    (void)regs; (void)process; (void)thread;
-    thread_exit();
+    (void)process; (void)thread;
+    thread_exit_status((int)((regs->arg1 & 0xff) << 8));
     return SCRC(0); 
 }
 
@@ -579,6 +579,7 @@ extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
 extern SYSCALL_DEFINE_LINUX(execve);
+extern SYSCALL_DEFINE_LINUX(wait4);
 
 extern SYSCALL_DEFINE_LINUX(gettid);
 extern SYSCALL_DEFINE_LINUX(getpid);
@@ -618,6 +619,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [58]  = syscall_linux_vfork,
     [59]  = syscall_linux_execve,
     [60]  = syscall_linux_exit,
+    [61]  = syscall_linux_wait4,
     [63]  = syscall_linux_uname,
     [79]  = syscall_linux_getcwd,
     [102] = syscall_linux_stub_unimplemented, // that is indeed correct. let me explain.
@@ -676,6 +678,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [221] = syscall_linux_execve,
     [222] = syscall_linux_mmap,
     [226] = syscall_linux_mprotect,
+    [260] = syscall_linux_wait4,
     [278] = syscall_linux_getrandom
 };
  

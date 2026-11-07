@@ -164,7 +164,7 @@ static syscall_result_t do_clone(syscall_regs_t* regs, process_t* process, threa
     if (!child) return SCRC(-ENOMEM);
 
     if ((flags & CLONE_PARENT_SETTID) && ptid && ptid < USER_VA_LIMIT)
-        *(uint32_t*)ptid = child->main_thread->id;
+        *(uint32_t*)ptid = child->main_tid;
 
     return SCRC(child->pid);
 }
@@ -183,6 +183,38 @@ SYSCALL_DEFINE_LINUX(clone) {
 #else
     return do_clone(regs, process, thread, regs->arg1, regs->arg2, regs->arg3, regs->arg5, regs->arg4);
 #endif
+}
+
+SYSCALL_DEFINE_LINUX(wait4) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    int pid = (int)regs->arg1;
+    uint64_t wstatus = regs->arg2;
+    int options = (int)regs->arg3;
+    uint64_t rusage = regs->arg4;
+
+    if (options & ~WAIT4_VALID_OPTIONS) return SCRC(-EINVAL);
+    if (wstatus && wstatus + sizeof(int) > USER_VA_LIMIT) return SCRC(-EFAULT);
+    if (rusage && rusage + RUSAGE_STRUCT_SIZE > USER_VA_LIMIT) return SCRC(-EFAULT);
+
+    int want = pid > 0 ? pid : -1;
+
+    for (;;) {
+        uint64_t seq = wait_queue_snapshot(&process->child_wq);
+
+        int status = 0;
+        int r = process_wait_child(process, want, &status);
+        if (r < 0) return SCRC(-ECHILD);
+        if (r > 0) {
+            if (wstatus) *(int*)wstatus = status;
+            if (rusage) memset((void*)rusage, 0, RUSAGE_STRUCT_SIZE);
+            return SCRC(r);
+        }
+        if (options & WNOHANG) return SCRC(0);
+
+        scheduler_wait(&process->child_wq, seq);
+    }
 }
 
 SYSCALL_DEFINE_LINUX(gettid) {

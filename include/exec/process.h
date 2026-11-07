@@ -30,12 +30,19 @@ typedef struct process {
     file_desc_t fds[MAX_FILES_PER_PROCESS];
     int syscall_conv;
     vm_page_list_t owned_pages;
+
+    bool         zombie; 
+    int          exit_status;  
+    uint32_t     main_tid;
+    wait_queue_t child_wq;  
 } process_t;
 
 void process_init(void);
 
 process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring, thread_stack_t* stack);
 void process_terminate(process_t* proc);
+
+int process_wait_child(process_t* parent, int pid, int* status_out);
 process_t* process_get_current(void);
 
 struct registers;

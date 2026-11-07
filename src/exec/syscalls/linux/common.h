@@ -99,6 +99,7 @@ struct winsize {
 #define AT_SYMLINK_NOFOLLOW 0x100
 
 #define ENOENT       2
+#define ECHILD       10
 #define ENOEXEC      8
 #define EBADF        9
 #define ENOMEM       12
@@ -131,7 +132,17 @@ struct winsize {
 #define TERMIOS_ECHO	0000010
 
 #define SIGABRT 6
+#define SIGSEGV 11
 #define SIGCHLD 17
+
+#define WNOHANG    0x00000001
+#define WUNTRACED  0x00000002
+#define WCONTINUED 0x00000008
+#define __WNOTHREAD 0x20000000
+#define __WALL      0x40000000
+#define __WCLONE    0x80000000
+#define WAIT4_VALID_OPTIONS (WNOHANG | WUNTRACED | WCONTINUED | __WNOTHREAD | __WALL | __WCLONE)
+#define RUSAGE_STRUCT_SIZE 144
 
 #define CLONE_VM             0x00000100
 #define CLONE_FS             0x00000200

@@ -47,11 +47,9 @@ Some checked programs and applications are listed here.
 
 **Software that I checked and works:**
 
-- [bash](https://www.gnu.org/software/bash/) [^1]
-- [nsh](https://github.com/na-razie-bez-nicku/nsh) [^1]
+- [bash](https://www.gnu.org/software/bash/)
+- [nsh](https://github.com/na-razie-bez-nicku/nsh) 
 - [JUAMP](https://github.com/gorciu-official/JUAMP)
-
-[^1]: Shells noted here are ported, but due to missing `wait` implementation in Linux syscall layer, their ability to launch multiple external programs is limited. 
 
 **In active porting:**
 
