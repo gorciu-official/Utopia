@@ -3,7 +3,7 @@
 
 bool keyboard_should_putchar = true;
 
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+#if (ARCHITECTURE == ARCHITECTURE_CODE_x86_64) && defined(CONFIG_IO_PS2_KEYBOARD_SUPPORT)
 
 #include <drivers/arch-specific/ps2.h>
 #include <lib/screen.h>

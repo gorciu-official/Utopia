@@ -57,7 +57,9 @@ registers_t* isr_handler(registers_t* regs) {
     if (regs->int_no == 32) { 
         regs = scheduler_schedule(regs);
     } else if (regs->int_no == 33) {
+#ifdef CONFIG_IO_PS2_KEYBOARD_SUPPORT
         ps2_interrupt_handler();
+#endif
     } else if (regs->int_no == 0x40) {
         regs = lapic_timer_handler(regs);
     } else if (regs->int_no == 0x41) {

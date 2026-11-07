@@ -25,7 +25,7 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     }
 
     if (fd == 0) {
-#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+#if (ARCHITECTURE == ARCHITECTURE_CODE_x86_64) && defined(CONFIG_IO_PS2_KEYBOARD_SUPPORT)
         return ps2_read(buf, count);
 #endif
     }

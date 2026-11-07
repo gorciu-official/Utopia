@@ -15,16 +15,22 @@ opt CONFIG_SYSCALL_ABI_LINUX(bool) {
     within: CONFIG_SYSCALLS
 }
 
-// ----- screen
+// ----- io
 
-opt CONFIG_SCREEN(null) -> menu {
-    display: "Screen options"
+opt CONFIG_IO(null) -> menu {
+    display: "I/O devices"
 }
 
-opt CONFIG_SCREEN_SERIAL_MIRRRORING(bool) {
+opt CONFIG_IO_SCREEN_SERIAL_MIRRRORING(bool) {
     display: "Print screen messages to serial output"
     default: true
-    within: CONFIG_SCREEN
+    within: CONFIG_IO
+}
+
+opt CONFIG_IO_PS2_KEYBOARD_SUPPORT(bool) {
+    display: "Enable PS/2 keyboard support (on supported architectures)"
+    default: true
+    within: CONFIG_IO
 }
 
 // ----- smp
