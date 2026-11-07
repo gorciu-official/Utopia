@@ -51,6 +51,7 @@ printf ' Finished %s[GRUB bootloader configuration generation]%s\n' "$COLOR_YELL
 printf ' Starting %s[Limine bootloader configuration generation]%s\n' "$COLOR_YELLOW" "$COLOR_RESET"
 
 echo 'timeout: 3'                                                                           > $LIMINE_CFG 
+echo 'serial: yes'                                                                         >> $LIMINE_CFG
 echo '/Utopia'                                                                             >> $LIMINE_CFG
 echo '    protocol: limine'                                                                >> $LIMINE_CFG
 echo '    kernel_path: boot():/kernel.bin'                                                 >> $LIMINE_CFG

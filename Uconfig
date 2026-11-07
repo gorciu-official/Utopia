@@ -33,6 +33,19 @@ opt CONFIG_IO_PS2_KEYBOARD_SUPPORT(bool) {
     within: CONFIG_IO
 }
 
+// ----- pci
+
+opt CONFIG_PCI(null) -> menu {
+    display: "PCI devices support (x86_64)"
+}
+
+opt CONFIG_PCI_ENABLE(bool) {
+    display: "PCI devices support (scanning)"
+    default: true
+    within: CONFIG_PCI
+}
+
+
 // ----- smp
 
 opt CONFIG_SMP(bool) {

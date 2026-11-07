@@ -1,0 +1,11 @@
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "no-redzone=yes",
+    "-C", "panic=abort"
+]
+
+[target.riscv64gc-unknown-none-elf]
+rustflags = [
+    "-C", "no-redzone=yes",
+    "-C", "panic=abort"
+]
