@@ -38,9 +38,11 @@ static inline uintptr_t read_page_table_root(void) {
     uintptr_t v;
     __asm__ volatile("mov %%cr3, %0" : "=r"(v));
     return v;
-#endif 
-    // TODO: RISC-V handling
-    return 0;
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    uint64_t satp;
+    __asm__ volatile("csrr %0, satp" : "=r"(satp));
+    return (uintptr_t)((satp & ((1ULL << 44) - 1)) << 12);
+#endif
 }
 
 static inline void sched_unlock(unsigned long flags) {
@@ -409,6 +411,8 @@ void thread_exit_status(int status) {
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     arch_invi(0x41);
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    __asm__ volatile("csrsi sstatus, %0" :: "i"(RISCV64_SSTATUS_SIE) : "memory");
 #endif
 
     arch_restore_interrupts(flags);

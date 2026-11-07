@@ -2,6 +2,7 @@
 #include <arch/common.h>
 #include <types.h>
 #include <panic.h>
+#include <exec/scheduler.h>
 
 #define csrw(csr, val) \
     asm volatile ("csrw " #csr ", %0" : : "r"(val) : "memory")
@@ -10,15 +11,25 @@ extern void arch_interrupt_handler_asm(void);
 extern void timer_schedule_next(registers_t** regs);
 extern void syscall_handler(registers_t* regs);
 
-static inline void csrw_sscratch(uint64_t v) {
-    __asm__ volatile("csrw sscratch, %0" :: "r"(v));
+void arch_init_interrupts() {
+    asm volatile("csrw sscratch, zero");
+    csrw(0x105, (uintptr_t)arch_interrupt_handler_asm);
 }
 
-static uint8_t kernel_stacks[CPU_ARCH_MAX_CPUS][8192];
+// TODO: idk store this elsewhere i'm lazy
+#define FAULT_SIGILL  4
+#define FAULT_SIGTRAP 5
+#define FAULT_SIGBUS  7
+#define FAULT_SIGSEGV 11
 
-void arch_init_interrupts() {
-    csrw_sscratch(0);
-    csrw(0x105, (uintptr_t)arch_interrupt_handler_asm);
+static int fault_signal(uint64_t cause) {
+    switch (cause) {
+    case 2:  return FAULT_SIGILL;  
+    case 3:  return FAULT_SIGTRAP;
+    case 0: case 4: case 6:
+             return FAULT_SIGBUS;       
+    default: return FAULT_SIGSEGV;   
+    }
 }
 
 registers_t* arch_interrupt_handler(registers_t* regs) {
@@ -32,16 +43,21 @@ registers_t* arch_interrupt_handler(registers_t* regs) {
             return regs;
         }
 
+        if (!(regs->sstatus & (1ULL << 8))) {
+            int sig = fault_signal(cause);
+            locked_printf(
+                "Fatal signal %d at %p (scause=%d, stval=%p)\n",
+                sig, regs->sepc, (int)cause, regs->stval
+            );
+            thread_exit_status(sig);
+            return scheduler_schedule(regs);
+        }
+
         panic("Unexpected CPU exception", regs);
     } else {
         switch (cause) {
         case 5:
             timer_schedule_next(&regs);
-            if (regs->sstatus & (1ULL << 8)) {
-                csrw_sscratch(0);
-            } else {
-                csrw_sscratch((uintptr_t)kernel_stacks[current_processor_id()] + sizeof(kernel_stacks[0]));
-            }
             break;
         default:
             break;

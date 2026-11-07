@@ -14,7 +14,7 @@
 //   https://github.com/Limine-Bootloader/Limine/blob/v12.x/common/sys/sbi.h
 
 uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
-uint8_t kernel_stacks[CPU_ARCH_MAX_CPUS][16384];
+uint8_t kernel_stacks[CPU_ARCH_MAX_CPUS][16384] __attribute__((aligned(16)));
 cpu_t cpus[CPU_ARCH_MAX_CPUS];
 
 typedef struct {
@@ -50,39 +50,40 @@ uintptr_t smp_satp(void) {
     return satp;
 }
 
-bool smp_boot_ap(int hart) {
+bool smp_boot_ap(long hart, uint32_t cpu_idx) {
     static smp_passed_data_t passed_data;
-    
-    cpu_t* cpu = &cpus[hart + 1];
-    cpu->id = hart + 1;
-    cpu->kernel_stack_top = (uintptr_t)&kernel_stacks[hart + 1][sizeof(kernel_stacks[hart + 1])];
 
-    passed_data.stack_pointer = (uintptr_t)&kernel_stacks[hart + 1][sizeof(kernel_stacks[hart + 1])];
-    passed_data.alive_table_entry_pointer = (uintptr_t)&ap_alive_table[hart + 1];
+    cpu_t* cpu = &cpus[cpu_idx];
+    cpu->id = cpu_idx;
+    cpu->default_stack_top = (uintptr_t)&kernel_stacks[cpu_idx][sizeof(kernel_stacks[cpu_idx])];
+    cpu->kernel_stack_top = cpu->default_stack_top;
+
+    passed_data.stack_pointer = cpu->default_stack_top;
+    passed_data.alive_table_entry_pointer = (uintptr_t)&ap_alive_table[cpu_idx];
     passed_data.page_table = smp_satp();
     passed_data.cpu_struct_pointer = (uintptr_t)cpu;
 
     sbicall_result_t call = sbicall(
-        SBI_EID_HSM, 0, hart, 
+        SBI_EID_HSM, SBI_HSM_HART_START, hart,
         kernel_virt_to_phys(smp_startup), kernel_virt_to_phys(&passed_data)
     );
 
     if (call.error == -6) {
-        printk(KMT_LOG, "SMP", "Hart %d is allegedly already online", hart);
-        return true;
+        printk(KMT_LOG, "SMP", "Hart %d is already online, skipping", (int)hart);
+        return false;
     } else if (call.error != 0) {
-        printk(KMT_LOG, "SMP", "Could not start hart %d, error %d", hart, call.error);
+        printk(KMT_LOG, "SMP", "Could not start hart %d, error %d", (int)hart, (int)call.error);
         return false;
     }
 
     for (int i = 0; i < 1000000; i++) {
-        if (ap_alive_table[hart + 1] == 1) {
-            printk(KMT_LOG, "SMP", "Hart %d is up.", hart);
+        if (__atomic_load_n(&ap_alive_table[cpu_idx], __ATOMIC_ACQUIRE) == 1) {
+            printk(KMT_LOG, "SMP", "Hart %d is up (cpu %d).", (int)hart, (int)cpu_idx);
             return true;
         }
     }
 
-    printk(KMT_LOG, "SMP", "Hart %d failed to register in time, considered offline.", hart);
+    printk(KMT_LOG, "SMP", "Hart %d failed to register in time, considered offline.", (int)hart);
 
     return false;
 }
@@ -91,9 +92,16 @@ void arch_boot_aps() {
     printk(KMT_LOG, "SMP", "Starting non-BSP hardware threads...");
 
     int online = 0;
+    uint32_t next_cpu = 1;
 
-    for (int hart_id = 0; hart_id < 4; hart_id++) { // TODO: do not hardcode lol
-        online += smp_boot_ap(hart_id); // assuming 1 is true
+    for (long hart = 0; hart < CPU_ARCH_MAX_CPUS && next_cpu < CPU_ARCH_MAX_CPUS; hart++) {
+        sbicall_result_t status = sbicall(SBI_EID_HSM, SBI_HSM_HART_GET_STATUS, hart);
+
+        if (status.error != 0 || status.value != SBI_HSM_STATE_STOPPED)
+            continue;
+
+        online += smp_boot_ap(hart, next_cpu);
+        next_cpu++;
     }
 
     printk(KMT_LOG, "SMP", "Finished, %d harts are online.", online);

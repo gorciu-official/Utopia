@@ -15,6 +15,8 @@ void* phys_to_virt(uint64_t phys);
 uintptr_t hhdm_virt_to_phys(void* addr);
 uintptr_t kernel_virt_to_phys(void* addr);
 
+uintptr_t kernel_page_table_phys(void);
+
 void* page_alloc(uint64_t pages);
 uint64_t* pt_pool_alloc(void);
 

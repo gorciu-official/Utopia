@@ -138,7 +138,7 @@ SYSCALL_DEFINE_LINUX(writev) {
 }
 
 SYSCALL_DEFINE_LINUX(ioctl) {
-    (void)process; (void)thread;
+    (void)thread;
 
     if (regs->arg2 == TCSETS) {
         struct termios* tos = (struct termios*)regs->arg3;
@@ -146,6 +146,11 @@ SYSCALL_DEFINE_LINUX(ioctl) {
     } else if (regs->arg2 == TCGETS) {
         struct termios* tos = (struct termios*)regs->arg3;
         tos->c_lflag = 0;
+    } else if (regs->arg2 == TIOCGPGRP) {
+        int* pgrp = (int*)regs->arg3;
+        if (!pgrp || !process) return SCRC(-EFAULT);
+        *pgrp = (int)process->pid;
+    } else if (regs->arg2 == TIOCSPGRP) {
     } else if (regs->arg2 == TIOCGWINSZ) {
         struct winsize* winsize = (struct winsize*)regs->arg3;
         winsize->ws_col = framebuffer_get_height() / framebuffer_font_height();

@@ -29,16 +29,19 @@
 
 SYSCALL_DEFINE_LINUX(tgkill) {
     uint64_t tgid = regs->arg1;
-    uint64_t pid = regs->arg2;
+    uint64_t tid = regs->arg2;
     uint64_t signal = regs->arg3;
 
-    if (tgid != thread->id && pid != process->pid)
-        return SCRC(-ENOSYS);
+    if (tgid != process->pid || tid != thread->id)
+        return SCRC(-ESRCH);
+
+    if (signal == 0)
+        return SCRC(0);
 
     if (signal != SIGABRT)
         return SCRC(-ENOSYS);
 
-    printf("abort.");
+    printf("abort.\n");
     thread_exit_status(SIGABRT);
 
     return SCRC(0);
@@ -575,6 +578,62 @@ SYSCALL_DEFINE_LINUX(getrandom) {
     return SCRC(count); 
 }
 
+SYSCALL_DEFINE_LINUX(getpgid) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    uint64_t pid = regs->arg1;
+    return SCRC(pid == 0 ? process->pid : pid);
+}
+
+SYSCALL_DEFINE_LINUX(getpgrp) {
+    (void)thread; (void)regs;
+    if (!process) return SCRC(-EINVAL);
+    return SCRC(process->pid);
+}
+
+SYSCALL_DEFINE_LINUX(getsid) {
+    (void)thread; (void)regs;
+    if (!process) return SCRC(-EINVAL);
+    return SCRC(process->pid);
+}
+
+SYSCALL_DEFINE_LINUX(setpgid) {
+    (void)thread; (void)process; (void)regs;
+    return SCRC(0);
+}
+
+SYSCALL_DEFINE_LINUX(setsid) {
+    (void)thread; (void)regs;
+    if (!process) return SCRC(-EINVAL);
+    return SCRC(process->pid);
+}
+
+SYSCALL_DEFINE_LINUX(rt_sigprocmask) {
+    (void)process; (void)thread;
+
+    uint8_t* oldset = (uint8_t*)regs->arg3;
+    size_t size = (size_t)regs->arg4;
+
+    if (size > 128)
+        return SCRC(-EINVAL);
+    if (oldset)
+        memset(oldset, 0, size);
+
+    return SCRC(0);
+}
+
+SYSCALL_DEFINE_LINUX(rt_sigaction) {
+    (void)process; (void)thread;
+
+    uint8_t* oldact = (uint8_t*)regs->arg3;
+
+    if (oldact)
+        memset(oldact, 0, 24);
+
+    return SCRC(0);
+}
+
 extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
@@ -622,6 +681,11 @@ static const syscall_fn_t syscall_linux_table[] = {
     [61]  = syscall_linux_wait4,
     [63]  = syscall_linux_uname,
     [79]  = syscall_linux_getcwd,
+    [109] = syscall_linux_setpgid,
+    [111] = syscall_linux_getpgrp,
+    [112] = syscall_linux_setsid,
+    [121] = syscall_linux_getpgid,
+    [124] = syscall_linux_getsid,
     [102] = syscall_linux_stub_unimplemented, // that is indeed correct. let me explain.
                                               // this returns 0 and 0 means root
     [107] = syscall_linux_stub_unimplemented,
@@ -666,12 +730,23 @@ static const syscall_fn_t syscall_linux_table[] = {
     [64]  = syscall_linux_write,
     [66]  = syscall_linux_writev,
     [67]  = syscall_linux_pread64,
+    [72]  = syscall_linux_pselect6,
     [79]  = syscall_linux_newfstatat,
     [80]  = syscall_linux_fstat,
     [88]  = syscall_linux_stub_unimplemented,
     [93]  = syscall_linux_exit,
     [94]  = syscall_linux_exit,
+    [96]  = syscall_linux_set_tid_address,
+    [154] = syscall_linux_setpgid,
+    [155] = syscall_linux_getpgid,
+    [156] = syscall_linux_getsid,
+    [157] = syscall_linux_setsid,
+    [131] = syscall_linux_tgkill,
+    [134] = syscall_linux_rt_sigaction,
+    [135] = syscall_linux_rt_sigprocmask,
     [160] = syscall_linux_uname,
+    [172] = syscall_linux_getpid,
+    [178] = syscall_linux_gettid,
     [214] = syscall_linux_brk,
     [215] = syscall_linux_munmap,
     [220] = syscall_linux_clone,

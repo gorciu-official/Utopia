@@ -86,9 +86,9 @@ void process_terminate(process_t* proc) {
     if (proc->page_table) {
         if (page_table_l4) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-            write_cr3(hhdm_virt_to_phys(page_table_l4));
+            write_cr3(kernel_page_table_phys());
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-            uint64_t satp = (9ULL << 60) | (hhdm_virt_to_phys(page_table_l4) >> 12);
+            uint64_t satp = (9ULL << 60) | (kernel_page_table_phys() >> 12);
             __asm__ volatile("csrw satp, %0\nsfence.vma\n" :: "r"(satp) : "memory");
 #endif
         }

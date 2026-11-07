@@ -66,6 +66,14 @@ uintptr_t hhdm_virt_to_phys(void* addr) {
     return (uintptr_t)addr - 0xffff800000000000;
 }
 
+uintptr_t kernel_page_table_phys(void) {
+#if BOOTLOADER == BOOTLOADER_CODE_GRUB
+    return kernel_virt_to_phys(page_table_l4); // static array in the kernel image
+#else
+    return hhdm_virt_to_phys(page_table_l4);
+#endif
+}
+
 void* phys_to_virt(uint64_t phys) {
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
     return (void*)phys + 0xffff800000000000;

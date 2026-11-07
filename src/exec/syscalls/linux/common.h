@@ -25,6 +25,30 @@ struct pollfd {
     short revents;
 };
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+struct stat {
+    uint64_t st_dev;
+    uint64_t st_ino;
+    uint32_t st_mode;
+    uint32_t st_nlink;
+    uint32_t st_uid;
+    uint32_t st_gid;
+    uint64_t st_rdev;
+    uint64_t __pad1;
+    int64_t  st_size;
+    int32_t  st_blksize;
+    int32_t  __pad2;
+    int64_t  st_blocks;
+    uint64_t st_atime;
+    uint64_t st_atime_nsec;
+    uint64_t st_mtime;
+    uint64_t st_mtime_nsec;
+    uint64_t st_ctime;
+    uint64_t st_ctime_nsec;
+    uint32_t __unused4;
+    uint32_t __unused5;
+} __attribute__((packed));
+#else
 struct stat {
     uint64_t st_dev;
     uint64_t st_ino;
@@ -45,6 +69,7 @@ struct stat {
     uint64_t st_ctime_nsec;
     int64_t  __unused[3];
 }__attribute__((packed));
+#endif
 
 struct termios {
     uint32_t c_iflag;   
@@ -99,6 +124,7 @@ struct winsize {
 #define AT_SYMLINK_NOFOLLOW 0x100
 
 #define ENOENT       2
+#define ESRCH        3
 #define ECHILD       10
 #define ENOEXEC      8
 #define EBADF        9
@@ -127,6 +153,8 @@ struct winsize {
 #define TCSETS  0x5402
 #define TCSETSW 0x5403
 #define TCSETSF 0x5404
+#define TIOCGPGRP  0x540F
+#define TIOCSPGRP  0x5410
 #define TIOCGWINSZ 0x5413
 
 #define TERMIOS_ECHO	0000010

@@ -6,6 +6,7 @@
 
 .equ CPU_ID,           0
 .equ CPU_KERNEL_STACK, 8
+.equ CPU_SCRATCH_SP,   16
 
 .equ TF_ZERO,          0
 .equ TF_RA,            8
@@ -54,44 +55,38 @@
 
 
 arch_interrupt_handler_asm:
-    mv      t0, sp
-
-    csrr    t1, sstatus
-    andi    t1, t1, 0x100
-    bnez    t1, .from_kernel
-
-.from_user:
     csrrw   tp, sscratch, tp
-    ld      sp, CPU_KERNEL_STACK(tp)
-    j       .trap_stack_ready
+    bnez    tp, .from_user
 
 .from_kernel:
-    mv      sp, t0
+    csrrw   tp, sscratch, tp
 
+    addi    sp, sp, -TF_SIZE
+    sd      t0, TF_T0(sp)
+    addi    t0, sp, TF_SIZE
+    sd      t0, TF_USER_SP(sp)
+    sd      tp, TF_TP(sp)
+    j       .trap_save
 
-.trap_stack_ready:
+.from_user:
+    sd      sp, CPU_SCRATCH_SP(tp)
+    ld      sp, CPU_KERNEL_STACK(tp)
     addi    sp, sp, -TF_SIZE
 
-    sd      zero, TF_ZERO(sp)
-    sd      ra,   TF_RA(sp)
+    sd      t0, TF_T0(sp)
+    ld      t0, CPU_SCRATCH_SP(tp)
+    sd      t0, TF_USER_SP(sp)
 
-    sd      t0,   TF_USER_SP(sp)
-
-    sd      gp,   TF_GP(sp)
-
-    csrr    t0, sscratch
-    bnez    t0, .save_user_tp
-
-    sd      tp, TF_TP(sp)
-    j       .tp_saved
-
-.save_user_tp:
+    csrrw   t0, sscratch, zero
     sd      t0, TF_TP(sp)
 
-.tp_saved:
-    sd      t0, TF_T0(sp)
-    sd      t1, TF_T1(sp)
-    sd      t2, TF_T2(sp)
+.trap_save:
+    sd      zero, TF_ZERO(sp)
+    sd      ra,   TF_RA(sp)
+    sd      gp,   TF_GP(sp)
+
+    sd      t1,   TF_T1(sp)
+    sd      t2,   TF_T2(sp)
 
     sd      s0, TF_S0(sp)
     sd      s1, TF_S1(sp)
@@ -121,7 +116,7 @@ arch_interrupt_handler_asm:
     sd      t5, TF_T5(sp)
     sd      t6, TF_T6(sp)
 
-csrr    t0, scause
+    csrr    t0, scause
     sd      t0, TF_SCAUSE(sp)
 
     csrr    t0, stval
@@ -144,6 +139,17 @@ csrr    t0, scause
     ld      t0, TF_SSTATUS(sp)
     csrw    sstatus, t0
 
+    andi    t0, t0, 0x100
+    bnez    t0, .return_to_kernel
+
+.return_to_user:
+    csrw    sscratch, tp
+    ld      tp, TF_TP(sp)
+    j       .restore_gprs
+
+.return_to_kernel:
+
+.restore_gprs:
     ld      ra,   TF_RA(sp)
     ld      gp,   TF_GP(sp)
 
@@ -179,22 +185,6 @@ csrr    t0, scause
     ld      t5,   TF_T5(sp)
     ld      t6,   TF_T6(sp)
 
-    ld      t0, TF_SSTATUS(sp)
-    andi    t0, t0, 0x100
-    bnez    t0, .return_to_kernel
-
-
-.return_to_user:
-    csrrw   tp, sscratch, tp
-
-    j       .restore_sp
-
-
-.return_to_kernel:
-    # nothing to do
-    # i might actually consider removing this label
-
-.restore_sp:
     ld      sp, TF_USER_SP(sp)
 
     sret

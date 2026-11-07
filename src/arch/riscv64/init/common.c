@@ -12,7 +12,8 @@ void arch_early_init() {
     cpu_t* cpu = &cpus[0];
 
     cpu->id = 0;
-    cpu->kernel_stack_top = (uintptr_t)&kernel_stacks[0][sizeof(kernel_stacks[0])];
+    cpu->default_stack_top = (uintptr_t)&kernel_stacks[0][sizeof(kernel_stacks[0])];
+    cpu->kernel_stack_top = cpu->default_stack_top;
 
     asm volatile(
         "mv tp, %0"
@@ -36,8 +37,13 @@ void arch_late_init() {
 }
 
 void arch_set_kernel_stack(uint32_t cpu_id, uintptr_t stack_top) {
-    // TODO: RISC-V traps still use the per-hart stack
-    (void)cpu_id; (void)stack_top;
+    if (cpu_id >= CPU_ARCH_MAX_CPUS)
+        return;
+
+    if (!stack_top)
+        stack_top = cpus[cpu_id].default_stack_top;
+
+    cpus[cpu_id].kernel_stack_top = stack_top;
 }
 
 void arch_ap_init() {

@@ -5,6 +5,8 @@
 
 #define CPU_ARCH_MAX_CPUS 256
 
+#define RISCV64_SSTATUS_SIE 2
+
 extern void arch_early_init(void);
 extern void arch_general_init(void);
 extern void arch_late_init(void);
@@ -13,8 +15,10 @@ extern void arch_boot_aps(void);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
 typedef struct {
-    uint64_t id;
-    uint64_t kernel_stack_top;
+    uint64_t id;  
+    uint64_t kernel_stack_top;   
+    uint64_t scratch_sp;
+    uint64_t default_stack_top;  
 } cpu_t;
 #endif
 
@@ -59,6 +63,8 @@ static inline void arch_wfi() {
 static inline void arch_cli() {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     __asm__ volatile("cli" ::: "memory");
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    __asm__ volatile("csrci sstatus, %0" :: "i"(RISCV64_SSTATUS_SIE) : "memory");
 #endif
 }
 
@@ -85,15 +91,20 @@ static inline void write_cr3(uint64_t val) {
     __asm__ volatile("wfi" ::: "memory")
 #endif
 
-// TODO: add irq lock for riscv64
 static inline uint64_t arch_save_interrupts(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     uint64_t flags;
     __asm__ volatile("pushfq; pop %0" : "=r"(flags) :: "memory");
     __asm__ volatile("cli" ::: "memory");
     return flags;
-#endif
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    uint64_t flags;
+    __asm__ volatile("csrrci %0, sstatus, %1"
+        : "=r"(flags) : "i"(RISCV64_SSTATUS_SIE) : "memory");
+    return flags;
+#else
     return 0;
+#endif
 }
 
 static inline void arch_restore_interrupts(uint64_t flags) {
@@ -101,6 +112,10 @@ static inline void arch_restore_interrupts(uint64_t flags) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     if (flags & (1 << 9)) {
         __asm__ volatile("sti" ::: "memory");
+    }
+#elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
+    if (flags & RISCV64_SSTATUS_SIE) {
+        __asm__ volatile("csrsi sstatus, %0" :: "i"(RISCV64_SSTATUS_SIE) : "memory");
     }
 #endif
 }
