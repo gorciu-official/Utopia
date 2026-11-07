@@ -8,6 +8,7 @@
 #include <panic.h>
 
 extern registers_t* lapic_timer_handler(registers_t* regs);
+extern void arch_com1_handler();
 
 registers_t* isr_handler(registers_t* regs) {
     // -- panic killer 
@@ -60,6 +61,8 @@ registers_t* isr_handler(registers_t* regs) {
 #ifdef CONFIG_IO_PS2_KEYBOARD_SUPPORT
         ps2_interrupt_handler();
 #endif
+    } else if (regs->int_no == 36) {
+        arch_com1_handler();
     } else if (regs->int_no == 0x40) {
         regs = lapic_timer_handler(regs);
     } else if (regs->int_no == 0x41) {

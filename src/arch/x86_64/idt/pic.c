@@ -40,9 +40,10 @@ void pic_remap(int offset1, int offset2) {
     arch_outb(PIC1_DATA, a1);
     arch_outb(PIC2_DATA, a2);
 
-    // Unmask: IRQ 0 and IRQ 1
+    // Unmask: IRQs 0, 1, 4
     arch_outb(PIC1_DATA, arch_inb(PIC1_DATA) & ~(1 << 0));
     arch_outb(PIC1_DATA, arch_inb(PIC1_DATA) & ~(1 << 1));
+    arch_outb(PIC1_DATA, arch_inb(PIC1_DATA) & ~(1 << 4));
 }
 
 void pic_send_eoi(uint32_t vector) {

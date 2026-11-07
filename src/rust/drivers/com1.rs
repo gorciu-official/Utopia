@@ -2,7 +2,9 @@
 
 const COM1: u16 = 0x3F8;
 
-use crate::arch::pmio::{arch_inb, arch_outb};
+use core::ffi::c_char;
+
+use crate::{arch::pmio::{arch_inb, arch_outb}, krnl::ffi::{KeyboardKeyPress, KeyboardKeyPressKind, keyboard_handle_keypress}};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn arch_init_serial() -> i32 {
@@ -22,10 +24,33 @@ pub extern "C" fn arch_init_serial() -> i32 {
             return 1;
         }
 
-        arch_outb(COM1 + 4, 0x0F);
+        arch_outb(COM1 + 1, 0x01);
+        arch_outb(COM1 + 4, 0x0B);
     }
 
     0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn arch_com1_handler() {
+    unsafe {
+        let iir = arch_inb(COM1 + 2);
+
+        if iir & 1 == 0 {
+            let lsr = arch_inb(COM1 + 5);
+
+            if lsr & 1 != 0 {
+                let character = arch_inb(COM1);
+                let keypress = KeyboardKeyPress {
+                    kind: KeyboardKeyPressKind::Char,
+                    char: character as c_char 
+                };
+                keyboard_handle_keypress(keypress);
+            }
+        }
+
+        arch_outb(0x20, 0x20);
+    }
 }
 
 #[unsafe(no_mangle)]

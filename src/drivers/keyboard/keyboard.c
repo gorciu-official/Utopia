@@ -52,6 +52,9 @@ void keyboard_handle_keypress(keyboard_pressed_key_t key) {
     if unlikely (key.character == 0)
         return;
 
+    if unlikely (key.character == '\r')
+        key.character = '\n';
+
     if (keyboard_should_putchar)
         framebuffer_putchar(key.character, 0xFFFFFF, 0x000000);
 
