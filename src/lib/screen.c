@@ -291,6 +291,8 @@ void printk_suspend_console() {
 }
 
 void printk_remove_console_suspension() {
+    bool was_suspended = console_suspended;
     console_suspended = false;
-    printk(KMT_LOG, "Framebuffer", "Ensuring kernel console output is not suspended");
+    if (was_suspended)
+        printk(KMT_LOG, "Framebuffer", "Ensuring kernel console output is not suspended");
 }
