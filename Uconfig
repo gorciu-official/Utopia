@@ -33,6 +33,13 @@ opt CONFIG_IO_PS2_KEYBOARD_SUPPORT(bool) {
     within: CONFIG_IO
 }
 
+// ----- pci
+
+opt CONFIG_PCI(bool) {
+    display: "Scan PCI devices"
+    default: true
+}
+
 // ----- smp
 
 opt CONFIG_SMP(bool) {
