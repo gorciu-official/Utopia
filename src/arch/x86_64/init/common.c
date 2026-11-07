@@ -38,9 +38,9 @@ void arch_late_init() {
 
 void arch_general_init() {
     acpi_init();
-    #ifdef CONFIG_PCI_ENABLE 
+#ifdef CONFIG_PCI
     pci_log();
-    #endif
+#endif
 }
 
 uint64_t arch_get_ns_time() {
