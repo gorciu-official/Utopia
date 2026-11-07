@@ -174,10 +174,10 @@ pub fn export_rustflags(namespace: &Namespace) -> String {
             continue;
         }
         let line = match option.current.to_basic() {
-            BasicValue::Bool(true) => format!("--cfg={}\n", option.name),
+            BasicValue::Bool(true) => format!("--cfg={} ", option.name),
             BasicValue::Bool(false) => continue,
-            BasicValue::Int(value) => format!("--cfg={}=\"{}\"\n", option.name, value),
-            BasicValue::String(value) => format!("--cfg={}=\"{}\"\n", option.name, escape_c(&value)),
+            BasicValue::Int(value) => format!("--cfg={}=\"{}\" ", option.name, value),
+            BasicValue::String(value) => format!("--cfg={}=\"{}\" ", option.name, escape_c(&value)),
         };
         output.push_str(&line);
     }

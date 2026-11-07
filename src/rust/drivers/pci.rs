@@ -1,4 +1,5 @@
 #![cfg(target_arch = "x86_64")]
+#![cfg(CONFIG_PCI_ENABLE)]
 
 // Based of https://osdev.wiki/wiki/PCI
 // THIS IS NOT A COMPLETE PCI DRIVER IT ONLY SCANS FOR PCI DEVICES AND PRINTS THEM OUT AS LOGS

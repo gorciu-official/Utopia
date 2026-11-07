@@ -12,6 +12,7 @@ QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m 1G
 SMP_ENABLED    ?= true
 USE_HOST_CPU   ?= true
 SMP_CORES      ?= 4
+DISPLAY        ?= true
 
 ifeq ($(SMP_ENABLED),true)
     QEMU_FLAGS += -smp $(SMP_CORES)
@@ -27,6 +28,10 @@ ifeq ($(ARCH),riscv64)
     QEMU_FLAGS += -machine virt -device ramfb
     QEMU_FLAGS += -drive if=pflash,format=raw,unit=0,file=target/third-party.riscv64.edk2/RISCV_VIRT_CODE.fd,readonly=on
     QEMU_FLAGS += -drive if=pflash,format=raw,unit=1,file=target/third-party.riscv64.edk2/RISCV_VIRT_VARS.fd 
+endif
+
+ifeq ($(DISPLAY), false)
+    QEMU_FLAGS += -display none
 endif
 
 # additional qemu flags provided by the user
