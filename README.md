@@ -8,11 +8,12 @@ Utopia is a (probably good) 64-bit operating system kernel.
     </a>
 </div>
 
-## Features
+## Notable features
 
 - runs quite well single-threaded Linux userspace static/dynamic executables
-- has SMP 
-- kinda modular: supports multiple boot protocols (Multiboot1, Limine) and multiple CPU architectures (x86_64, RISC-V 64)
+- has SMP (and utilizes that)
+- supports running more than one process
+- kinda modular: supports multiple boot protocols (Multiboot1, Limine), multiple syscall ABIs and multiple CPU architectures (x86_64, RISC-V 64) 
 
 That's it lol. Please note that this is an hobby operating system kernel and probably shouldn't be used for anything other than testing purposes, it also lacks a lot of features.
 
