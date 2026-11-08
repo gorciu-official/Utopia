@@ -260,9 +260,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
         type == KMT_LOG         ? "\x1b[36mLOG" :
         type == KMT_ERROR       ? "\x1b[31mERR" :
         type == KMT_DEBUG       ? "\x1b[90mDBG" :
-    #if UTOPIA_DEBUG == 1
         type == KMT_EXTRA_DEBUG ? "\x1b[90mEBG" :
-    #endif
                                   "\x1b[97mUNK";
     
     printf(

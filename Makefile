@@ -9,8 +9,6 @@ ROOT_DIR  := .
 ARCH                    ?= x86_64
 SUPPORTED_ARCHITECTURES := x86_64 riscv64
 
-DEBUG                   ?= false
-
 ifeq ($(filter $(ARCH),$(SUPPORTED_ARCHITECTURES)),)
     $(error Unsupported ARCH='$(ARCH)'. Supported values: $(SUPPORTED_ARCHITECTURES))
 endif
@@ -25,11 +23,7 @@ include tools/make/bootloaders.mk
 
 # binary dirs
 
-ifeq ($(DEBUG),true)
-    TARGET_DIR     := $(ROOT_DIR)/target/kernel.debug.$(ARCH).$(BOOTLOADER)
-else
-    TARGET_DIR     := $(ROOT_DIR)/target/kernel.release.$(ARCH).$(BOOTLOADER)
-endif
+TARGET_DIR     := $(ROOT_DIR)/target/kernel.$(ARCH).$(BOOTLOADER)
 
 OBJ_DIR        := $(TARGET_DIR)/obj
 ISO_DIR        := $(TARGET_DIR)/iso

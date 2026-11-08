@@ -15,10 +15,23 @@ opt CONFIG_SYSCALL_ABI_LINUX(bool) {
     within: CONFIG_SYSCALLS
 }
 
+// ----- devices
+
+opt CONFIG_DEVICES(null) -> menu {
+    display: "Devices"
+}
+
 // ----- io
 
 opt CONFIG_IO(null) -> menu {
     display: "I/O devices"
+    within: CONFIG_DEVICES
+}
+
+opt CONFIG_IO_PRINT_EXTRA_DEBUG_MESSAGES(bool) {
+    display: "Print messages in extra debugging level"
+    default: false
+    within: CONFIG_IO
 }
 
 opt CONFIG_IO_SCREEN_SERIAL_MIRRRORING(bool) {
@@ -38,6 +51,7 @@ opt CONFIG_IO_PS2_KEYBOARD_SUPPORT(bool) {
 opt CONFIG_PCI(bool) {
     display: "Scan PCI devices"
     default: true
+    within: CONFIG_DEVICES
 }
 
 // ----- smp

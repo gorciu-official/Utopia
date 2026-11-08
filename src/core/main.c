@@ -114,7 +114,7 @@ void kmain(common_boot_structure_t* cbs) {
     }
 
     // suspend console output 
-#if UTOPIA_DEBUG == 0
+#ifndef CONFIG_IO_PRINT_EXTRA_DEBUG_MESSAGES
         printk_suspend_console();
 #endif
 

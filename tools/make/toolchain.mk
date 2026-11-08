@@ -37,10 +37,6 @@ ifeq ($(ARCH),riscv64)
     LDFLAGS += -m elf64lriscv 
 endif
 
-ifeq ($(DEBUG),true) 
-    CFLAGS += -g -DUTOPIA_DEBUG=1
-endif
-
 C_TARGET ?=
 
 ifneq ($(C_TARGET),)
