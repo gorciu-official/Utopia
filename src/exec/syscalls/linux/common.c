@@ -2,7 +2,7 @@
 #include <config.h>
 
 #include <drivers/framebuffer.h>
-#include <drivers/filesystem.h>
+#include <fs/filesystem.h>
 
 #include <exec/process.h>
 #include <exec/scheduler.h>
@@ -12,8 +12,9 @@
 #include <lib/string.h>
 #include <lib/extensions.h>
 
-#include <panic.h>
-#include <memory.h>
+#include <kernel/panic.h>
+
+#include <mm/vmm.h>
 #include <arch/memory.h>
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX

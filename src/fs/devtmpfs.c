@@ -1,5 +1,5 @@
-#include <drivers/filesystem.h>
-#include <memory.h>
+#include <fs/filesystem.h>
+#include <mm/pmm.h>
 
 typedef struct {
     vnode_t vnode;

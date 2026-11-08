@@ -1,7 +1,7 @@
 #include <boot/limine.h>
 #include <drivers/framebuffer.h>
 #include <lib/screen.h>
-#include <memory.h>
+#include <mm/pmm.h>
 #include <lib/string.h>
 #include <arch/common.h>
 
@@ -16,7 +16,6 @@
 #define FONT_WIDTH 8
 
 static psf1_header_t* current_font = NULL;
-static uintptr_t current_font_size = 0;
 
 static uint32_t* fb_addr = NULL;
 static uint32_t* backbuffer = NULL;
@@ -40,7 +39,6 @@ uint32_t framebuffer_font_height(void) {
 void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
     if (font == NULL) {
         current_font = NULL;
-        current_font_size = 0;
 
         if (cursor_y >= fb_height)
             cursor_y = 0;
@@ -70,7 +68,6 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
         return;
 
     current_font = font;
-    current_font_size = size;
 
     if (cursor_x >= fb_width)
         cursor_x = 0;

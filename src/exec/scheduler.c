@@ -2,11 +2,12 @@
 #include <arch/common.h>
 #include <exec/scheduler.h>
 #include <exec/process.h>
-#include <memory.h>
+#include <mm/vmm.h>
+#include <mm/pmm.h>
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <lib/spinlock.h>
-#include <panic.h>
+#include <kernel/panic.h>
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/msr.h>
 #endif

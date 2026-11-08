@@ -1,6 +1,6 @@
 use core::{ffi::c_char, panic::PanicInfo, ptr};
 
-use crate::krnl::ffi::panic;
+use crate::kernel::ffi::panic;
 
 #[panic_handler]
 fn rust_panic(info: &PanicInfo) -> ! {

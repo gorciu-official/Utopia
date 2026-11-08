@@ -3,7 +3,8 @@
 #include <constants.h>
 #include <lib/screen.h>
 #include <arch/x86_64/common.h>
-#include <memory.h>
+#include <mm/vmm.h>
+#include <mm/pmm.h>
 #include <config.h>
 
 #ifdef CONFIG_SMP

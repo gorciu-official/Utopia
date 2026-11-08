@@ -4,8 +4,7 @@
 #include <arch/common.h>
 #include <lib/screen.h>
 #include <lib/extensions.h>
-#include <drivers/filesystem.h>
-#include <memory.h>
+#include <fs/filesystem.h>
 
 #include "common.h"
 

@@ -2,7 +2,7 @@
 
 #include <types.h>
 #include <exec/scheduler.h>
-#include <memory.h>
+#include <mm/vmm.h>
 
 #define MAX_PROCESSES 256
 #define MAX_FILES_PER_PROCESS 32

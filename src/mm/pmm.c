@@ -1,9 +1,10 @@
 #include <types.h>
 #include <constants.h>
-#include <memory.h>
-#include <panic.h>
+#include <mm/pmm.h>
+#include <mm/vmm.h>
 #include <lib/screen.h>
 #include <lib/spinlock.h>
+#include <lib/bug.h>
 #include <arch/common.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
@@ -355,7 +356,7 @@ int memory_reserve_range(uint64_t reserve_start, uint64_t reserve_end) {
 
 void* malloc(size_t size) {
     if (!pmm_initialized)
-        panic("Too early use of malloc()", NULL);
+        BUG("Too early use of malloc()");
 
     if (size == 0) return NULL;
 

@@ -1,7 +1,7 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_void;
 
-use crate::krnl::ffi::{free, malloc};
+use crate::kernel::ffi::{free, malloc};
 
 struct KernelAllocator;
 

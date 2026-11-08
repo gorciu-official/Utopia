@@ -2,7 +2,7 @@
 #include <types.h>
 #include <exec/scheduler.h>
 #include <lib/screen.h>
-#include <memory.h>
+#include <mm/pmm.h>
 
 extern uint64_t tsc_get_ns_time();
 extern bool has_invariant_tsc();

@@ -5,7 +5,7 @@
 // THIS IS NOT A COMPLETE PCI DRIVER IT ONLY SCANS FOR PCI DEVICES AND PRINTS THEM OUT AS LOGS
 
 use crate::arch::pmio::{arch_inl, arch_outl};
-use crate::krnl::ffi::{KernelMessageType::Log, printk};
+use crate::kernel::ffi::{KernelMessageType::Log, printk};
 use alloc::vec::Vec;
 
 const PCI_CONFIG_ADDRESS: u16 = 0xCF8;

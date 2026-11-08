@@ -2,7 +2,7 @@
 
 #include <types.h>
 
-#include <memory.h>
+#include <mm/pmm.h>
 
 #define likely_common(expr, expected)               \
     (                                               \

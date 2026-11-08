@@ -1,7 +1,7 @@
 #include <config.h>
 #include <constants.h>
 
-#include <drivers/filesystem.h>
+#include <fs/filesystem.h>
 #include <drivers/keyboard.h>
 #include <drivers/framebuffer.h>
 

@@ -1,8 +1,8 @@
 #include <exec/scheduler.h>
 #include <exec/process.h>
 #include <exec/loaders/elf.h>
-#include <panic.h>
-#include <memory.h>
+#include <mm/vmm.h>
+#include <mm/pmm.h>
 #include <arch/memory.h>
 #include <arch/common.h>
 #include <lib/screen.h>

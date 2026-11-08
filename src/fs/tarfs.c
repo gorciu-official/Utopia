@@ -1,7 +1,7 @@
 #include <types.h>
 #include <lib/string.h>
-#include <drivers/filesystem.h>
-#include <memory.h>
+#include <fs/filesystem.h>
+#include <mm/pmm.h>
 #include <lib/screen.h>
 
 #define TARFS_MAX_SYMLINK_DEPTH 8

@@ -1,6 +1,6 @@
 #include <types.h>
 #include <constants.h>
-#include <memory.h>
+#include <mm/pmm.h>
 #include <lib/string.h>
 #include <boot/common.h>
 #include <boot/limine.h>

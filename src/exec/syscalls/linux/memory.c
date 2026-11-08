@@ -1,8 +1,11 @@
 #include <config.h>
 
-#include <drivers/filesystem.h>
+#include <fs/filesystem.h>
 
 #include <lib/screen.h>
+
+#include <mm/pmm.h>
+#include <mm/vmm.h>
 
 #include "../common.h"
 #include "common.h"

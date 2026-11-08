@@ -1,5 +1,6 @@
 -Wall 
 -Wextra
+-Werror
 -Wimplicit-fallthrough
 -Wno-address
 

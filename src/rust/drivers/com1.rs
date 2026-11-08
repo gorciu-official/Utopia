@@ -4,7 +4,7 @@ const COM1: u16 = 0x3F8;
 
 use core::ffi::c_char;
 
-use crate::{arch::pmio::{arch_inb, arch_outb}, krnl::ffi::{KeyboardKeyPress, KeyboardKeyPressKind, keyboard_handle_keypress}};
+use crate::{arch::pmio::{arch_inb, arch_outb}, kernel::ffi::{KeyboardKeyPress, KeyboardKeyPressKind, keyboard_handle_keypress}};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn arch_init_serial() -> i32 {

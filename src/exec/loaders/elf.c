@@ -1,15 +1,15 @@
 #include <types.h>
 #include <constants.h>
-#include <memory.h>
+#include <mm/vmm.h>
+#include <mm/pmm.h>
 #include <arch/common.h>
 #include <exec/process.h>
 #include <exec/loaders/elf.h>
 #include <exec/scheduler.h>
 #include <lib/screen.h>
-#include <drivers/filesystem.h>
+#include <fs/filesystem.h>
 #include <lib/string.h>
 
-#include "arch/memory.h"
 #include "elf_constants.h"
 #include "elf_structs.h"
 
@@ -24,7 +24,8 @@
 //
 //   - claude fixing my code lol (tho i need to refactor
 //     some of its fixes) (also provided minimal elf
-//     used in main.c)
+//     used in main.c (lol so fucking old comment, now
+//     we can run GNU bash from initramfs))
 
 static uint64_t page_flags_for(uint32_t p_flags) {
     uint64_t flags = 0;

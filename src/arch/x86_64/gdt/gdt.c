@@ -3,7 +3,7 @@
 #include <lib/spinlock.h>
 #include <lib/string.h>
 #include <types.h>
-#include <memory.h>
+#include <mm/pmm.h>
 #include <lib/screen.h>
 
 #define MAX_CPUS          CPU_ARCH_MAX_CPUS

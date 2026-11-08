@@ -5,7 +5,7 @@
 #include <lib/screen.h>
 #include <arch/x86_64/pmio.h>
 #include <exec/scheduler.h>
-#include <panic.h>
+#include <kernel/panic.h>
 
 extern registers_t* lapic_timer_handler(registers_t* regs);
 extern void arch_com1_handler();

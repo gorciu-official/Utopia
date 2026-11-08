@@ -1,10 +1,10 @@
 #include <types.h>
 #include <config.h>
-#include <memory.h>
+#include <mm/pmm.h>
 
 #include <exec/loaders/elf.h>
 
-#include <drivers/filesystem.h>
+#include <fs/filesystem.h>
 
 #include <lib/string.h>
 

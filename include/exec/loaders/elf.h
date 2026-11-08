@@ -1,7 +1,7 @@
 #pragma once
 
 #include <types.h>
-#include <memory.h>
+#include <mm/vmm.h>
 #include <exec/scheduler.h>
 
 typedef struct {

@@ -8,16 +8,16 @@
 #include <arch/common.h>
 #include <boot/common.h>
 
-#include <memory.h>
+#include <mm/pmm.h>
 
 #include <drivers/framebuffer.h>
-#include <drivers/filesystem.h>
+#include <fs/filesystem.h>
 
 #include <exec/scheduler.h>
 #include <exec/process.h>
 #include <exec/loaders/elf.h>
 
-#include <panic.h>
+#include <kernel/panic.h>
 
 void kmain(common_boot_structure_t* cbs) {
     framebuffer_init(
@@ -33,7 +33,7 @@ void kmain(common_boot_structure_t* cbs) {
     printk(KMT_LOG, "Core", "-----");
 
     printk(KMT_LOG, "Core", "Kernel command line: %s", cbs->cmdline ?: "(none)");
-
+   
     if (cbs->modules.font_addr != NULL) {
         framebuffer_switch_font((psf1_header_t*)cbs->modules.font_addr, cbs->modules.font_size);
     }

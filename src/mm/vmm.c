@@ -1,7 +1,8 @@
 #include <types.h>
 #include <constants.h>
 #include <lib/screen.h>
-#include <memory.h>
+#include <mm/vmm.h>
+#include <mm/pmm.h>
 #include <arch/memory.h>
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE

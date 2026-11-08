@@ -1,7 +1,8 @@
 #include <lib/spinlock.h>
+#include <lib/extensions.h>
 #include <lib/screen.h>
 #include <drivers/framebuffer.h>
-#include <arguments.h>
+#include <lib/arguments.h>
 #include <lib/numbers.h>
 #include <arch/common.h>
 
@@ -220,7 +221,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
     // that should be pretty safe because
     // the first log comes from bootstrap processor
     // and there is no need to use locks anyways
-    if (!spinlock_initialized) {
+    if unlikely (!spinlock_initialized) {
         spinlock_init(&fb_spinlock);
         spinlock_initialized = true;
     }

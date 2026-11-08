@@ -3,7 +3,6 @@
 #include <constants.h>
 #include <arch/common.h>
 
-static uint32_t invoker = 0;
 extern bool context_switch_lock;
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
@@ -140,7 +139,6 @@ void panic(const char* reason, registers_t* regs) {
         printk(KMT_ERROR, "Core", "  - No register dump available, panic not invoked via hardware interrupt.");
     }
     
-    invoker = current_processor_id();
     panicked = true; 
    
     printk(KMT_ERROR, "Core", "  - You can try to file a bug report: https://github.com/gorciu-official/Utopia/issues/new");

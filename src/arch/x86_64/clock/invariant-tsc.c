@@ -1,7 +1,6 @@
 #include <types.h>
 #include <arch/x86_64/common.h>
 #include <lib/screen.h>
-#include <panic.h>
 
 bool has_invariant_tsc() {
     unsigned int eax, ebx, ecx, edx;
