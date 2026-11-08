@@ -1,7 +1,7 @@
 #include <types.h>
 #include <arch/common.h>
 #include <lib/screen.h>
-#include <memory.h>
+#include <mm/pmm.h>
 #include <config.h>
 
 #ifdef CONFIG_SMP

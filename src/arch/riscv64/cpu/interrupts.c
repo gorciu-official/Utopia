@@ -1,7 +1,7 @@
 #include <lib/screen.h>
 #include <arch/common.h>
 #include <types.h>
-#include <panic.h>
+#include <kernel/panic.h>
 #include <exec/scheduler.h>
 
 #define csrw(csr, val) \
