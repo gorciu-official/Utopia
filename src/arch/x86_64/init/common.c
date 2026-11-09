@@ -6,7 +6,7 @@
 #include <arch/x86_64/timer.h>
 
 void arch_early_init() {
-    enable_sse();
+    enable_simd_extensions();
     gdt_init();
     pic_remap(0x20, 0x28);
     idt_init();
@@ -24,7 +24,7 @@ void arch_boot_aps() {
 #endif
 
 void arch_ap_init() {
-    enable_sse();
+    enable_simd_extensions();
     idt_init();
     gdt_init();
     timer_init(100);
