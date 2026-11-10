@@ -62,17 +62,17 @@ bootmodules:
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c include/config.h
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@$(CC) -O0 -g $(CFLAGS) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
+	@$(CC) $(CFLAGS) -DBOOTLOADER=$(BOOTLOADER_VAL) -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm include/config.h
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@$(AS) $(ASFLAGS) -g $< -o $@
+	@$(AS) $(ASFLAGS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S include/config.h
 	@mkdir -p $(dir $@)
 	@echo -e "\033[1;36m[*]\033[0m $< -> $@"
-	@$(AS) $(ASFLAGS) -g $< -o $@
+	@$(AS) $(ASFLAGS) $< -o $@
 
 $(RUST_ARCHIVE): $(SRC_DIR)/rust/Cargo.toml $(SRC_DIR)/rust/Cargo.lock $(RUST_SOURCES)
 	@echo -e "\033[1;36m[*]\033[0m Building Rust static library for $(RUST_TARGET)"

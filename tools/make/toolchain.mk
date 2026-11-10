@@ -21,10 +21,11 @@ ifeq ($(ARCH),x86_64)
 endif
 
 CFLAGS         ?= 
-CFLAGS         += $(shell tr '\n' ' ' < tools/compile_flags.txt) -DUTOPIA_COMMIT=\"$(shell git rev-parse --short HEAD)\"
+CFLAGS         += $(shell tr '\n' ' ' < tools/compile_flags.txt) -g -DUTOPIA_COMMIT=\"$(shell git rev-parse --short HEAD)\"
 RUSTFLAGS      ?=
 RUSTFLAGS      += $(shell cat $(TARGET_DIR)/../rust-flags.txt) $(C_RS_FLAGS)
-ASFLAGS        :=
+ASFLAGS        ?=
+ASFLAGS        += -g
 LDFLAGS        := -T $(LINKER_SCRIPT)
 
 LTO            ?=
