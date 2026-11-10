@@ -60,7 +60,9 @@ ifeq ($(ARCH),riscv64)
     LDFLAGS += -m elf64lriscv 
 endif
 
-C_TARGET ?=
+ifeq ($(ARCH),riscv64)
+    C_TARGET ?= riscv64-unknown-elf
+endif
 
 ifneq ($(C_TARGET),)
 CFLAGS += --target=$(C_TARGET)
