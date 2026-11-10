@@ -3,6 +3,7 @@
 #include <constants.h>
 
 #include <lib/screen.h>
+#include <lib/string.h>
 #include <lib/extensions.h>
 
 #include <arch/common.h>
@@ -18,6 +19,7 @@
 #include <exec/loaders/elf.h>
 
 #include <kernel/panic.h>
+#include <kernel/cmdline.h>
 
 void kmain(common_boot_structure_t* cbs) {
     framebuffer_init(
@@ -61,6 +63,26 @@ void kmain(common_boot_structure_t* cbs) {
     framebuffer_enable_backbuffer();
     arch_general_init();
 
+    // cmdline 
+    cmdline_t* cmdline = NULL;
+    const char* custom_init_path = NULL;
+    int init_abi_type = 0; // 0 means by default native ABI 
+    int res = cmdline_parse(cbs->cmdline, &cmdline);
+    if (res != 0 && res != CMDLINE_ERR_NULL_POINTER) {
+        printk(KMT_ERROR, "Core", "Error %d while parsing command line!", res);
+    } else {
+        custom_init_path = cmdline_get(cmdline, "init");
+        
+        const char* init_abi_type_str = cmdline_get(cmdline, "init-abi");
+        if (init_abi_type_str != NULL) {
+            if (strcmp(init_abi_type_str, "linux") == 0) {
+                init_abi_type = 1;
+            } else {
+                printk(KMT_ERROR, "Core", "While parsing command line: unknown init ABI type: %s", init_abi_type_str);
+            }
+        }
+    }
+
     // scheduler init
     scheduler_init();
     process_init();
@@ -93,7 +115,7 @@ void kmain(common_boot_structure_t* cbs) {
     printk(KMT_LOG, "Core", "Starting init process");
 
     vnode_t* init_file = 0;
-    vfs_lookup("/init", &init_file);
+    vfs_lookup(custom_init_path ?: "/init", &init_file);
     if likely (init_file) {
         uint64_t size = init_file->size;
         autofree void* buffer = malloc(size);
@@ -104,7 +126,8 @@ void kmain(common_boot_structure_t* cbs) {
                 .image = {
                     .data = buffer,
                     .size = size
-                }
+                },
+                .syscall_conv = init_abi_type
             });
             if (response != 0)
                 panic("Failed to load init file", NULL);
