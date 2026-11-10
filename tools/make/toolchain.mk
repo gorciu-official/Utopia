@@ -1,13 +1,12 @@
-CROSS_COMPILE  ?= 
-CC             := $(CROSS_COMPILE)gcc 
-LD             := $(CROSS_COMPILE)ld
+CC             := clang
+LD             := ld.lld
 RUSTC          ?= rustc
 
 ifeq ($(ARCH),x86_64)
     AS := nasm
     RUST_TARGET := x86_64-unknown-none
 else ifeq ($(ARCH),riscv64)
-    AS := $(CROSS_COMPILE)as
+    AS := $(CC)
     RUST_TARGET := riscv64gc-unknown-none-elf
 endif
 
@@ -33,7 +32,7 @@ ifeq ($(ARCH),x86_64)
 endif
 ifeq ($(ARCH),riscv64)
     CFLAGS += -march=rv64gc_zihintpause -mabi=lp64d -DARCHITECTURE=2
-    ASFLAGS += -march=rv64gc_zihintpause
+    ASFLAGS += -march=rv64gc_zihintpause -c
     LDFLAGS += -m elf64lriscv 
 endif
 
@@ -41,4 +40,5 @@ C_TARGET ?=
 
 ifneq ($(C_TARGET),)
 CFLAGS += --target=$(C_TARGET)
+ASFLAGS += --target=$(C_TARGET)
 endif

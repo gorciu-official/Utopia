@@ -25,13 +25,13 @@ jobs:
             nasm \
             xorriso \
             mtools \
-            gcc-riscv64-unknown-elf \
             binutils-riscv64-unknown-elf
           rustup target add riscv64gc-unknown-none-elf
 
       - name: Check RISC-V toolchain
         run: |
-          riscv64-unknown-elf-gcc --version
+          clang --version
+          clang --target=riscv64-unknown-elf --version
           riscv64-unknown-elf-ld --version
           riscv64-unknown-elf-objcopy --version
 
@@ -41,9 +41,10 @@ jobs:
       - name: Build project
         run: |
           make BOOTLOADER=limine ARCH=riscv64 \
-            CC=riscv64-unknown-elf-gcc \
+            CC=clang \
             LD=riscv64-unknown-elf-ld \
-            AS=riscv64-unknown-elf-as \
+            AS=clang \
+            C_TARGET=riscv64-unknown-elf \
             AR=riscv64-unknown-elf-ar \
             OBJCOPY=riscv64-unknown-elf-objcopy \
             -j$(nproc)

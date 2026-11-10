@@ -4,8 +4,8 @@
 
 So, before building, make sure you have these:
 
-- a good assembler (NASM) for x86_64 / a bad assembler (GNU as) for non-x86_64 architectures
-- a C compiler 
+- NASM for x86_64 assembly sources and Clang's integrated assembler for RISC-V
+- a C compiler (Clang)
 - GNU make (or any other program that reads Makefiles with GNU extensions)
 
 If you want to test on an emulated machine make sure you have a good CPU (good cpu = smth better than core 2 quad q9300) and QEMU installed.

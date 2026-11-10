@@ -5,7 +5,6 @@
 -Wno-address
 
 -ffreestanding 
--nostartfiles 
 
 -Iinclude 
 
