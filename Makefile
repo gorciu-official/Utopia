@@ -77,7 +77,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S include/config.h
 $(RUST_ARCHIVE): $(SRC_DIR)/rust/Cargo.toml $(SRC_DIR)/rust/Cargo.lock $(RUST_SOURCES)
 	@echo -e "\033[1;36m[*]\033[0m Building Rust static library for $(RUST_TARGET)"
 	@cd $(SRC_DIR)/rust && \
-	RUSTFLAGS="$(shell cat $(TARGET_DIR)/../rust-flags.txt)" \
+	RUSTFLAGS="$(RUSTFLAGS)" \
 	cargo build --release --target $(RUST_TARGET) --target-dir $(abspath $(TARGET_DIR)/rust)
 
 # misc
