@@ -23,12 +23,34 @@ endif
 CFLAGS         ?= 
 CFLAGS         += $(shell tr '\n' ' ' < tools/compile_flags.txt) -DUTOPIA_COMMIT=\"$(shell git rev-parse --short HEAD)\"
 RUSTFLAGS      ?=
-RUSTFLAGS      += $(shell cat $(TARGET_DIR)/../rust-flags.txt)
+RUSTFLAGS      += $(shell cat $(TARGET_DIR)/../rust-flags.txt) $(C_RS_FLAGS)
 ASFLAGS        :=
 LDFLAGS        := -T $(LINKER_SCRIPT)
 
+LTO            ?=
+
+ifeq ($(LTO),thin)
+    CFLAGS += -flto=thin
+    RUSTFLAGS += -C embed-bitcode=yes -C lto=thin
+else ifeq ($(LTO),full)
+    CFLAGS += -flto=full
+    RUSTFLAGS += -C embed-bitcode=yes -C lto=fat
+else ifneq ($(LTO),)
+    $(error Unsupported LTO='$(LTO)'. Use thin or full)
+endif
+
+OPTLVL         ?=
+
+ifneq ($(OPTLVL),)
+    ifneq ($(filter $(OPTLVL),0 1 2 3 s z),$(OPTLVL))
+        $(error Unsupported OPTLVL='$(OPTLVL)'. Use 0, 1, 2, 3, s, or z)
+    endif
+    CFLAGS += -O$(OPTLVL)
+    RUSTFLAGS += -C opt-level=$(OPTLVL)
+endif
+
 ifeq ($(ARCH),x86_64)
-    CFLAGS += -m64 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -DARCHITECTURE=1
+    CFLAGS += -m64 -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -DARCHITECTURE=1
     ASFLAGS += -f elf64
     LDFLAGS += -m elf_x86_64 
 endif
