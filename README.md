@@ -38,7 +38,7 @@ I copied the idea of this table from [here](https://git.evalyngoemer.com/evalynO
 
 You can simply [download the latest release from GitHub](https://github.com/gorciu-official/utopia/releases/latest).
 
-If you want to compile the project yourself, refer to the [docs/BUILDING.md](docs/BUILDING.md) file. If you also want to contribute back, the [docs/contributing.md](docs/contributing.md) file is worth reading too.
+If you want to compile the project yourself, refer to the [docs/building.md](docs/building.md) file. If you also want to contribute back, the [docs/contributing.md](docs/contributing.md) file is worth reading too.
 
 ## Software
 

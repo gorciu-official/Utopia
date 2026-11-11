@@ -55,4 +55,4 @@ The initramfs(es) need(s) to be copied into a folder called `initramfs-<arch>` i
 
 ## Final touches
 
-As said in the `docs/BUILDING.md`, the bootloader configuration needs to be rebuilt in order for Utopia to detect the initramfses given. Please follow instructions about this topic from that file.
+As said in the `docs/building.md`, the bootloader configuration needs to be rebuilt in order for Utopia to detect the initramfses given. Please follow instructions about this topic from that file.

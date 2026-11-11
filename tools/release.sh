@@ -12,7 +12,7 @@ grep -ir "#define UTOPIA_BETA_STATE" include/constants.h | head -n 1
 
 echo
 
-echo "Please also review versions listed in: docs/SECURITY.md"
+echo "Please also review versions listed in: docs/security.md"
 
 echo 
 
