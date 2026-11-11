@@ -7,7 +7,7 @@ ifeq ($(shell command -v $(CC) 2>/dev/null),)
 endif
 
 ifeq ($(shell command -v $(LD) 2>/dev/null),)
-	$(error Utopia requires $(LD) as a linker, please install it.)
+    $(error Utopia requires $(LD) as a linker, please install it.)
 endif
 
 ifeq ($(ARCH),x86_64)
