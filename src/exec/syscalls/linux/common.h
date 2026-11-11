@@ -189,4 +189,9 @@ struct winsize {
 
 #define CLONE_UNSUPPORTED (CLONE_VM | CLONE_SIGHAND | CLONE_PARENT | CLONE_THREAD | CLONE_NEWNS | CLONE_SYSVSEM)
 
+struct timespec {
+    long tv_sec;
+    long tv_nsec; 
+};
+
 #endif

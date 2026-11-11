@@ -635,6 +635,11 @@ SYSCALL_DEFINE_LINUX(rt_sigaction) {
     return SCRC(0);
 }
 
+SYSCALL_DEFINE_LINUX(clock_gettime) {
+    (void)process; (void)regs; (void)thread;
+    return SCRC(0);
+}
+
 extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
@@ -695,6 +700,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [202] = syscall_linux_stub_unimplemented,
     [217] = syscall_linux_getdents64,
     [218] = syscall_linux_set_tid_address,
+    [228] = syscall_linux_clock_gettime,
     [231] = syscall_linux_exit,
     [234] = syscall_linux_tgkill,
     [257] = syscall_linux_openat,
@@ -755,7 +761,8 @@ static const syscall_fn_t syscall_linux_table[] = {
     [222] = syscall_linux_mmap,
     [226] = syscall_linux_mprotect,
     [260] = syscall_linux_wait4,
-    [278] = syscall_linux_getrandom
+    [278] = syscall_linux_getrandom,
+    [403] = syscall_linux_clock_gettime
 };
  
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
