@@ -149,7 +149,7 @@ void kmain(common_boot_structure_t* cbs) {
 
 extern uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS];
 
-void ap_main() {
+__attribute__((used)) void ap_main() {
     uint32_t id = current_processor_id();
     ap_alive_table[id] = 1;
 

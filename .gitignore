@@ -2,6 +2,7 @@
 initramfs-*
 !docs/initramfs-*
 font.psf1
+userspace
 
 # config files
 include/config.h
