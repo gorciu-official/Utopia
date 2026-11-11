@@ -54,6 +54,8 @@ Some checked programs and applications are listed here.
 
 **In active porting:**
 
+- [systemd](https://systemd.io/) (yes)
+- [gcc](https://www.gnu.org/software/gcc/)
 - certain parts of [inetutils](https://www.gnu.org/software/inetutils/)
 
 ## Additional notes

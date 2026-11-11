@@ -155,4 +155,9 @@ SYSCALL_DEFINE_LINUX(ioctl) {
     return SCRC(0);
 }
 
+SYSCALL_DEFINE_LINUX(mount) {
+    (void)regs; (void)process; (void)thread;
+    return SCRC(0);
+}
+
 #endif

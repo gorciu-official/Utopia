@@ -105,12 +105,6 @@ void kmain(common_boot_structure_t* cbs) {
     } else 
         vfs_mount("ramfs", 0, "/");
 
-    vnode_t* root_node;
-    vnode_t* dev_node;
-    vfs_lookup("/", &root_node);
-    root_node->ops->mkdir(root_node, "dev", &dev_node);
-    vfs_mount("devtmpfs", 0, "/dev/");
-
     // run base tasks
     printk(KMT_LOG, "Core", "Starting init process");
 

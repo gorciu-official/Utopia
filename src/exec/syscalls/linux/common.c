@@ -659,6 +659,7 @@ extern SYSCALL_DEFINE_LINUX(pread64);
 extern SYSCALL_DEFINE_LINUX(write);
 extern SYSCALL_DEFINE_LINUX(writev);
 extern SYSCALL_DEFINE_LINUX(ioctl);
+extern SYSCALL_DEFINE_LINUX(mount);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
@@ -696,6 +697,7 @@ static const syscall_fn_t syscall_linux_table[] = {
                                               // this returns 0 and 0 means root
     [107] = syscall_linux_stub_unimplemented,
     [158] = syscall_linux_arch_prctl,
+    [165] = syscall_linux_mount,
     [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
     [217] = syscall_linux_getdents64,
