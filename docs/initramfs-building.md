@@ -37,7 +37,9 @@ By default, Fsstrapfile lists two supported by Utopia computer architectures. It
 
 **Ensure `Build()` is the last instruction or else the building will ignore some of your instructions.**
 
-Then run `./fsstrap.sh eval`
+Then run `./fsstrap.sh eval`.
+
+No extra init building step needs to be done, as fsstrap uses [finit](https://github.com/MoreUtopia/finit) as a Utopia-native system init.
 
 ### Downloading the initramfs
 
@@ -45,7 +47,7 @@ You can get initramfses or "rootfs"es for different Linux distributions online. 
 
 Extract the downloaded initramfs into any folder.
 
-Then create a small Assembly/C wrapper to launch a Linux init executable. I won't get into the details of this, but [fsstrap's PID1](https://github.com/MoreUtopia/fsstrap/blob/main/src/pid1/main.c) is a great reference implementation (you may even go and reuse it). Next, compile that wrapper into a file called `init` in the root of your initramfs.
+Then create a small Assembly/C wrapper to launch a Linux init executable. I won't get into the details of this, but [finit](https://github.com/MoreUtopia/finit) is a great reference implementation (you may even go and reuse it). Next, compile that wrapper into a file called `init` in the root of your initramfs.
 
 ## Copying the initramfs
 
