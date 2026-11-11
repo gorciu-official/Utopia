@@ -185,6 +185,33 @@ SYSCALL_DEFINE_LINUX(clone) {
 #endif
 }
 
+SYSCALL_DEFINE_LINUX(clone3) {
+    clone3_args_t args = {0};
+
+    if (!regs->arg1 || regs->arg1 >= USER_VA_LIMIT)
+        return SCRC(-EFAULT);
+
+    if (regs->arg2 < 64)
+        return SCRC(-EINVAL);
+
+    if (regs->arg2 > sizeof(args))
+        return SCRC(-EINVAL);
+
+    memcpy(&args, (void*)regs->arg1, regs->arg2);
+
+    uint64_t flags = args.flags | args.exit_signal;
+
+    uint64_t child_stack = args.stack
+        ? args.stack + args.stack_size
+        : 0;
+
+    return do_clone(
+        regs, process, thread,
+        flags, child_stack,
+        args.parent_tid, args.child_tid, args.tls
+    );
+}
+
 SYSCALL_DEFINE_LINUX(wait4) {
     (void)thread;
     if (!process) return SCRC(-EINVAL);

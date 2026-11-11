@@ -643,6 +643,7 @@ SYSCALL_DEFINE_LINUX(clock_gettime) {
 extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
+extern SYSCALL_DEFINE_LINUX(clone3);
 extern SYSCALL_DEFINE_LINUX(execve);
 extern SYSCALL_DEFINE_LINUX(wait4);
 
@@ -709,7 +710,8 @@ static const syscall_fn_t syscall_linux_table[] = {
     [262] = syscall_linux_newfstatat,
     [270] = syscall_linux_pselect6,
     [273] = syscall_linux_stub_unimplemented,
-    [318] = syscall_linux_getrandom
+    [318] = syscall_linux_getrandom,
+    [435] = syscall_linux_clone3
 };
 
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
@@ -764,7 +766,8 @@ static const syscall_fn_t syscall_linux_table[] = {
     [226] = syscall_linux_mprotect,
     [260] = syscall_linux_wait4,
     [278] = syscall_linux_getrandom,
-    [403] = syscall_linux_clock_gettime
+    [403] = syscall_linux_clock_gettime,
+    [435] = syscall_linux_clone3
 };
  
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
