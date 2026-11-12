@@ -3,11 +3,11 @@ LD             := ld.lld
 RUSTC          ?= rustc
 
 ifeq ($(shell command -v $(CC) 2>/dev/null),)
-	$(error Utopia requires $(CC) as a C compiler, please install it.)
+    $(error Utopia requires $(CC) as a C compiler, please install it)
 endif
 
 ifeq ($(shell command -v $(LD) 2>/dev/null),)
-    $(error Utopia requires $(LD) as a linker, please install it.)
+    $(error Utopia requires $(LD) as a linker, please install it)
 endif
 
 ifeq ($(ARCH),x86_64)

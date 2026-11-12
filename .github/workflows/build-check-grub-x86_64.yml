@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang cmake pkg-config nasm xorriso mtools
+          sudo apt-get install -y build-essential lld clang cmake pkg-config nasm xorriso mtools
 
           rustup target add x86_64-unknown-none
 
