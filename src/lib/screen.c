@@ -36,9 +36,64 @@ static bool ansi_has_more(const char* s, const char* end) {
     return end ? s < end : *s != '\0';
 }
 
-static void ansi_apply_sgr(const int* params, int count) {
+// standard xterm 256-color palette: 0-15 are the ANSI colors, 16-231 a 6x6x6
+// color cube and 232-255 a grayscale ramp
+static uint32_t ansi_256_color(int idx) {
+    if (idx < 16) return ansi_colors[idx];
+
+    if (idx < 232) {
+        static const uint8_t levels[6] = { 0, 95, 135, 175, 215, 255 };
+        int n = idx - 16;
+        return ((uint32_t)levels[n / 36] << 16) | ((uint32_t)levels[(n / 6) % 6] << 8) | levels[n % 6];
+    }
+
+    uint32_t gray = 8 + (uint32_t)(idx - 232) * 10;
+    return (gray << 16) | (gray << 8) | gray;
+}
+
+static void ansi_apply_sgr(const int* params, const bool* joined, int count) {
     for (int i = 0; i < count; i++) {
         int val = params[i];
+
+        int group_end = i;
+        while (group_end < count - 1 && joined[group_end]) group_end++;
+
+        if (val == 38 || val == 48) {
+            uint32_t* target = val == 38 ? &current_fg : &current_bg;
+
+            if (group_end > i) {
+                int mode = params[i + 1];
+
+                if (mode == 5 && group_end >= i + 2) {
+                    int idx = params[i + 2];
+                    if (idx >= 0 && idx < 256) *target = ansi_256_color(idx);
+                } else if (mode == 2 && group_end >= i + 4) {
+                    int base = group_end >= i + 5 ? i + 3 : i + 2;
+                    uint32_t r = (uint32_t)params[base] & 0xFF;
+                    uint32_t g = (uint32_t)params[base + 1] & 0xFF;
+                    uint32_t b = (uint32_t)params[base + 2] & 0xFF;
+                    *target = (r << 16) | (g << 8) | b;
+                }
+
+                i = group_end;
+            } else if (i + 2 < count && params[i + 1] == 5) {
+                int idx = params[i + 2];
+                if (idx >= 0 && idx < 256) *target = ansi_256_color(idx);
+                i += 2;
+            } else if (i + 4 < count && params[i + 1] == 2) {
+                uint32_t r = (uint32_t)params[i + 2] & 0xFF;
+                uint32_t g = (uint32_t)params[i + 3] & 0xFF;
+                uint32_t b = (uint32_t)params[i + 4] & 0xFF;
+                *target = (r << 16) | (g << 8) | b;
+                i += 4;
+            }
+            continue;
+        }
+
+        if (group_end > i) {
+            i = group_end;
+            continue;
+        }
 
         if (val == 0) {
             current_fg = 0xFFFFFF;
@@ -55,20 +110,6 @@ static void ansi_apply_sgr(const int* params, int count) {
             current_fg = 0xFFFFFF;
         } else if (val == 49) {
             current_bg = 0x000000;
-        } else if (val == 38 || val == 48) {
-            uint32_t* target = val == 38 ? &current_fg : &current_bg;
-
-            if (i + 2 < count && params[i + 1] == 5) {
-                int color_idx = params[i + 2];
-                if (color_idx >= 0 && color_idx < 16) *target = ansi_colors[color_idx];
-                i += 2;
-            } else if (i + 4 < count && params[i + 1] == 2) {
-                uint32_t r = (uint32_t)params[i + 2] & 0xFF;
-                uint32_t g = (uint32_t)params[i + 3] & 0xFF;
-                uint32_t b = (uint32_t)params[i + 4] & 0xFF;
-                *target = (r << 16) | (g << 8) | b;
-                i += 4;
-            }
         }
     }
 }
@@ -83,6 +124,7 @@ static void parse_ansi(const char** str, const char* end) {
     }
 
     int params[ANSI_MAX_PARAMS];
+    bool joined[ANSI_MAX_PARAMS];
     int count = 0;
     int current = 0;
     bool has_current = false;
@@ -94,8 +136,12 @@ static void parse_ansi(const char** str, const char* end) {
             current = current * 10 + (c - '0');
             if (current > 9999) current = 9999;
             has_current = true;
-        } else if (c == ';') {
-            if (count < ANSI_MAX_PARAMS) params[count++] = has_current ? current : 0;
+        } else if (c == ';' || c == ':') {
+            if (count < ANSI_MAX_PARAMS) {
+                params[count] = has_current ? current : 0;
+                joined[count] = c == ':';
+                count++;
+            }
             current = 0;
             has_current = false;
         } else if (!((unsigned char)c >= 0x20 && (unsigned char)c <= 0x2F)) {
@@ -120,8 +166,12 @@ static void parse_ansi(const char** str, const char* end) {
     s++;
 
     if (final_byte == 'm' && !private_sequence) {
-        if (count < ANSI_MAX_PARAMS) params[count++] = has_current ? current : 0;
-        ansi_apply_sgr(params, count);
+        if (count < ANSI_MAX_PARAMS) {
+            params[count] = has_current ? current : 0;
+            joined[count] = false;
+            count++;
+        }
+        ansi_apply_sgr(params, joined, count);
     }
 
     *str = s;
