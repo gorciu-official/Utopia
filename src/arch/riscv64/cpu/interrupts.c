@@ -61,6 +61,8 @@ registers_t* arch_interrupt_handler(registers_t* regs) {
 
         panic("Unexpected CPU exception", regs);
     } else {
+        uint32_t irq = IS_PLIC_INTERRUPT(cause) ? plic_claim() : 0;
+
         switch (cause) {
         case 5:
             timer_schedule_next(&regs);
@@ -71,6 +73,9 @@ registers_t* arch_interrupt_handler(registers_t* regs) {
         default:
             break;
         }
+
+        if (IS_PLIC_INTERRUPT(cause))
+            plic_complete(irq);
     }
 
     return regs;
