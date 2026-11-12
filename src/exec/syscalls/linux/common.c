@@ -763,6 +763,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [94]  = syscall_linux_exit,
     [95]  = syscall_linux_waitid,
     [96]  = syscall_linux_set_tid_address,
+    [113] = syscall_linux_clock_gettime,
     [154] = syscall_linux_setpgid,
     [155] = syscall_linux_getpgid,
     [156] = syscall_linux_getsid,
@@ -782,7 +783,6 @@ static const syscall_fn_t syscall_linux_table[] = {
     [260] = syscall_linux_wait4,
     [261] = syscall_linux_prlimit64,
     [278] = syscall_linux_getrandom,
-    [403] = syscall_linux_clock_gettime,
     [435] = syscall_linux_clone3,
     [436] = syscall_linux_close_range
 };
