@@ -144,7 +144,7 @@ void process_terminate(process_t* proc) {
     free(proc);
 }
 
-int process_wait_child(process_t* parent, int pid, int* status_out) {
+int process_wait_child_ex(process_t* parent, int pid, int* status_out, uint32_t* pid_out, bool reap) {
     if (!parent) return -1;
 
     unsigned long irq = arch_save_interrupts();
@@ -161,18 +161,25 @@ int process_wait_child(process_t* parent, int pid, int* status_out) {
 
     int ret = have_child ? 0 : -1;
     if (found) {
-        process_t** pp = &process_list_head;
-        while (*pp && *pp != found) pp = &(*pp)->next;
-        if (*pp) *pp = found->next;
+        if (reap) {
+            process_t** pp = &process_list_head;
+            while (*pp && *pp != found) pp = &(*pp)->next;
+            if (*pp) *pp = found->next;
+        }
         ret = (int)found->pid;
+        if (pid_out) *pid_out = found->pid;
         if (status_out) *status_out = found->exit_status;
     }
 
     spinlock_release(&process_lock);
     arch_restore_interrupts(irq);
 
-    if (found) free(found);
+    if (found && reap) free(found);
     return ret;
+}
+
+int process_wait_child(process_t* parent, int pid, int* status_out) {
+    return process_wait_child_ex(parent, pid, status_out, NULL, true);
 }
 
 process_t* process_get_current(void) {

@@ -64,6 +64,11 @@ int vfs_register_driver(filesystem_driver_t *driver);
 int vfs_mount(const char *type, const char *source, const char *target);
 int vfs_lookup(const char *path, vnode_t **result);
 int vfs_open(const char *path, int flags, vnode_t **result);
+int vfs_mkdir(const char *path);
+int vfs_register_node(const char *path, vnode_t *node);
+
+void devtmpfs_register_devices(void);
+void procfs_register_nodes(const char *cmdline);
 
 // -- fs drivers 
 extern filesystem_driver_t ramfs_driver;

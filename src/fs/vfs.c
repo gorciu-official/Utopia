@@ -117,9 +117,35 @@ static const char* vfs_next_token(const char* path, char* out) {
     return path;
 }
 
+#define MAX_STATIC_NODES 16
+
+static struct {
+    const char* path;
+    vnode_t*    node;
+} g_static_nodes[MAX_STATIC_NODES];
+static uint32_t g_static_node_count = 0;
+
+int vfs_register_node(const char* path, vnode_t* node) {
+    if (!path || !node || path[0] != '/' || g_static_node_count >= MAX_STATIC_NODES) {
+        return -1;
+    }
+
+    g_static_nodes[g_static_node_count].path = path;
+    g_static_nodes[g_static_node_count].node = node;
+    g_static_node_count++;
+    return 0;
+}
+
 int vfs_lookup(const char* path, vnode_t** result) {
     if (!path || !result) {
         return -1;
+    }
+
+    for (uint32_t i = 0; i < g_static_node_count; i++) {
+        if (strcmp(g_static_nodes[i].path, path) == 0) {
+            *result = g_static_nodes[i].node;
+            return 0;
+        }
     }
 
     if (path[0] != '/') {
@@ -248,3 +274,56 @@ int vfs_open(const char* path, int flags, vnode_t** result) {
     return -2; // -ENOENT
 }
 
+
+int vfs_mkdir(const char* path) {
+    if (!path || !path[0]) {
+        return -2; // -ENOENT
+    }
+
+    char full[PATH_MAX];
+    int off = 0;
+    int len = strlen(path);
+
+    if (path[0] != '/') {
+        full[off++] = '/';
+    }
+    if (len + off >= PATH_MAX) {
+        return -36; // -ENAMETOOLONG
+    }
+    memcpy(full + off, path, len + 1);
+    len += off;
+
+    while (len > 1 && full[len - 1] == '/') {
+        full[--len] = '\0';
+    }
+
+    vnode_t* existing = NULL;
+    if (vfs_lookup(full, &existing) == 0) {
+        return -17; // -EEXIST
+    }
+
+    char parent_path[PATH_MAX];
+    char name[128];
+    if (vfs_split_path(full, parent_path, name) != 0 || name[0] == '\0') {
+        return -2; // -ENOENT
+    }
+
+    vnode_t* parent = NULL;
+    if (vfs_lookup(parent_path, &parent) != 0) {
+        return -2; // -ENOENT
+    }
+    if (parent->type != VNODE_TYPE_DIR) {
+        return -20; // -ENOTDIR
+    }
+    if (!parent->ops || !parent->ops->mkdir) {
+        return -30; // -EROFS
+    }
+
+    vnode_t* created = NULL;
+    int res = parent->ops->mkdir(parent, name, &created);
+    if (res == 0) {
+        return 0;
+    }
+
+    return res < -1 ? res : -5; // -EIO
+}

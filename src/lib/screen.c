@@ -30,89 +30,107 @@ static uint32_t ansi_colors[] = {
 static spinlock_t fb_spinlock = {0};
 static bool spinlock_initialized = false;
 
-static void parse_ansi(const char* *str) {
-    const char* s = *str;
+#define ANSI_MAX_PARAMS 16
 
-    if (*s == '\x1b') s++;
-    if (*s == '[') s++;
+static bool ansi_has_more(const char* s, const char* end) {
+    return end ? s < end : *s != '\0';
+}
 
-    while (*s && *s != 'm') {
-        int val = 0;
-        bool has_val = false;
-        if (is_char_digit(*s)) {
-            has_val = true;
-            while (is_char_digit(*s)) {
-                val = val * 10 + (*s - '0');
-                s++;
+static void ansi_apply_sgr(const int* params, int count) {
+    for (int i = 0; i < count; i++) {
+        int val = params[i];
+
+        if (val == 0) {
+            current_fg = 0xFFFFFF;
+            current_bg = 0x000000;
+        } else if (val >= 30 && val <= 37) {
+            current_fg = ansi_colors[val - 30];
+        } else if (val >= 40 && val <= 47) {
+            current_bg = ansi_colors[val - 40];
+        } else if (val >= 90 && val <= 97) {
+            current_fg = ansi_colors[val - 90 + 8];
+        } else if (val >= 100 && val <= 107) {
+            current_bg = ansi_colors[val - 100 + 8];
+        } else if (val == 39) {
+            current_fg = 0xFFFFFF;
+        } else if (val == 49) {
+            current_bg = 0x000000;
+        } else if (val == 38 || val == 48) {
+            uint32_t* target = val == 38 ? &current_fg : &current_bg;
+
+            if (i + 2 < count && params[i + 1] == 5) {
+                int color_idx = params[i + 2];
+                if (color_idx >= 0 && color_idx < 16) *target = ansi_colors[color_idx];
+                i += 2;
+            } else if (i + 4 < count && params[i + 1] == 2) {
+                uint32_t r = (uint32_t)params[i + 2] & 0xFF;
+                uint32_t g = (uint32_t)params[i + 3] & 0xFF;
+                uint32_t b = (uint32_t)params[i + 4] & 0xFF;
+                *target = (r << 16) | (g << 8) | b;
+                i += 4;
             }
         }
-        
-        if (val == 0 && !has_val) {
-            val = 0;
-            has_val = true;
-        }
-
-        if (has_val) {
-            if (val == 0) {
-                current_fg = 0xFFFFFF;
-                current_bg = 0x000000;
-            } else if (val >= 30 && val <= 37) {
-                current_fg = ansi_colors[val - 30];
-            } else if (val >= 40 && val <= 47) {
-                current_bg = ansi_colors[val - 40];
-            } else if (val >= 90 && val <= 97) {
-                current_fg = ansi_colors[val - 90 + 8];
-            } else if (val >= 100 && val <= 107) {
-                current_bg = ansi_colors[val - 100 + 8];
-            } else if (val == 39) {
-                current_fg = 0xFFFFFF;
-            } else if (val == 49) {
-                current_bg = 0x000000;
-            } else if (val == 38 || val == 48) {
-                if (*s == ';') {
-                    s++;
-                    int mode = 0;
-                    while (is_char_digit(*s)) {
-                        mode = mode * 10 + (*s - '0');
-                        s++;
-                    }
-                    if (mode == 5) {
-                        if (*s == ';') {
-                            s++;
-                            int color_idx = 0;
-                            while (is_char_digit(*s)) {
-                                color_idx = color_idx * 10 + (*s - '0');
-                                s++;
-                            }
-                            if (color_idx < 16) {
-                                if (val == 38) current_fg = ansi_colors[color_idx];
-                                else current_bg = ansi_colors[color_idx];
-                            }
-                        }
-                    } else if (mode == 2) {
-                        uint32_t r = 0, g = 0, b = 0;
-                        if (*s == ';') { s++; while (is_char_digit(*s)) { r = r * 10 + (*s - '0'); s++; } }
-                        if (*s == ';') { s++; while (is_char_digit(*s)) { g = g * 10 + (*s - '0'); s++; } }
-                        if (*s == ';') { s++; while (is_char_digit(*s)) { b = b * 10 + (*s - '0'); s++; } }
-                        uint32_t color = (r << 16) | (g << 8) | b;
-                        if (val == 38) current_fg = color;
-                        else current_bg = color;
-                    }
-                }
-            }
-        }
-
-        if (*s == ';') s++;
     }
-    
-    if (*s == 'm') s++;
+}
+
+static void parse_ansi(const char** str, const char* end) {
+    const char* s = *str + 2;
+
+    bool private_sequence = false;
+    if (ansi_has_more(s, end) && (*s == '?' || *s == '<' || *s == '=' || *s == '>')) {
+        private_sequence = true;
+        s++;
+    }
+
+    int params[ANSI_MAX_PARAMS];
+    int count = 0;
+    int current = 0;
+    bool has_current = false;
+
+    while (ansi_has_more(s, end)) {
+        char c = *s;
+
+        if (is_char_digit(c)) {
+            current = current * 10 + (c - '0');
+            if (current > 9999) current = 9999;
+            has_current = true;
+        } else if (c == ';') {
+            if (count < ANSI_MAX_PARAMS) params[count++] = has_current ? current : 0;
+            current = 0;
+            has_current = false;
+        } else if (!((unsigned char)c >= 0x20 && (unsigned char)c <= 0x2F)) {
+            break;
+        }
+
+        s++;
+    }
+
+    if (!ansi_has_more(s, end)) {
+        *str = s;
+        return;
+    }
+
+    unsigned char final_byte = (unsigned char)*s;
+
+    if (final_byte < 0x40 || final_byte > 0x7E) {
+        *str = s;
+        return;
+    }
+
+    s++;
+
+    if (final_byte == 'm' && !private_sequence) {
+        if (count < ANSI_MAX_PARAMS) params[count++] = has_current ? current : 0;
+        ansi_apply_sgr(params, count);
+    }
+
     *str = s;
 }
 
 static void print_string_internal(const char* str) {
     while (*str) {
         if (str[0] == '\x1b' && str[1] == '[') {
-            parse_ansi(&str);
+            parse_ansi(&str, NULL);
         } else {
             framebuffer_putchar(*str, current_fg, current_bg);
             str++;
@@ -125,7 +143,7 @@ static void print_string_internal_limit(const char* str, uint64_t size) {
 
     while (str < end) {
         if (str + 1 < end && str[0] == '\x1b' && str[1] == '[') {
-            parse_ansi(&str);
+            parse_ansi(&str, end);
         } else {
             framebuffer_putchar(*str, current_fg, current_bg);
             str++;
@@ -181,8 +199,8 @@ static void vprintf(const char* fmt, va_list args) {
                 }
                 case '%': framebuffer_putchar('%', current_fg, current_bg); break;
             }
-        } else if (*fmt == '\x1b') {
-            parse_ansi(&fmt);
+        } else if (fmt[0] == '\x1b' && fmt[1] == '[') {
+            parse_ansi(&fmt, NULL);
             continue; 
         } else {
             framebuffer_putchar(*fmt, current_fg, current_bg);

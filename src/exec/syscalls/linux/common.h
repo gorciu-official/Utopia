@@ -125,6 +125,9 @@ struct winsize {
 
 #define ENOENT       2
 #define ESRCH        3
+#define EINTR        4
+#define EEXIST       17
+#define EROFS        30
 #define ECHILD       10
 #define ENOEXEC      8
 #define EBADF        9
@@ -171,6 +174,34 @@ struct winsize {
 #define __WCLONE    0x80000000
 #define WAIT4_VALID_OPTIONS (WNOHANG | WUNTRACED | WCONTINUED | __WNOTHREAD | __WALL | __WCLONE)
 #define RUSAGE_STRUCT_SIZE 144
+
+#define WSTOPPED   WUNTRACED
+#define WEXITED    0x00000004
+#define WNOWAIT    0x01000000
+#define WAITID_VALID_OPTIONS (WNOHANG | WSTOPPED | WEXITED | WCONTINUED | WNOWAIT | __WNOTHREAD | __WALL | __WCLONE)
+
+#define P_ALL   0
+#define P_PID   1
+#define P_PGID  2
+#define P_PIDFD 3
+
+#define CLD_EXITED 1
+#define CLD_KILLED 2
+#define CLD_DUMPED 3
+
+#define SIGINFO_SIZE 128
+
+#define RLIMIT_NOFILE   7
+#define RLIM_NLIMITS    16
+#define RLIM_INFINITY   (~0ULL)
+
+#define CLOSE_RANGE_UNSHARE 0x2
+#define CLOSE_RANGE_CLOEXEC 0x4
+
+struct rlimit64 {
+    uint64_t rlim_cur;
+    uint64_t rlim_max;
+};
 
 #define CLONE_VM             0x00000100
 #define CLONE_FS             0x00000200

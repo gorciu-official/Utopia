@@ -244,6 +244,87 @@ SYSCALL_DEFINE_LINUX(wait4) {
     }
 }
 
+SYSCALL_DEFINE_LINUX(waitid) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    int idtype = (int)regs->arg1;
+    int id = (int)regs->arg2;
+    uint64_t infop = regs->arg3;
+    int options = (int)regs->arg4;
+    uint64_t rusage = regs->arg5;
+
+    if (options & ~WAITID_VALID_OPTIONS) return SCRC(-EINVAL);
+    if (!(options & (WEXITED | WSTOPPED | WCONTINUED))) return SCRC(-EINVAL);
+    if (infop && infop + SIGINFO_SIZE > USER_VA_LIMIT) return SCRC(-EFAULT);
+    if (rusage && rusage + RUSAGE_STRUCT_SIZE > USER_VA_LIMIT) return SCRC(-EFAULT);
+
+    int want;
+    switch (idtype) {
+    case P_ALL:
+        want = -1;
+        break;
+    case P_PID:
+        if (id <= 0) return SCRC(-EINVAL);
+        want = id;
+        break;
+    default:
+        // process groups and pidfds are not tracked yet
+        return SCRC(-EINVAL);
+    }
+
+    // only exited children exist for now (no stop/continue tracking)
+    bool can_report = (options & WEXITED) != 0;
+    bool reap = !(options & WNOWAIT);
+
+    for (;;) {
+        uint64_t seq = wait_queue_snapshot(&process->child_wq);
+
+        int status = 0;
+        uint32_t child_pid = 0;
+        int r = process_wait_child_ex(process, want, &status, &child_pid, reap);
+        if (r < 0) return SCRC(-ECHILD);
+        if (r > 0 && can_report) {
+            if (infop) {
+                int32_t* info = (int32_t*)infop;
+                memset(info, 0, SIGINFO_SIZE);
+                info[0] = SIGCHLD;      // si_signo
+                info[1] = 0;            // si_errno
+                if ((status & 0x7f) == 0) {
+                    info[2] = CLD_EXITED;
+                    info[6] = (status >> 8) & 0xff;
+                } else {
+                    info[2] = (status & 0x80) ? CLD_DUMPED : CLD_KILLED;
+                    info[6] = status & 0x7f;
+                }
+                info[4] = (int32_t)child_pid; // si_pid
+                info[5] = 0;                  // si_uid
+            }
+            if (rusage) memset((void*)rusage, 0, RUSAGE_STRUCT_SIZE);
+            return SCRC(0);
+        }
+        if (options & WNOHANG) {
+            if (infop) memset((void*)infop, 0, SIGINFO_SIZE);
+            return SCRC(0);
+        }
+
+        scheduler_wait(&process->child_wq, seq);
+    }
+}
+
+SYSCALL_DEFINE_LINUX(pause) {
+    (void)regs; (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    // there is no signal delivery yet, so this sleeps until something
+    // wakes signal_wq (which is what a future signal path should do)
+    uint64_t seq = wait_queue_snapshot(&process->signal_wq);
+    while (wait_queue_snapshot(&process->signal_wq) == seq)
+        scheduler_wait(&process->signal_wq, seq);
+
+    return SCRC(-EINTR);
+}
+
 SYSCALL_DEFINE_LINUX(gettid) {
     (void)process; (void)regs;
     return SCRC(thread->id);

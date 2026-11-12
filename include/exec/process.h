@@ -35,6 +35,7 @@ typedef struct process {
     int          exit_status;  
     uint32_t     main_tid;
     wait_queue_t child_wq;  
+    wait_queue_t signal_wq;
 } process_t;
 
 void process_init(void);
@@ -43,6 +44,7 @@ process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t
 void process_terminate(process_t* proc);
 
 int process_wait_child(process_t* parent, int pid, int* status_out);
+int process_wait_child_ex(process_t* parent, int pid, int* status_out, uint32_t* pid_out, bool reap);
 process_t* process_get_current(void);
 
 struct registers;

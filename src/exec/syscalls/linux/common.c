@@ -646,6 +646,8 @@ extern SYSCALL_DEFINE_LINUX(clone);
 extern SYSCALL_DEFINE_LINUX(clone3);
 extern SYSCALL_DEFINE_LINUX(execve);
 extern SYSCALL_DEFINE_LINUX(wait4);
+extern SYSCALL_DEFINE_LINUX(waitid);
+extern SYSCALL_DEFINE_LINUX(pause);
 
 extern SYSCALL_DEFINE_LINUX(gettid);
 extern SYSCALL_DEFINE_LINUX(getpid);
@@ -661,6 +663,10 @@ extern SYSCALL_DEFINE_LINUX(write);
 extern SYSCALL_DEFINE_LINUX(writev);
 extern SYSCALL_DEFINE_LINUX(ioctl);
 extern SYSCALL_DEFINE_LINUX(mount);
+extern SYSCALL_DEFINE_LINUX(mkdirat);
+extern SYSCALL_DEFINE_LINUX(prlimit64);
+extern SYSCALL_DEFINE_LINUX(close_range);
+extern SYSCALL_DEFINE_LINUX(sync);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
@@ -680,6 +686,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [17]  = syscall_linux_pread64,
     [20]  = syscall_linux_writev,
     [21]  = syscall_linux_access,
+    [34]  = syscall_linux_pause,
     [39]  = syscall_linux_getpid,
     [56]  = syscall_linux_clone,
     [57]  = syscall_linux_fork,
@@ -698,6 +705,7 @@ static const syscall_fn_t syscall_linux_table[] = {
                                               // this returns 0 and 0 means root
     [107] = syscall_linux_stub_unimplemented,
     [158] = syscall_linux_arch_prctl,
+    [162] = syscall_linux_sync,
     [165] = syscall_linux_mount,
     [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
@@ -706,12 +714,16 @@ static const syscall_fn_t syscall_linux_table[] = {
     [228] = syscall_linux_clock_gettime,
     [231] = syscall_linux_exit,
     [234] = syscall_linux_tgkill,
+    [247] = syscall_linux_waitid,
     [257] = syscall_linux_openat,
+    [258] = syscall_linux_mkdirat,
     [262] = syscall_linux_newfstatat,
     [270] = syscall_linux_pselect6,
     [273] = syscall_linux_stub_unimplemented,
+    [302] = syscall_linux_prlimit64,
     [318] = syscall_linux_getrandom,
-    [435] = syscall_linux_clone3
+    [435] = syscall_linux_clone3,
+    [436] = syscall_linux_close_range
 };
 
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
@@ -733,6 +745,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [17]  = syscall_linux_getcwd,
     [23]  = syscall_linux_stub_unimplemented,
     [29]  = syscall_linux_ioctl,
+    [34]  = syscall_linux_mkdirat,
     [56]  = syscall_linux_openat,
     [57]  = syscall_linux_close,
     [61]  = syscall_linux_getdents64,
@@ -744,9 +757,11 @@ static const syscall_fn_t syscall_linux_table[] = {
     [72]  = syscall_linux_pselect6,
     [79]  = syscall_linux_newfstatat,
     [80]  = syscall_linux_fstat,
+    [81]  = syscall_linux_sync,
     [88]  = syscall_linux_stub_unimplemented,
     [93]  = syscall_linux_exit,
     [94]  = syscall_linux_exit,
+    [95]  = syscall_linux_waitid,
     [96]  = syscall_linux_set_tid_address,
     [154] = syscall_linux_setpgid,
     [155] = syscall_linux_getpgid,
@@ -765,9 +780,11 @@ static const syscall_fn_t syscall_linux_table[] = {
     [222] = syscall_linux_mmap,
     [226] = syscall_linux_mprotect,
     [260] = syscall_linux_wait4,
+    [261] = syscall_linux_prlimit64,
     [278] = syscall_linux_getrandom,
     [403] = syscall_linux_clock_gettime,
-    [435] = syscall_linux_clone3
+    [435] = syscall_linux_clone3,
+    [436] = syscall_linux_close_range
 };
  
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {

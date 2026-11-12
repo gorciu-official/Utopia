@@ -104,6 +104,8 @@ void kmain(common_boot_structure_t* cbs) {
         vfs_mount("tarfs", 0, "/");
     } else 
         vfs_mount("ramfs", 0, "/");
+    devtmpfs_register_devices();
+    procfs_register_nodes(cbs->cmdline);
 
     // run base tasks
     printk(KMT_LOG, "Core", "Starting init process");
@@ -116,11 +118,20 @@ void kmain(common_boot_structure_t* cbs) {
         uint64_t bytes_read = 0;
         init_file->ops->read(init_file, buffer, size, 0, &bytes_read);
         if (bytes_read == size) {
+            // peak systemd debugging 
+            static char* init_argv[] = { "/init", NULL };
+            static char* init_envp[] = {
+                "SYSTEMD_LOG_LEVEL=debug",
+                "SYSTEMD_LOG_TARGET=console",
+                NULL
+            };
+
             int response = elf_start((create_elf_process_request_t){
                 .image = {
                     .data = buffer,
                     .size = size
                 },
+                .args = { .envp = init_envp, .argc = 1, .argv = init_argv },
                 .syscall_conv = init_abi_type
             });
             if (response != 0)

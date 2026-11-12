@@ -214,7 +214,7 @@ static int tarfs_read(vnode_t* node, void* buffer, uint64_t size, uint64_t offse
 }
 
 static int tarfs_create(vnode_t* p, const char* n, vnode_t** r) { (void)p; (void)n; (void)r; return -1; }
-static int tarfs_mkdir(vnode_t* p, const char* n, vnode_t** r)  { (void)p; (void)n; (void)r; return -1; }
+static int tarfs_mkdir(vnode_t* p, const char* n, vnode_t** r)  { (void)p; (void)n; (void)r; return -30; } // -EROFS
 static int tarfs_write(vnode_t* n, const void* b, uint64_t s, uint64_t o, uint64_t* w) {
     (void)n; (void)b; (void)s; (void)o; (void)w;
     return -1;
