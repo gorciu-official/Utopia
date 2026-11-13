@@ -21,7 +21,7 @@
 For simplicity we will refer to architecture-specific registers as `arg<1-6>`. It's also how it's handled internally.
 
 > [!CAUTION]
-> As development is more focused on Linux compatibility layer lately, not every syscall listed here should be treated as implemented.
+> As development is more focused on Linux compatibility layer lately, not every syscall listed here should be treated as implemented. Unimplemented syscalls should not be treated as stable.
 
 ### Filesystem
 
@@ -50,7 +50,8 @@ Reserved block: `1000`-`1999`.
 Reserved block `2000`-`2999`.
 
 - 2000: `exit` - exits the current process with the exit code `arg1`.
-- 2001: `spawn` - spawns a process from path `arg1` using `arg2` syscall convention (where `0` means default and `1` means Linux), with `rax` in x86_64 or `a0` in RISC-V set to `arg3`
+- 2001: `spawn` - spawns a process with an executable from path `arg1` using `arg2` syscall convention (where `0` means default and `1` means Linux). `arg3` is a pointer to Unix-like NUL-terminated `argv`; `arg4` is `envp`.
+- 2002: `become` - replaces the current process with an executable from path `arg1` using `arg2` syscall convention. `arg3` and `arg4` mean the same as in the previous syscall.
 
 ## Error handling 
 
@@ -65,6 +66,7 @@ Specifically, one of these values:
 - `-6` (`ERR_BUFFER_TOO_SMALL`): rerun the syscall with a bigger buffer
 - `-7` (`ERR_MESSAGE_TOO_LARGE`): the size given is too large (used mostly in IPC)
 - `-8` (`ERR_BAD_EXEC`): could not load executable
+- `-9` (`ERR_NO_MEMORY`): the kernel ran out of memory while handling the syscall
 
 ## Structures
 
