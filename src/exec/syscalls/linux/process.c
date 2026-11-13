@@ -155,6 +155,15 @@ out:
 
 static syscall_result_t do_clone(syscall_regs_t* regs, process_t* process, thread_t* thread, uint64_t flags, uint64_t child_stack, uint64_t ptid, uint64_t ctid, uint64_t tls) {
     if (!process || !thread || !regs->frame) return SCRC(-EINVAL);
+
+    // yes, we do not handle common address space so basically it's kinda hope
+    // it works, but should work for a typical "clone -> execve" pattern
+    if (
+        (flags & (CLONE_VM | CLONE_VFORK)) == (CLONE_VM | CLONE_VFORK) &&
+        !(flags & (CLONE_THREAD | CLONE_SIGHAND))
+    )
+        flags &= ~(uint64_t)CLONE_VM;
+
     if (flags & CLONE_UNSUPPORTED) return SCRC(-EINVAL);
 
     process_clone_opts_t opts = {
@@ -198,10 +207,8 @@ SYSCALL_DEFINE_LINUX(clone3) {
     if (regs->arg2 < 64)
         return SCRC(-EINVAL);
 
-    if (regs->arg2 > sizeof(args))
-        return SCRC(-EINVAL);
-
-    memcpy(&args, (void*)regs->arg1, regs->arg2);
+    size_t copy = regs->arg2 > sizeof(args) ? sizeof(args) : regs->arg2;
+    memcpy(&args, (void*)regs->arg1, copy);
 
     uint64_t flags = args.flags | args.exit_signal;
 
