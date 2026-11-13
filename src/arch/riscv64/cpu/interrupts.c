@@ -4,6 +4,8 @@
 #include <kernel/panic.h>
 #include <exec/scheduler.h>
 
+#include "plic.h"
+
 #define csrw(csr, val) \
     asm volatile ("csrw " #csr ", %0" : : "r"(val) : "memory")
 
@@ -14,6 +16,8 @@ extern void syscall_handler(registers_t* regs);
 void arch_init_interrupts() {
     asm volatile("csrw sscratch, zero");
     csrw(0x105, (uintptr_t)arch_interrupt_handler_asm);
+
+    plic_init();
 }
 
 // TODO: idk store this elsewhere i'm lazy
@@ -21,6 +25,8 @@ void arch_init_interrupts() {
 #define FAULT_SIGTRAP 5
 #define FAULT_SIGBUS  7
 #define FAULT_SIGSEGV 11
+
+extern void arch_uart_handler();
 
 static int fault_signal(uint64_t cause) {
     switch (cause) {
@@ -55,13 +61,21 @@ registers_t* arch_interrupt_handler(registers_t* regs) {
 
         panic("Unexpected CPU exception", regs);
     } else {
+        uint32_t irq = IS_PLIC_INTERRUPT(cause) ? plic_claim() : 0;
+
         switch (cause) {
         case 5:
             timer_schedule_next(&regs);
             break;
+        case 9:
+            arch_uart_handler();
+            break;
         default:
             break;
         }
+
+        if (IS_PLIC_INTERRUPT(cause))
+            plic_complete(irq);
     }
 
     return regs;
