@@ -35,3 +35,40 @@ void procfs_register_nodes(const char* cmdline) {
     proc_cmdline_node.size = len;
     vfs_register_node("/proc/cmdline", &proc_cmdline_node);
 }
+
+int procfs_parse_fd_path(const char* path, uint32_t pid) {
+    const char* p;
+
+    if (strncmp(path, "/proc/self/fd/", 14) == 0) {
+        p = path + 14;
+    } else if (strncmp(path, "/dev/fd/", 8) == 0) {
+        p = path + 8;
+    } else if (strncmp(path, "/proc/", 6) == 0) {
+        p = path + 6;
+
+        uint64_t number = 0;
+        int digits = 0;
+        while (*p >= '0' && *p <= '9') {
+            if (++digits > 10) return -1;
+            number = number * 10 + (uint64_t)(*p - '0');
+            p++;
+        }
+
+        if (digits == 0 || number != pid || strncmp(p, "/fd/", 4) != 0) return -1;
+        p += 4;
+    } else {
+        return -1;
+    }
+
+    int fd = 0;
+    int digits = 0;
+    while (*p >= '0' && *p <= '9') {
+        if (++digits > 6) return -1;
+        fd = fd * 10 + (*p - '0');
+        p++;
+    }
+
+    // "/proc/self/fd/" alone, or anything after the number, is not a descriptor link
+    if (digits == 0 || *p) return -1;
+    return fd;
+}

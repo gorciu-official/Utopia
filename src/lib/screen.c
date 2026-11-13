@@ -281,7 +281,7 @@ void user_print(char* fmt, uint64_t size) {
     spinlock_release(&fb_spinlock);
 }
 
-static volatile bool console_suspended = false;
+static volatile char console_suspended = 0;
 
 void printk(const kernel_message_type_t type, const char* module, const char *fmt, ...) {
     uint64_t flags = arch_save_interrupts();
@@ -295,7 +295,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
     }
     spinlock_acquire(&fb_spinlock);
 
-    if (console_suspended) {
+    if likely (console_suspended) {
         spinlock_release(&fb_spinlock);
         return;
     }
@@ -354,12 +354,12 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
 
 void printk_suspend_console() {
     printk(KMT_LOG, "Framebuffer", "Suspending kernel console output");
-    console_suspended = true;
+    console_suspended = 1;
 }
 
 void printk_remove_console_suspension() {
     bool was_suspended = console_suspended;
-    console_suspended = false;
+    console_suspended = 0;
     if (was_suspended)
         printk(KMT_LOG, "Framebuffer", "Ensuring kernel console output is not suspended");
 }

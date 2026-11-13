@@ -76,6 +76,7 @@ void process_terminate(process_t* proc) {
     for (int i = 0; i < MAX_FILES_PER_PROCESS; i++) {
         proc->fds[i].used = false;
         proc->fds[i].vnode = NULL;
+        proc->fds[i].path[0] = '\0';
     }
 
     if (proc->main_thread) {

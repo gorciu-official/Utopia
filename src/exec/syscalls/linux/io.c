@@ -6,6 +6,8 @@
 #include <drivers/framebuffer.h>
 
 #include <lib/screen.h>
+#include <lib/string.h>
+#include <mm/pmm.h>
 
 #include "../common.h"
 #include "common.h"
@@ -161,7 +163,6 @@ SYSCALL_DEFINE_LINUX(mkdirat) {
     (void)thread;
     if (!process) return SCRC(-EINVAL);
 
-    // dirfd is ignored like in openat: relative paths are resolved from /
     const char* path = (const char*)regs->arg2;
     if (!path || (uint64_t)(uintptr_t)path >= USER_VA_LIMIT) return SCRC(-EFAULT);
 
@@ -184,7 +185,6 @@ SYSCALL_DEFINE_LINUX(prlimit64) {
     if (new_limit && new_limit + sizeof(struct rlimit64) > USER_VA_LIMIT) return SCRC(-EFAULT);
     if (old_limit && old_limit + sizeof(struct rlimit64) > USER_VA_LIMIT) return SCRC(-EFAULT);
 
-    // limits are not enforced, so setting one is accepted and forgotten
     if (old_limit) {
         struct rlimit64* out = (struct rlimit64*)old_limit;
         out->rlim_cur = RLIM_INFINITY;
@@ -209,8 +209,6 @@ SYSCALL_DEFINE_LINUX(close_range) {
     if (flags & ~(uint64_t)(CLOSE_RANGE_UNSHARE | CLOSE_RANGE_CLOEXEC)) return SCRC(-EINVAL);
     if (first > last) return SCRC(-EINVAL);
 
-    // file tables are never shared, so UNSHARE changes nothing, and there is
-    // no close-on-exec tracking, so CLOEXEC has nothing to mark
     if (flags & CLOSE_RANGE_CLOEXEC) return SCRC(0);
 
     if (last >= MAX_FILES_PER_PROCESS) last = MAX_FILES_PER_PROCESS - 1;
@@ -221,20 +219,132 @@ SYSCALL_DEFINE_LINUX(close_range) {
         process->fds[fd].offset = 0;
         process->fds[fd].flags = 0;
         process->fds[fd].used = false;
+        process->fds[fd].path[0] = '\0';
     }
 
     return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(sync) {
-    // there is no writable block storage to flush
     (void)regs; (void)process; (void)thread;
     return SCRC(0);
 }
 
+#define MOUNT_PATH_MAX 256
+#define MOUNT_TYPE_MAX 64
+
+#define MS_MGC_VAL 0xC0ED0000UL
+#define MS_MGC_MSK 0xFFFF0000UL
+
+static int copy_user_string(const char* user, char* out, size_t max) {
+    if (!user || (uint64_t)(uintptr_t)user >= USER_VA_LIMIT) return -EFAULT;
+
+    for (size_t i = 0; i < max; i++) {
+        if ((uint64_t)(uintptr_t)(user + i) >= USER_VA_LIMIT) return -EFAULT;
+
+        out[i] = user[i];
+        if (!out[i]) return 0;
+    }
+
+    return -ENAMETOOLONG;
+}
+
+static int resolve_user_path(process_t* process, const char* raw, char* out) {
+    char norm[VFS_PATH_MAX];
+
+    int err = vfs_normalize_path(raw, norm);
+    if (err) return err;
+
+    int fd = procfs_parse_fd_path(norm, process->pid);
+    if (fd < 0) {
+        memcpy(out, norm, strlen(norm) + 1);
+        return 0;
+    }
+
+    if (fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used || !process->fds[fd].path[0]) {
+        return -ENOENT; 
+    }
+
+    memcpy(out, process->fds[fd].path, strlen(process->fds[fd].path) + 1);
+    return 0;
+}
+
 SYSCALL_DEFINE_LINUX(mount) {
-    (void)regs; (void)process; (void)thread;
-    return SCRC(0);
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    const char* user_source = (const char*)regs->arg1;
+    const char* user_target = (const char*)regs->arg2;
+    const char* user_type   = (const char*)regs->arg3;
+    unsigned long flags     = (unsigned long)regs->arg4;
+
+    char source[MOUNT_PATH_MAX];
+    char target[MOUNT_PATH_MAX];
+    char type[MOUNT_TYPE_MAX];
+    char resolved[VFS_PATH_MAX];
+
+    int err = copy_user_string(user_target, target, sizeof(target));
+    if (err) return SCRC(err);
+
+    err = resolve_user_path(process, target, resolved);
+    if (err) return SCRC(err);
+    memcpy(target, resolved, strlen(resolved) + 1);
+
+    source[0] = '\0';
+    if (user_source) {
+        err = copy_user_string(user_source, source, sizeof(source));
+        if (err) return SCRC(err);
+    }
+
+    type[0] = '\0';
+    if (user_type) {
+        err = copy_user_string(user_type, type, sizeof(type));
+        if (err) return SCRC(err);
+    }
+
+    if ((flags & MS_MGC_MSK) == MS_MGC_VAL) flags &= ~MS_MGC_MSK;
+
+    if ((flags & VFS_MS_BIND) && !(flags & VFS_MS_REMOUNT) && user_source) {
+        err = resolve_user_path(process, source, resolved);
+        if (err) return SCRC(err);
+        memcpy(source, resolved, strlen(resolved) + 1);
+    }
+
+    int res;
+
+    if (flags & VFS_MS_REMOUNT) {
+        res = vfs_remount(target, flags);
+    } else if (flags & VFS_MS_BIND) {
+        res = user_source ? vfs_bind_mount(source, target) : -EINVAL;
+    } else if (flags & (VFS_MS_SHARED | VFS_MS_PRIVATE | VFS_MS_SLAVE | VFS_MS_UNBINDABLE)) {
+        vnode_t* node = NULL;
+        res = vfs_lookup(target, &node) == 0 ? 0 : -ENOENT;
+    } else if (flags & VFS_MS_MOVE) {
+        res = -ENOSYS;
+    } else {
+        res = user_type ? vfs_mount(type, user_source ? source : NULL, target, flags) : -EINVAL;
+    }
+
+    dprintk("Syscall", "mount %s on %s, code %d", type, target, res);
+    return SCRC(res);
+}
+
+SYSCALL_DEFINE_LINUX(umount2) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    char target[MOUNT_PATH_MAX];
+    char resolved[VFS_PATH_MAX];
+
+    int err = copy_user_string((const char*)regs->arg1, target, sizeof(target));
+    if (err) return SCRC(err);
+
+    err = resolve_user_path(process, target, resolved);
+    if (err) return SCRC(err);
+
+    int res = vfs_umount(resolved, (int)regs->arg2);
+    dprintk("Syscall", "umount2 %s, code %d", target, res);
+    return SCRC(res);
 }
 
 #endif

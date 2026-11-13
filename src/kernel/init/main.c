@@ -101,9 +101,9 @@ void kmain(common_boot_structure_t* cbs) {
     vfs_register_driver(&devtmpfs_driver);
     if (cbs->modules.initramfs_addr != NULL) {
         tarfs_set_image(cbs->modules.initramfs_addr, cbs->modules.initramfs_size);
-        vfs_mount("tarfs", 0, "/");
+        vfs_mount("tarfs", 0, "/", 0);
     } else 
-        vfs_mount("ramfs", 0, "/");
+        vfs_mount("ramfs", 0, "/", 0);
     devtmpfs_register_devices();
     procfs_register_nodes(cbs->cmdline);
 

@@ -28,6 +28,15 @@
 #include "../common.h"
 #include "common.h"
 
+_Static_assert(FD_PATH_MAX >= VFS_PATH_MAX, "fd path buffer smaller than the VFS path limit");
+
+// remembers the (normalised) path a descriptor was opened with, see file_desc_t::path
+static void fd_record_path(process_t* process, int fd, const char* path) {
+    if (vfs_normalize_path(path, process->fds[fd].path) != 0) {
+        process->fds[fd].path[0] = '\0';
+    }
+}
+
 SYSCALL_DEFINE_LINUX(tgkill) {
     uint64_t tgid = regs->arg1;
     uint64_t tid = regs->arg2;
@@ -243,6 +252,7 @@ SYSCALL_DEFINE_LINUX(open) {
     process->fds[fd].offset = (flags & O_APPEND) ? vnode->size : 0;
     process->fds[fd].flags = flags;
     process->fds[fd].used = true;
+    fd_record_path(process, fd, path);
 
     return SCRC(fd);
 }
@@ -261,6 +271,7 @@ SYSCALL_DEFINE_LINUX(close) {
     process->fds[fd].offset = 0;
     process->fds[fd].flags = 0;
     process->fds[fd].used = false;
+    process->fds[fd].path[0] = '\0';
 
     return SCRC(0);
 }
@@ -299,6 +310,7 @@ SYSCALL_DEFINE_LINUX(openat) {
     process->fds[fd].offset = (flags & O_APPEND) ? vnode->size : 0;
     process->fds[fd].flags = flags;
     process->fds[fd].used = true;
+    fd_record_path(process, fd, path);
 
     return SCRC(fd);
 }
@@ -663,6 +675,7 @@ extern SYSCALL_DEFINE_LINUX(write);
 extern SYSCALL_DEFINE_LINUX(writev);
 extern SYSCALL_DEFINE_LINUX(ioctl);
 extern SYSCALL_DEFINE_LINUX(mount);
+extern SYSCALL_DEFINE_LINUX(umount2);
 extern SYSCALL_DEFINE_LINUX(mkdirat);
 extern SYSCALL_DEFINE_LINUX(prlimit64);
 extern SYSCALL_DEFINE_LINUX(close_range);
@@ -707,6 +720,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [158] = syscall_linux_arch_prctl,
     [162] = syscall_linux_sync,
     [165] = syscall_linux_mount,
+    [166] = syscall_linux_umount2,
     [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
     [217] = syscall_linux_getdents64,
@@ -746,6 +760,8 @@ static const syscall_fn_t syscall_linux_table[] = {
     [23]  = syscall_linux_stub_unimplemented,
     [29]  = syscall_linux_ioctl,
     [34]  = syscall_linux_mkdirat,
+    [39]  = syscall_linux_umount2,
+    [40]  = syscall_linux_mount,
     [56]  = syscall_linux_openat,
     [57]  = syscall_linux_close,
     [61]  = syscall_linux_getdents64,

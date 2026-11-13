@@ -7,6 +7,8 @@
 #define MAX_PROCESSES 256
 #define MAX_FILES_PER_PROCESS 32
 
+#define FD_PATH_MAX 256
+
 struct vnode;
 
 typedef struct file_desc {
@@ -14,6 +16,7 @@ typedef struct file_desc {
     uint64_t offset;
     int flags;
     bool used;
+    char path[FD_PATH_MAX];
 } file_desc_t;
 
 typedef struct process {

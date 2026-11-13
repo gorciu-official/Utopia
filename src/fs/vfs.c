@@ -5,8 +5,11 @@
 #include <lib/screen.h>
 
 #define MAX_DRIVERS 16
-#define MAX_MOUNTS 16
-#define PATH_MAX 256
+#define MAX_MOUNTS 64
+#define PATH_MAX VFS_PATH_MAX
+#define NAME_MAX 127
+
+#define MOUNT_STORED_FLAGS (VFS_MS_RDONLY | VFS_MS_NOSUID | VFS_MS_NODEV | VFS_MS_NOEXEC)
 
 static filesystem_driver_t* g_drivers[MAX_DRIVERS];
 static uint32_t g_driver_count = 0;
@@ -46,53 +49,177 @@ static filesystem_driver_t* vfs_find_driver(const char* type) {
     return 0;
 }
 
+static const struct {
+    const char* type;
+    const char* backing;
+} g_fs_aliases[] = {
+    { "tmpfs",      "ramfs" },
+
+    { "proc",       "ramfs" },
+    { "sysfs",      "ramfs" },
+    { "devpts",     "ramfs" },
+    { "cgroup",     "ramfs" },
+    { "cgroup2",    "ramfs" },
+    { "securityfs", "ramfs" },
+    { "pstore",     "ramfs" },
+    { "bpf",        "ramfs" },
+    { "debugfs",    "ramfs" },
+    { "tracefs",    "ramfs" },
+    { "configfs",   "ramfs" },
+    { "mqueue",     "ramfs" },
+};
+
+#define FS_ALIAS_COUNT (sizeof(g_fs_aliases) / sizeof(g_fs_aliases[0]))
+
+static filesystem_driver_t* vfs_resolve_driver(const char* type) {
+    filesystem_driver_t* driver = vfs_find_driver(type);
+    if (driver) {
+        return driver;
+    }
+
+    for (uint32_t i = 0; i < FS_ALIAS_COUNT; i++) {
+        if (strcmp(g_fs_aliases[i].type, type) != 0) {
+            continue;
+        }
+
+        driver = vfs_find_driver(g_fs_aliases[i].backing);
+        return driver;
+    }
+
+    return 0;
+}
+
 void vfs_init() {
     // it quite literally does nothing but maybe it will need to do 
     // something in the future?
     printk(KMT_LOG, "Filesystem", "VFS initialized successfully.");
 }
 
-int vfs_mount(const char* type, const char* source, const char* target) {
-    if (!type) {
-        return -1;
+int vfs_normalize_path(const char* path, char* out) {
+    if (!path || !path[0]) {
+        return -VFS_ENOENT;
     }
 
-    filesystem_driver_t* driver = vfs_find_driver(type);
+    int len = 1;
+    out[0] = '/';
+    out[1] = '\0';
 
-    if (!driver) {
-        printk(KMT_LOG, "Filesystem", "Unknown filesystem: %s", type);
-        return -1;
+    const char* p = path;
+
+    while (*p) {
+        while (*p == '/') {
+            p++;
+        }
+        if (!*p) {
+            break;
+        }
+
+        const char* start = p;
+        while (*p && *p != '/') {
+            p++;
+        }
+        int clen = (int)(p - start);
+
+        if (clen == 1 && start[0] == '.') {
+            continue;
+        }
+
+        if (clen == 2 && start[0] == '.' && start[1] == '.') {
+            while (len > 1 && out[len - 1] != '/') {
+                len--;
+            }
+            if (len > 1) {
+                len--;
+            }
+            out[len] = '\0';
+            continue;
+        }
+
+        if (clen > NAME_MAX) {
+            return -VFS_ENAMETOOLONG;
+        }
+        if (len + (len > 1 ? 1 : 0) + clen >= PATH_MAX) {
+            return -VFS_ENAMETOOLONG;
+        }
+
+        if (len > 1) {
+            out[len++] = '/';
+        }
+        memcpy(out + len, start, clen);
+        len += clen;
+        out[len] = '\0';
     }
 
-    if (g_mount_count >= MAX_MOUNTS) {
-        return -1;
-    }
-
-    filesystem_mount_t* mount = malloc(sizeof(filesystem_mount_t));
-
-    if (!mount) {
-        return -1;
-    }
-
-    mount->fs = driver;
-    mount->fs_private = 0;
-    mount->root = 0;
-
-    if (!driver->mount) {
-        free(mount);
-        return -1;
-    }
-
-    if (driver->mount(mount, source, target) != 0) {
-        printk(KMT_LOG, "Filesystem", "Mount failed for %s", type);
-        free(mount);
-        return -1;
-    }
-
-    g_mounts[g_mount_count++] = mount;
-
-    printk(KMT_LOG, "Filesystem", "Mounted filesystem %s at %s", type, target);
     return 0;
+}
+
+static bool vfs_path_has_prefix(const char* path, const char* prefix, int plen) {
+    if (plen == 1) {
+        return true; 
+    }
+
+    return strncmp(path, prefix, plen) == 0 && (path[plen] == '\0' || path[plen] == '/');
+}
+
+static filesystem_mount_t* vfs_find_mount(const char* norm, const char** rest) {
+    filesystem_mount_t* best = 0;
+    int best_len = 0;
+
+    for (int i = (int)g_mount_count - 1; i >= 0; i--) {
+        filesystem_mount_t* m = g_mounts[i];
+        int tlen = strlen(m->target);
+
+        if (best && tlen <= best_len) {
+            continue;
+        }
+        if (!vfs_path_has_prefix(norm, m->target, tlen)) {
+            continue;
+        }
+
+        best = m;
+        best_len = tlen;
+    }
+
+    if (best && rest) {
+        *rest = norm + (best_len > 1 ? best_len : 0);
+    }
+
+    return best;
+}
+
+static int vfs_find_exact_mount(const char* norm) {
+    for (int i = (int)g_mount_count - 1; i >= 0; i--) {
+        if (strcmp(g_mounts[i]->target, norm) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static filesystem_mount_t* vfs_new_mount(const char* norm, unsigned long flags) {
+    filesystem_mount_t* mount = malloc(sizeof(filesystem_mount_t));
+    if (!mount) {
+        return 0;
+    }
+
+    memset(mount, 0, sizeof(filesystem_mount_t));
+
+    int len = strlen(norm);
+    mount->target = malloc(len + 1);
+    if (!mount->target) {
+        free(mount);
+        return 0;
+    }
+
+    memcpy(mount->target, norm, len + 1);
+    mount->flags = flags;
+    return mount;
+}
+
+static void vfs_free_mount(filesystem_mount_t* mount) {
+    free(mount->target);
+    free(mount);
 }
 
 static const char* vfs_next_token(const char* path, char* out) {
@@ -107,7 +234,7 @@ static const char* vfs_next_token(const char* path, char* out) {
     int i = 0;
 
     while (*path && *path != '/') {
-        if (i < 127) {
+        if (i < NAME_MAX) {
             out[i++] = *path;
         }
         path++;
@@ -141,43 +268,34 @@ int vfs_lookup(const char* path, vnode_t** result) {
         return -1;
     }
 
+    char norm[PATH_MAX];
+    if (vfs_normalize_path(path, norm) != 0) {
+        return -1;
+    }
+
     for (uint32_t i = 0; i < g_static_node_count; i++) {
-        if (strcmp(g_static_nodes[i].path, path) == 0) {
+        if (strcmp(g_static_nodes[i].path, norm) == 0) {
             *result = g_static_nodes[i].node;
             return 0;
         }
     }
 
-    if (path[0] != '/') {
-        if (path[0] == '.' && (path[1] == '\0' || path[1] == '/')) {
-            path++;
-
-            if (*path == '/') {
-                path++;
-            }
-        }
-    }
-
-    filesystem_mount_t* mount = g_mounts[0];
+    const char* rest = 0;
+    filesystem_mount_t* mount = vfs_find_mount(norm, &rest);
     if (!mount || !mount->root) {
         return -1;
     }
 
     vnode_t* current = mount->root;
 
-    char token[128];
-    const char* p = path;
+    char token[NAME_MAX + 1];
+    const char* p = rest;
 
     while (p && *p) {
         p = vfs_next_token(p, token);
 
         if (token[0] == 0) 
             continue;
-
-        if (token[0] == '.' && token[1] == '\0') {
-            current = mount->root;
-            continue;
-        }
 
         if (!current || !current->ops || !current->ops->lookup) 
             return -1;
@@ -194,6 +312,192 @@ int vfs_lookup(const char* path, vnode_t** result) {
     }
 
     *result = current;
+    return 0;
+}
+
+static int vfs_check_mountpoint(const char* norm) {
+    if (g_mount_count == 0) {
+        return strcmp(norm, "/") == 0 ? 0 : -VFS_ENOENT;
+    }
+
+    vnode_t* node = 0;
+    if (vfs_lookup(norm, &node) != 0 || !node) {
+        return -VFS_ENOENT;
+    }
+    if (node->type != VNODE_TYPE_DIR) {
+        return -VFS_ENOTDIR;
+    }
+
+    return 0;
+}
+
+int vfs_mount(const char* type, const char* source, const char* target, unsigned long flags) {
+    if (!type || !target) {
+        return -VFS_EINVAL;
+    }
+
+    char norm[PATH_MAX];
+    int err = vfs_normalize_path(target, norm);
+    if (err) {
+        return err;
+    }
+
+    filesystem_driver_t* driver = vfs_resolve_driver(type);
+
+    if (!driver || !driver->mount) {
+        printk(KMT_LOG, "Filesystem", "Unknown filesystem: %s", type);
+        return -VFS_ENODEV;
+    }
+
+    if (g_mount_count >= MAX_MOUNTS) {
+        return -VFS_ENOMEM;
+    }
+
+    err = vfs_check_mountpoint(norm);
+    if (err) {
+        return err;
+    }
+
+    filesystem_mount_t* mount = vfs_new_mount(norm, flags & MOUNT_STORED_FLAGS);
+    if (!mount) {
+        return -VFS_ENOMEM;
+    }
+
+    mount->fs = driver;
+
+    int res = driver->mount(mount, source, norm);
+    if (res != 0 || !mount->root) {
+        printk(KMT_LOG, "Filesystem", "Mount failed for %s", type);
+        vfs_free_mount(mount);
+        return res < -1 ? res : -VFS_EIO;
+    }
+
+    g_mounts[g_mount_count++] = mount;
+
+    printk(KMT_LOG, "Filesystem", "Mounted filesystem %s at %s", type, norm);
+
+    return 0;
+}
+
+int vfs_remount(const char* target, unsigned long flags) {
+    char norm[PATH_MAX];
+    int err = vfs_normalize_path(target, norm);
+    if (err) {
+        return err;
+    }
+
+    int idx = vfs_find_exact_mount(norm);
+    if (idx < 0) {
+        return -VFS_EINVAL; 
+    }
+
+    g_mounts[idx]->flags = (g_mounts[idx]->flags & ~MOUNT_STORED_FLAGS) | (flags & MOUNT_STORED_FLAGS);
+    return 0;
+}
+
+int vfs_bind_mount(const char* source, const char* target) {
+    char snorm[PATH_MAX];
+    char tnorm[PATH_MAX];
+
+    int err = vfs_normalize_path(source, snorm);
+    if (err) {
+        return err;
+    }
+    err = vfs_normalize_path(target, tnorm);
+    if (err) {
+        return err;
+    }
+
+    vnode_t* src = 0;
+    if (vfs_lookup(snorm, &src) != 0 || !src) {
+        return -VFS_ENOENT;
+    }
+    if (src->type != VNODE_TYPE_DIR) {
+        return -VFS_ENOTDIR;
+    }
+
+    if (g_mount_count >= MAX_MOUNTS) {
+        return -VFS_ENOMEM;
+    }
+
+    err = vfs_check_mountpoint(tnorm);
+    if (err) {
+        return err;
+    }
+
+    filesystem_mount_t* src_mount = vfs_find_mount(snorm, 0);
+    if (!src_mount) {
+        return -VFS_EINVAL;
+    }
+
+    filesystem_mount_t* mount = vfs_new_mount(tnorm, src_mount->flags | VFS_MS_BIND);
+    if (!mount) {
+        return -VFS_ENOMEM;
+    }
+
+    mount->fs = src_mount->fs;
+    mount->fs_private = src_mount->fs_private;
+    mount->root = src;
+
+    g_mounts[g_mount_count++] = mount;
+
+    printk(KMT_LOG, "Filesystem", "Bound %s at %s", snorm, tnorm);
+    return 0;
+}
+
+static void vfs_drop_mount(int idx) {
+    filesystem_mount_t* mount = g_mounts[idx];
+
+    if (!(mount->flags & VFS_MS_BIND) && mount->fs && mount->fs->unmount) {
+        mount->fs->unmount(mount);
+    }
+
+    for (int i = idx; i + 1 < (int)g_mount_count; i++) {
+        g_mounts[i] = g_mounts[i + 1];
+    }
+    g_mounts[--g_mount_count] = 0;
+
+    printk(KMT_LOG, "Filesystem", "Unmounted %s", mount->target);
+    vfs_free_mount(mount);
+}
+
+int vfs_umount(const char* target, int flags) {
+    char norm[PATH_MAX];
+    int err = vfs_normalize_path(target, norm);
+    if (err) {
+        return err;
+    }
+
+    if (strcmp(norm, "/") == 0) {
+        return -VFS_EBUSY; 
+    }
+
+    int idx = vfs_find_exact_mount(norm);
+    if (idx < 0) {
+        return -VFS_EINVAL; 
+    }
+
+    int tlen = strlen(norm);
+
+    for (int i = (int)g_mount_count - 1; i >= 0; i--) {
+        filesystem_mount_t* m = g_mounts[i];
+
+        if (strlen(m->target) <= tlen || !vfs_path_has_prefix(m->target, norm, tlen)) {
+            continue;
+        }
+
+        if (!(flags & VFS_MNT_DETACH)) {
+            return -VFS_EBUSY;
+        }
+
+        vfs_drop_mount(i);
+    }
+
+    idx = vfs_find_exact_mount(norm);
+    if (idx >= 0) {
+        vfs_drop_mount(idx);
+    }
+
     return 0;
 }
 
