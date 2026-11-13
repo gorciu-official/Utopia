@@ -8,6 +8,7 @@
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <lib/spinlock.h>
+#include <fs/filesystem.h>
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/msr.h>
 #endif
@@ -61,6 +62,9 @@ process_t* process_create(const char* name, void (*entry_point)(void*), uint64_t
     proc->fds[0].used = true;
     proc->fds[1].used = true;
     proc->fds[2].used = true;
+
+    proc->cwd[0] = '/';
+    proc->cwd[1] = '\0';
 
     spinlock_acquire(&process_lock);
     proc->next = process_list_head;
@@ -263,6 +267,7 @@ process_t* process_clone(process_t* parent, thread_t* parent_thread, const struc
     child->mmap_current  = parent->mmap_current;
     child->syscall_conv  = parent->syscall_conv;
     memcpy(child->fds, parent->fds, sizeof(child->fds));
+    memcpy(child->cwd, parent->cwd, sizeof(child->cwd));
 
     uint64_t fs_base = parent_thread->fs_base;
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
@@ -356,4 +361,42 @@ void process_replace(process_t* proc, thread_t* thread, struct registers* frame,
     frame->x[2]    = prepared->sp;
     frame->sepc    = prepared->entry - 4;
 #endif
+}
+
+int process_resolve_at(process_t* proc, int dirfd, const char* path, char* out) {
+    if (!proc || !path || !out) {
+        return -VFS_EINVAL;
+    }
+
+    if (path[0] == '/' || path[0] == '\0' || dirfd == VFS_AT_FDCWD) {
+        return vfs_resolve_path(proc->cwd, path, out);
+    }
+
+    if (dirfd < 0 || dirfd >= MAX_FILES_PER_PROCESS || !proc->fds[dirfd].used) {
+        return -VFS_EBADF;
+    }
+
+    file_desc_t* fd = &proc->fds[dirfd];
+    if (!fd->vnode || fd->vnode->type != VNODE_TYPE_DIR) {
+        return -VFS_ENOTDIR;
+    }
+    if (!fd->path[0]) {
+        return -VFS_ENOENT;
+    }
+
+    return vfs_resolve_path(fd->path, path, out);
+}
+
+int process_chdir(process_t* proc, const char* resolved_path) {
+    if (!proc || !resolved_path || resolved_path[0] != '/') {
+        return -VFS_EINVAL;
+    }
+
+    int len = strlen(resolved_path);
+    if (len >= PROCESS_CWD_MAX) {
+        return -VFS_ENAMETOOLONG;
+    }
+
+    memcpy(proc->cwd, resolved_path, len + 1);
+    return 0;
 }

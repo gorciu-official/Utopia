@@ -163,11 +163,16 @@ SYSCALL_DEFINE_LINUX(mkdirat) {
     (void)thread;
     if (!process) return SCRC(-EINVAL);
 
+    int dfd = (int)regs->arg1;
     const char* path = (const char*)regs->arg2;
     if (!path || (uint64_t)(uintptr_t)path >= USER_VA_LIMIT) return SCRC(-EFAULT);
 
-    int res = vfs_mkdir(path);
-    dprintk("Syscall", "mkdirat %s, code %d", path, res);
+    char resolved[VFS_PATH_MAX];
+    int res = process_resolve_at(process, dfd, path, resolved);
+    if (res != 0) return SCRC(res);
+
+    res = vfs_mkdir(resolved);
+    dprintk("Syscall", "mkdirat %s (%s), code %d", path, resolved, res);
     return SCRC(res);
 }
 
@@ -252,7 +257,7 @@ static int copy_user_string(const char* user, char* out, size_t max) {
 static int resolve_user_path(process_t* process, const char* raw, char* out) {
     char norm[VFS_PATH_MAX];
 
-    int err = vfs_normalize_path(raw, norm);
+    int err = vfs_resolve_path(process->cwd, raw, norm);
     if (err) return err;
 
     int fd = procfs_parse_fd_path(norm, process->pid);
@@ -345,6 +350,47 @@ SYSCALL_DEFINE_LINUX(umount2) {
     int res = vfs_umount(resolved, (int)regs->arg2);
     dprintk("Syscall", "umount2 %s, code %d", target, res);
     return SCRC(res);
+}
+
+SYSCALL_DEFINE_LINUX(chdir) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    char raw[VFS_PATH_MAX];
+    char resolved[VFS_PATH_MAX];
+
+    int err = copy_user_string((const char*)regs->arg1, raw, sizeof(raw));
+    if (err) return SCRC(err);
+
+    err = process_resolve_at(process, VFS_AT_FDCWD, raw, resolved);
+    if (err) return SCRC(err);
+
+    vnode_t* node = NULL;
+    if (vfs_lookup(resolved, &node) != 0 || !node) return SCRC(-ENOENT);
+    if (node->type != VNODE_TYPE_DIR) return SCRC(-ENOTDIR);
+
+    err = process_chdir(process, resolved);
+    dprintk("Syscall", "chdir %s -> %s, code %d", raw, resolved, err);
+    return SCRC(err);
+}
+
+SYSCALL_DEFINE_LINUX(fchdir) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    int fd = (int)regs->arg1;
+
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
+        return SCRC(-EBADF);
+    }
+
+    file_desc_t* desc = &process->fds[fd];
+    if (!desc->vnode || desc->vnode->type != VNODE_TYPE_DIR) return SCRC(-ENOTDIR);
+    if (!desc->path[0]) return SCRC(-ENOENT);
+
+    int err = process_chdir(process, desc->path);
+    dprintk("Syscall", "fchdir %d -> %s, code %d", fd, desc->path, err);
+    return SCRC(err);
 }
 
 #endif

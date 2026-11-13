@@ -19,6 +19,8 @@
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
 
+#define USER_VA_LIMIT (1ULL << USER_VA_BITS)
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/common.h>
 #include <arch/x86_64/msr.h>
@@ -30,11 +32,8 @@
 
 _Static_assert(FD_PATH_MAX >= VFS_PATH_MAX, "fd path buffer smaller than the VFS path limit");
 
-// remembers the (normalised) path a descriptor was opened with, see file_desc_t::path
-static void fd_record_path(process_t* process, int fd, const char* path) {
-    if (vfs_normalize_path(path, process->fds[fd].path) != 0) {
-        process->fds[fd].path[0] = '\0';
-    }
+static void fd_record_path(process_t* process, int fd, const char* resolved) {
+    memcpy(process->fds[fd].path, resolved, strlen(resolved) + 1);
 }
 
 SYSCALL_DEFINE_LINUX(tgkill) {
@@ -165,18 +164,23 @@ SYSCALL_DEFINE_LINUX(pselect6) {
 }
 
 SYSCALL_DEFINE_LINUX(getcwd) {
-    (void)thread; (void)process;
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
 
     char *buf = (char*)regs->arg1;
     size_t size = regs->arg2;
 
-    if (size < 2)
-        return SCRC(-34);
+    if (!buf || (uint64_t)(uintptr_t)buf >= USER_VA_LIMIT)
+        return SCRC(-EFAULT);
 
-    buf[0] = '/';
-    buf[1] = '\0';
+    size_t len = strlen(process->cwd) + 1; 
 
-    return SCRC(2);
+    if (size < len)
+        return SCRC(-ERANGE);
+
+    memcpy(buf, process->cwd, len);
+
+    return SCRC(len);
 }
 
 SYSCALL_DEFINE_LINUX(fstat) {
@@ -241,9 +245,15 @@ SYSCALL_DEFINE_LINUX(open) {
         return SCRC(-EMFILE); 
     }
 
+    char resolved[VFS_PATH_MAX];
+    int res = process_resolve_at(process, VFS_AT_FDCWD, path, resolved);
+    if (res != 0) {
+        return SCRC(res);
+    }
+
     vnode_t* vnode = NULL;
-    int res = vfs_open(path, flags, &vnode);
-    dprintk("Syscall", "Accessing through open %s, code %d", path, res);
+    res = vfs_open(resolved, flags, &vnode);
+    dprintk("Syscall", "Accessing through open %s (%s), code %d", path, resolved, res);
     if (res != 0) {
         return SCRC(res);
     }
@@ -252,7 +262,7 @@ SYSCALL_DEFINE_LINUX(open) {
     process->fds[fd].offset = (flags & O_APPEND) ? vnode->size : 0;
     process->fds[fd].flags = flags;
     process->fds[fd].used = true;
-    fd_record_path(process, fd, path);
+    fd_record_path(process, fd, resolved);
 
     return SCRC(fd);
 }
@@ -283,7 +293,6 @@ SYSCALL_DEFINE_LINUX(openat) {
     int dfd = (int)regs->arg1;  
     const char* path = (const char*)regs->arg2;
     int flags = (int)regs->arg3;
-    (void)dfd;
 
     if (!path) return SCRC(-EFAULT);
 
@@ -299,9 +308,15 @@ SYSCALL_DEFINE_LINUX(openat) {
         return SCRC(-EMFILE);
     }
 
+    char resolved[VFS_PATH_MAX];
+    int res = process_resolve_at(process, dfd, path, resolved);
+    if (res != 0) {
+        return SCRC(res);
+    }
+
     vnode_t* vnode = NULL;
-    int res = vfs_open(path, flags, &vnode);
-    dprintk("Syscall", "Accessing through openat %s, code %d", path, res);
+    res = vfs_open(resolved, flags, &vnode);
+    dprintk("Syscall", "Accessing through openat %s (%s), code %d", path, resolved, res);
     if (res != 0) {
         return SCRC(res);
     }
@@ -310,7 +325,7 @@ SYSCALL_DEFINE_LINUX(openat) {
     process->fds[fd].offset = (flags & O_APPEND) ? vnode->size : 0;
     process->fds[fd].flags = flags;
     process->fds[fd].used = true;
-    fd_record_path(process, fd, path);
+    fd_record_path(process, fd, resolved);
 
     return SCRC(fd);
 }
@@ -437,8 +452,14 @@ SYSCALL_DEFINE_LINUX(access) {
 
     dprintk("Syscall", "Accessing %s", pathname);
 
+    char resolved[VFS_PATH_MAX];
+    int res = process_resolve_at(process, VFS_AT_FDCWD, pathname, resolved);
+    if (res != 0) {
+        return SCRC(res);
+    }
+
     vnode_t* vnode = NULL;
-    int res = vfs_open(pathname, 0, &vnode);
+    res = vfs_open(resolved, 0, &vnode);
     if (res != 0) {
         return SCRC(res);
     }
@@ -470,13 +491,18 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
     struct stat* statbuf = (struct stat*)regs->arg3;
     int flag = (int)regs->arg4;
     
-    (void)dfd;  
     (void)flag;
 
     if (!filename || !statbuf) return SCRC(-EFAULT); 
 
+    char resolved[VFS_PATH_MAX];
+    int res = process_resolve_at(process, dfd, filename, resolved);
+    if (res != 0) {
+        return SCRC(res);
+    }
+
     vnode_t* vnode = NULL;
-    int res = vfs_open(filename, 0, &vnode);
+    res = vfs_open(resolved, 0, &vnode);
     if (res != 0) {
         return SCRC(res);
     }
@@ -677,6 +703,8 @@ extern SYSCALL_DEFINE_LINUX(ioctl);
 extern SYSCALL_DEFINE_LINUX(mount);
 extern SYSCALL_DEFINE_LINUX(umount2);
 extern SYSCALL_DEFINE_LINUX(mkdirat);
+extern SYSCALL_DEFINE_LINUX(chdir);
+extern SYSCALL_DEFINE_LINUX(fchdir);
 extern SYSCALL_DEFINE_LINUX(prlimit64);
 extern SYSCALL_DEFINE_LINUX(close_range);
 extern SYSCALL_DEFINE_LINUX(sync);
@@ -709,6 +737,8 @@ static const syscall_fn_t syscall_linux_table[] = {
     [61]  = syscall_linux_wait4,
     [63]  = syscall_linux_uname,
     [79]  = syscall_linux_getcwd,
+    [80]  = syscall_linux_chdir,
+    [81]  = syscall_linux_fchdir,
     [109] = syscall_linux_setpgid,
     [111] = syscall_linux_getpgrp,
     [112] = syscall_linux_setsid,
@@ -762,6 +792,8 @@ static const syscall_fn_t syscall_linux_table[] = {
     [34]  = syscall_linux_mkdirat,
     [39]  = syscall_linux_umount2,
     [40]  = syscall_linux_mount,
+    [49]  = syscall_linux_chdir,
+    [50]  = syscall_linux_fchdir,
     [56]  = syscall_linux_openat,
     [57]  = syscall_linux_close,
     [61]  = syscall_linux_getdents64,

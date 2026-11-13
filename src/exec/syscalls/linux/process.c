@@ -95,7 +95,11 @@ SYSCALL_DEFINE_LINUX(execve) {
         argc = 1;
     }
 
-    vfs_lookup(path, &node);
+    char resolved[VFS_PATH_MAX];
+    err = process_resolve_at(process, VFS_AT_FDCWD, path, resolved);
+    if (err) goto out;
+
+    vfs_lookup(resolved, &node);
     if (!node) { err = -ENOENT; goto out; }
     if (node->type == VNODE_TYPE_DIR) {
         err = -EACCES; 

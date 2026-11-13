@@ -297,6 +297,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
 
     if likely (console_suspended) {
         spinlock_release(&fb_spinlock);
+        arch_restore_interrupts(flags);
         return;
     }
 

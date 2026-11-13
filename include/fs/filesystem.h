@@ -15,13 +15,17 @@
 
 #define VFS_PATH_MAX     256
 
+#define VFS_AT_FDCWD     (-100)
+
 #define VFS_EIO           5
 #define VFS_ENOMEM        12
 #define VFS_EBUSY         16
 #define VFS_ENODEV        19
 #define VFS_ENOTDIR       20
 #define VFS_ENOENT        2
+#define VFS_EBADF         9
 #define VFS_EINVAL        22
+#define VFS_ERANGE        34
 #define VFS_ENAMETOOLONG  36
 #define VFS_ENOSYS        38
 
@@ -102,6 +106,8 @@ int vfs_mkdir(const char *path);
 int vfs_register_node(const char *path, vnode_t *node);
 
 int vfs_normalize_path(const char *path, char *out);
+
+int vfs_resolve_path(const char *base, const char *path, char *out);
 
 int procfs_parse_fd_path(const char *path, uint32_t pid);
 

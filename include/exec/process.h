@@ -8,6 +8,7 @@
 #define MAX_FILES_PER_PROCESS 32
 
 #define FD_PATH_MAX 256
+#define PROCESS_CWD_MAX 256
 
 struct vnode;
 
@@ -31,6 +32,7 @@ typedef struct process {
     struct thread* main_thread; 
     struct process* next;   
     file_desc_t fds[MAX_FILES_PER_PROCESS];
+    char cwd[PROCESS_CWD_MAX]; 
     int syscall_conv;
     vm_page_list_t owned_pages;
 
@@ -49,6 +51,9 @@ void process_terminate(process_t* proc);
 int process_wait_child(process_t* parent, int pid, int* status_out);
 int process_wait_child_ex(process_t* parent, int pid, int* status_out, uint32_t* pid_out, bool reap);
 process_t* process_get_current(void);
+
+int process_resolve_at(process_t* proc, int dirfd, const char* path, char* out);
+int process_chdir(process_t* proc, const char* resolved_path);
 
 struct registers;
 struct elf_prepared;

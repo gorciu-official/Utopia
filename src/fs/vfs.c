@@ -95,15 +95,7 @@ void vfs_init() {
     printk(KMT_LOG, "Filesystem", "VFS initialized successfully.");
 }
 
-int vfs_normalize_path(const char* path, char* out) {
-    if (!path || !path[0]) {
-        return -VFS_ENOENT;
-    }
-
-    int len = 1;
-    out[0] = '/';
-    out[1] = '\0';
-
+static int vfs_normalize_append(const char* path, char* out, int len) {
     const char* p = path;
 
     while (*p) {
@@ -151,6 +143,36 @@ int vfs_normalize_path(const char* path, char* out) {
     }
 
     return 0;
+}
+
+int vfs_normalize_path(const char* path, char* out) {
+    if (!path || !path[0]) {
+        return -VFS_ENOENT;
+    }
+
+    out[0] = '/';
+    out[1] = '\0';
+
+    return vfs_normalize_append(path, out, 1);
+}
+
+int vfs_resolve_path(const char* base, const char* path, char* out) {
+    if (!path || !path[0]) {
+        return -VFS_ENOENT;
+    }
+
+    if (path[0] == '/' || !base || base[0] != '/') {
+        return vfs_normalize_path(path, out);
+    }
+
+    int blen = strlen(base);
+    if (blen >= PATH_MAX) {
+        return -VFS_ENAMETOOLONG;
+    }
+
+    memcpy(out, base, blen + 1);
+
+    return vfs_normalize_append(path, out, blen);
 }
 
 static bool vfs_path_has_prefix(const char* path, const char* prefix, int plen) {

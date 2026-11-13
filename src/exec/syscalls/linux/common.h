@@ -137,6 +137,7 @@ struct winsize {
 #define ENOTDIR      20
 #define EINVAL       22
 #define EMFILE       24
+#define ERANGE       34
 #define ENAMETOOLONG 36
 #define ENOSYS       38
 
