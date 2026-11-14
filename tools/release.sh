@@ -18,19 +18,14 @@ echo
 
 readonly OUTPUT_DIR="target/kernel.release-binaries"
 
-read -r -p "Cross compile prefix for x86_64: " x86_64_cross_compile
-read -r -p "Cross compile prefix for RISC-V 64: " riscv64_cross_compile
-
 compile() {
     local arch="$1"
-    local cross_compile="$2"
-    local bootloader="$3"
-    local build_dir="target/kernel.release.${arch}.${bootloader}"
-    local make_args="BOOTLOADER=${bootloader}" "ARCH=${arch}" "CROSS_COMPILE=${cross_compile}"
+    local bootloader="$2"
+    local build_dir="target/kernel.${arch}.${bootloader}"
+    local make_args="BOOTLOADER=${bootloader}" "ARCH=${arch}"
 
     echo
     echo "==> Building ${arch} with ${bootloader}"
-    echo "    Cross compile prefix: ${cross_compile:-<native>}"
 
     make $make_args clean
 
@@ -49,9 +44,11 @@ compile() {
     echo "==> ${arch}/${bootloader} build completed successfully"
 }
 
-compile x86_64 "$x86_64_cross_compile" limine
-compile x86_64 "$x86_64_cross_compile" grub
-compile riscv64 "$riscv64_cross_compile" limine
+make defconfig
+
+compile x86_64 limine
+compile x86_64 grub
+compile riscv64 limine
 
 echo
 echo "==> All builds completed successfully"

@@ -364,7 +364,6 @@ void framebuffer_delchar(void) {
     if (cursor_x >= FONT_WIDTH) {
         cursor_x -= FONT_WIDTH;
     } else if (cursor_y >= font_height) {
-        // wrap back to the last cell of the previous line
         cursor_y -= font_height;
         cursor_x = ((fb_width / FONT_WIDTH) - 1) * FONT_WIDTH;
     } else {
