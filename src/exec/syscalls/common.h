@@ -4,6 +4,7 @@
 #include <types.h>
 #include <config.h>
 #include <exec/process.h>
+#include <lib/extensions.h>
 
 typedef struct {
     uint64_t arg1, arg2, arg3, arg4, arg5, arg6, syscall_no;
@@ -48,15 +49,12 @@ typedef struct {
 #define SYSCALL_DEFINE_OWN(syscall_name) \
     SYSCALL_DEFINE(own, syscall_name)
 
-#define SYSCALL_TABLE_SIZE(syscall_table) \
-    (sizeof(syscall_table) / sizeof(syscall_table[0]))
-
 #define SYSCALL_ABI_DECLARE(abi_name) \
     syscall_abi_t syscall_abi_##abi_name 
 
 #define SYSCALL_ABI_DEFINE(abi_name, syscall_table, to_sregs_fun, set_return_value, not_found_err) \
     SYSCALL_ABI_DECLARE(abi_name) = \
-        { .table = &syscall_table, .table_size = SYSCALL_TABLE_SIZE(syscall_table), .to_sregs = to_sregs_fun, .not_found_error = (not_found_err), .set_ret_value = set_return_value };
+        { .table = &syscall_table, .table_size = countof(syscall_table), .to_sregs = to_sregs_fun, .not_found_error = (not_found_err), .set_ret_value = set_return_value };
 
 #define SCRC(pcode) \
     ((syscall_result_t){ .type = SYSCALL_RESULT_TYPE_CODE, .code = pcode })

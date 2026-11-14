@@ -3,6 +3,7 @@
 #include <fs/filesystem.h>
 #include <mm/pmm.h>
 #include <lib/screen.h>
+#include <lib/extensions.h>
 
 #define MAX_DRIVERS 16
 #define MAX_MOUNTS 64
@@ -61,15 +62,13 @@ static const struct {
     { "cgroup2",    "ramfs" },
 };
 
-#define FS_ALIAS_COUNT (sizeof(g_fs_aliases) / sizeof(g_fs_aliases[0]))
-
 static filesystem_driver_t* vfs_resolve_driver(const char* type) {
     filesystem_driver_t* driver = vfs_find_driver(type);
     if (driver) {
         return driver;
     }
 
-    for (uint32_t i = 0; i < FS_ALIAS_COUNT; i++) {
+    for (uint32_t i = 0; i < countof(g_fs_aliases); i++) {
         if (strcmp(g_fs_aliases[i].type, type) != 0) {
             continue;
         }
