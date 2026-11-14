@@ -54,19 +54,11 @@ static const struct {
     const char* backing;
 } g_fs_aliases[] = {
     { "tmpfs",      "ramfs" },
-
     { "proc",       "ramfs" },
     { "sysfs",      "ramfs" },
     { "devpts",     "ramfs" },
     { "cgroup",     "ramfs" },
     { "cgroup2",    "ramfs" },
-    { "securityfs", "ramfs" },
-    { "pstore",     "ramfs" },
-    { "bpf",        "ramfs" },
-    { "debugfs",    "ramfs" },
-    { "tracefs",    "ramfs" },
-    { "configfs",   "ramfs" },
-    { "mqueue",     "ramfs" },
 };
 
 #define FS_ALIAS_COUNT (sizeof(g_fs_aliases) / sizeof(g_fs_aliases[0]))
