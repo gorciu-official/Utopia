@@ -55,8 +55,12 @@ void keyboard_handle_keypress(keyboard_pressed_key_t key) {
     if unlikely (key.character == '\r')
         key.character = '\n';
 
-    if (keyboard_should_putchar)
-        framebuffer_putchar(key.character, 0xFFFFFF, 0x000000);
+    if (keyboard_should_putchar) {
+        if (key.character == '\b')
+            framebuffer_delchar();
+        else
+            framebuffer_putchar(key.character, 0xFFFFFF, 0x000000);
+    }
 
     kbd_push(key.character);
 }

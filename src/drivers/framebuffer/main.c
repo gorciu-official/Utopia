@@ -358,7 +358,30 @@ void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t
         framebuffer_flush(x, y, FONT_WIDTH, font_height);
 }
 
+void framebuffer_delchar(void) {
+    uint32_t font_height = framebuffer_font_height();
+
+    if (cursor_x >= FONT_WIDTH) {
+        cursor_x -= FONT_WIDTH;
+    } else if (cursor_y >= font_height) {
+        // wrap back to the last cell of the previous line
+        cursor_y -= font_height;
+        cursor_x = ((fb_width / FONT_WIDTH) - 1) * FONT_WIDTH;
+    } else {
+        return;
+    }
+
+    framebuffer_draw_char(cursor_x, cursor_y, ' ', 0xFFFFFF, 0x000000);
+}
+
 void framebuffer_putchar(char c, uint32_t fg, uint32_t bg) {
+    if (c == '\t') {
+        for (int i = 0; i < 5; i++)
+            framebuffer_putchar(' ', fg, bg);
+
+        return;
+    }
+
     if (!serial_used) 
         serial_used = !(bool)arch_init_serial();
 
