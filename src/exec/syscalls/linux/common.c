@@ -32,6 +32,8 @@
 
 _Static_assert(FD_PATH_MAX >= VFS_PATH_MAX, "fd path buffer smaller than the VFS path limit");
 
+static char linux_hostname[65] = "utopia-pc";
+
 static void fd_record_path(process_t* process, int fd, const char* resolved) {
     memcpy(process->fds[fd].path, resolved, strlen(resolved) + 1);
 }
@@ -432,11 +434,29 @@ SYSCALL_DEFINE_LINUX(uname) {
     struct utsname* ptr = (struct utsname*)regs->arg1;
 
     strcpy(ptr->sysname, "Utopia");
-    strcpy(ptr->nodename, "example-computer-lol");
+    strcpy(ptr->nodename, linux_hostname);
     strcpy(ptr->release, UTOPIA_VERSION);
     strcpy(ptr->version, "(no build information)");
     strcpy(ptr->machine, "x86_64");
     strcpy(ptr->domainname, "");
+
+    return SCRC(0);
+}
+
+SYSCALL_DEFINE_LINUX(sethostname) {
+    (void)process; (void)thread;
+
+    const char* name = (const char*)regs->arg1;
+    size_t len = (size_t)regs->arg2;
+
+    if (len > 64)
+        return SCRC(-EINVAL);
+    if (len && !name)
+        return SCRC(-EFAULT);
+
+    if (len)
+        memcpy(linux_hostname, name, len);
+    linux_hostname[len] = '\0';
 
     return SCRC(0);
 }
@@ -751,6 +771,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [162] = syscall_linux_sync,
     [165] = syscall_linux_mount,
     [166] = syscall_linux_umount2,
+    [170] = syscall_linux_sethostname,
     [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
     [217] = syscall_linux_getdents64,
@@ -820,6 +841,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [134] = syscall_linux_rt_sigaction,
     [135] = syscall_linux_rt_sigprocmask,
     [160] = syscall_linux_uname,
+    [161] = syscall_linux_sethostname,
     [172] = syscall_linux_getpid,
     [178] = syscall_linux_gettid,
     [214] = syscall_linux_brk,
