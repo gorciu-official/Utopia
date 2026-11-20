@@ -1,3 +1,5 @@
+#pragma once
+
 #include <types.h>
 
 uint8_t arch_inb(uint16_t port);
