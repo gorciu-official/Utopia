@@ -1,3 +1,5 @@
+#pragma once
+
 #include <types.h>
 
 extern int is_char_digit(char c);
