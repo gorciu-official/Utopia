@@ -14,8 +14,10 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef LIMINE_H
-#define LIMINE_H 1
+// CHANGE:::
+// pragma once better, also changed from da include guards 
+// at the end of the file
+#pragma once
 
 // CHANGE:::
 // limine please do not include c standard library headers that 
@@ -669,6 +671,3 @@ struct limine_tsc_frequency_request {
 #ifdef __cplusplus
 }
 #endif
-
-#endif
-
