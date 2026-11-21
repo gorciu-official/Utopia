@@ -4,6 +4,8 @@
 # as the default one.
 default_target: all
 
+.PHONY:  uconfig
+
 ROOT_DIR  := .
 
 ARCH                    ?= x86_64

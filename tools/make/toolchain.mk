@@ -75,5 +75,7 @@ endif
 
 ifneq ($(C_TARGET),)
 CFLAGS += --target=$(C_TARGET)
+ifneq ($(ARCH),x86_64)
 ASFLAGS += --target=$(C_TARGET)
+endif
 endif
