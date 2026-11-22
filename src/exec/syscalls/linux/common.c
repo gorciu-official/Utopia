@@ -655,6 +655,17 @@ SYSCALL_DEFINE_LINUX(rt_sigaction) {
     return SCRC(0);
 }
 
+SYSCALL_DEFINE_LINUX(reboot) {
+    (void)regs; (void)process; (void)thread;
+
+    locked_printf("siema\n");
+
+    extern void arch_pm_do_reboot();
+    arch_pm_do_reboot();
+
+    return SCRC(0);
+}
+
 extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
@@ -733,6 +744,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [162] = syscall_linux_sync,
     [165] = syscall_linux_mount,
     [166] = syscall_linux_umount2,
+    [169] = syscall_linux_reboot,
     [170] = syscall_linux_sethostname,
     [186] = syscall_linux_gettid,
     [202] = syscall_linux_stub_unimplemented,
@@ -804,6 +816,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [131] = syscall_linux_tgkill,
     [134] = syscall_linux_rt_sigaction,
     [135] = syscall_linux_rt_sigprocmask,
+    [142] = syscall_linux_reboot,
     [160] = syscall_linux_uname,
     [161] = syscall_linux_sethostname,
     [172] = syscall_linux_getpid,
