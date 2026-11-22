@@ -11,6 +11,6 @@
 
 ## Disclosing vulnerabilities
 
-As I don't think this kernel is used really anywhere, you can just create a GitHub issue with a `Bug` label and I will probably look into it.
+If you want to be a good guy, then please disclose it either on [GitHub](https://github.com/gorciu-official/Utopia/security/advisories/new) or on my Discord (`@gorciu_official`) or through e-mail (`gorciuyt@gmail.com`).
 
-If you really want to reach me privately (I don't know why though), you can contact me at `gorciuyt@gmail.com` (unlike most people I actually check my email).
+As I don't think this kernel is used really anywhere, you can also just create a GitHub issue with a `Bug` label and I will probably look into it.
