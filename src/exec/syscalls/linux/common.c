@@ -656,9 +656,10 @@ SYSCALL_DEFINE_LINUX(rt_sigaction) {
 }
 
 SYSCALL_DEFINE_LINUX(reboot) {
-    (void)regs; (void)process; (void)thread;
+    (void)process; (void)thread;
 
-    locked_printf("siema\n");
+    if (regs->arg3 != 0x01234567)
+        return SCRC(-EINVAL);
 
     extern void arch_pm_do_reboot();
     arch_pm_do_reboot();
