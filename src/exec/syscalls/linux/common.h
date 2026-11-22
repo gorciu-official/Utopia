@@ -5,6 +5,8 @@
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
 
+#define USER_VA_LIMIT (1ULL << USER_VA_BITS)
+
 typedef struct {
     void* iov_base;
     size_t iov_len;
@@ -150,6 +152,16 @@ struct winsize {
 #define DT_LNK      10
 #define DT_SOCK     12
 
+#define LINUX_CLOCK_REALTIME            0
+#define LINUX_CLOCK_MONOTONIC           1
+#define LINUX_CLOCK_PROCESS_CPUTIME_ID  2
+#define LINUX_CLOCK_THREAD_CPUTIME_ID   3
+#define LINUX_CLOCK_MONOTONIC_RAW       4
+#define LINUX_CLOCK_REALTIME_COARSE     5
+#define LINUX_CLOCK_MONOTONIC_COARSE    6
+#define LINUX_CLOCK_BOOTTIME            7
+
+#define LINUX_NS_PER_SEC 1000000000ULL
 
 // TODO: this is apparently architecture-dependent for some reason so we
 //   should use something for RISC-V or idk
@@ -239,5 +251,27 @@ typedef struct clone3_args {
     uint64_t set_tid_size;
     uint64_t cgroup;
 } clone3_args_t;
+
+struct linux_timespec {
+    int64_t tv_sec;
+    int64_t tv_nsec;
+};
+
+struct linux_sysinfo {
+    int64_t  uptime;
+    uint64_t loads[3];
+    uint64_t totalram;
+    uint64_t freeram;
+    uint64_t sharedram;
+    uint64_t bufferram;
+    uint64_t totalswap;
+    uint64_t freeswap;
+    uint16_t procs;
+    uint16_t pad;
+    uint32_t pad2;
+    uint64_t totalhigh;
+    uint64_t freehigh;
+    uint32_t mem_unit;
+};
 
 #endif

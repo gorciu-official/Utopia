@@ -16,10 +16,9 @@
 
 #include <mm/vmm.h>
 #include <arch/memory.h>
+#include <arch/common.h>
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
-
-#define USER_VA_LIMIT (1ULL << USER_VA_BITS)
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 #include <arch/x86_64/common.h>
@@ -656,11 +655,6 @@ SYSCALL_DEFINE_LINUX(rt_sigaction) {
     return SCRC(0);
 }
 
-SYSCALL_DEFINE_LINUX(clock_gettime) {
-    (void)process; (void)regs; (void)thread;
-    return SCRC(0);
-}
-
 extern SYSCALL_DEFINE_LINUX(vfork);
 extern SYSCALL_DEFINE_LINUX(fork);
 extern SYSCALL_DEFINE_LINUX(clone);
@@ -694,6 +688,8 @@ extern SYSCALL_DEFINE_LINUX(sync);
 
 extern SYSCALL_DEFINE_LINUX(sethostname);
 extern SYSCALL_DEFINE_LINUX(uname);
+extern SYSCALL_DEFINE_LINUX(clock_gettime);
+extern SYSCALL_DEFINE_LINUX(sysinfo);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
@@ -742,6 +738,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [202] = syscall_linux_stub_unimplemented,
     [217] = syscall_linux_getdents64,
     [218] = syscall_linux_set_tid_address,
+    [99]  = syscall_linux_sysinfo,
     [228] = syscall_linux_clock_gettime,
     [231] = syscall_linux_exit,
     [234] = syscall_linux_tgkill,
@@ -799,6 +796,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [95]  = syscall_linux_waitid,
     [96]  = syscall_linux_set_tid_address,
     [113] = syscall_linux_clock_gettime,
+    [179] = syscall_linux_sysinfo,
     [154] = syscall_linux_setpgid,
     [155] = syscall_linux_getpgid,
     [156] = syscall_linux_getsid,

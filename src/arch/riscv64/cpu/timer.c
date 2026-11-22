@@ -35,7 +35,8 @@ uint64_t arch_get_ns_time(void) {
     if (!timer_initialized)
         return 0;
 
-    return (rdtime() - timer_boot_val) * NS_PER_SEC / timer_hz;
+    uint64_t ticks = rdtime() - timer_boot_val;
+    return (ticks / timer_hz) * NS_PER_SEC + (ticks % timer_hz) * NS_PER_SEC / timer_hz;
 }
 
 void timer_schedule_next(registers_t** regs) {
