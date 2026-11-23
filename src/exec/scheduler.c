@@ -13,6 +13,7 @@
 #endif
 
 static spinlock_t scheduler_lock;
+static wait_queue_t sleep_wq = WAIT_QUEUE_INIT;
 
 static thread_t* current_threads[CPU_ARCH_MAX_CPUS];
 static thread_t* idle_threads[CPU_ARCH_MAX_CPUS];
@@ -285,6 +286,9 @@ registers_t* scheduler_schedule(registers_t* regs) {
     if (!curr || !regs)
         return regs;
 
+    if (__atomic_load_n(&sleep_wq.head, __ATOMIC_ACQUIRE))
+        scheduler_wake_all(&sleep_wq);
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     bool interrupted_kernel = (regs->cs & 3) == 0;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
@@ -474,6 +478,15 @@ void scheduler_wake_all(wait_queue_t* wq) {
     }
 
     sched_unlock(flags);
+}
+
+void scheduler_sleep_until(uint64_t deadline_ns) {
+    for (;;) {
+        uint64_t seq = wait_queue_snapshot(&sleep_wq);
+        if (arch_get_ns_time() >= deadline_ns)
+            return;
+        scheduler_wait(&sleep_wq, seq);
+    }
 }
 
 thread_t* scheduler_get_current_thread(void) {

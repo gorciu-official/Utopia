@@ -163,6 +163,8 @@ struct winsize {
 
 #define LINUX_NS_PER_SEC 1000000000ULL
 
+#define LINUX_TIMER_ABSTIME 1
+
 // TODO: this is apparently architecture-dependent for some reason so we
 //   should use something for RISC-V or idk
 #define TCGETS  0x5401

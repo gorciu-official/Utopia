@@ -78,3 +78,4 @@ void scheduler_reap(void);
 uint64_t wait_queue_snapshot(wait_queue_t* wq);
 void scheduler_wait(wait_queue_t* wq, uint64_t seq);
 void scheduler_wake_all(wait_queue_t* wq);
+void scheduler_sleep_until(uint64_t deadline_ns);

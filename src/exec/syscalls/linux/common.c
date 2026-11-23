@@ -701,6 +701,7 @@ extern SYSCALL_DEFINE_LINUX(sync);
 extern SYSCALL_DEFINE_LINUX(sethostname);
 extern SYSCALL_DEFINE_LINUX(uname);
 extern SYSCALL_DEFINE_LINUX(clock_gettime);
+extern SYSCALL_DEFINE_LINUX(clock_nanosleep);
 extern SYSCALL_DEFINE_LINUX(sysinfo);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
@@ -753,6 +754,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [218] = syscall_linux_set_tid_address,
     [99]  = syscall_linux_sysinfo,
     [228] = syscall_linux_clock_gettime,
+    [230] = syscall_linux_clock_nanosleep,
     [231] = syscall_linux_exit,
     [234] = syscall_linux_tgkill,
     [247] = syscall_linux_waitid,
@@ -809,6 +811,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [95]  = syscall_linux_waitid,
     [96]  = syscall_linux_set_tid_address,
     [113] = syscall_linux_clock_gettime,
+    [115] = syscall_linux_clock_nanosleep,
     [179] = syscall_linux_sysinfo,
     [154] = syscall_linux_setpgid,
     [155] = syscall_linux_getpgid,

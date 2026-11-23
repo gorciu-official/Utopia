@@ -1,5 +1,7 @@
 #include <lib/string.h>
 
+#include <exec/scheduler.h>
+
 #include "../common.h"
 #include "common.h"
 
@@ -66,6 +68,50 @@ SYSCALL_DEFINE_LINUX(clock_gettime) {
     uint64_t ns = arch_get_ns_time();
     ts->tv_sec  = (int64_t)(ns / LINUX_NS_PER_SEC);
     ts->tv_nsec = (int64_t)(ns % LINUX_NS_PER_SEC);
+
+    return SCRC(0);
+}
+
+SYSCALL_DEFINE_LINUX(clock_nanosleep) {
+    (void)process; (void)thread;
+
+    int64_t clock_id = (int64_t)regs->arg1;
+    int64_t flags = (int64_t)regs->arg2;
+    const struct linux_timespec* req = (const struct linux_timespec*)regs->arg3;
+
+    if (!req || (uint64_t)(uintptr_t)(req + 1) >= USER_VA_LIMIT)
+        return SCRC(-EFAULT);
+
+    switch (clock_id) {
+        case LINUX_CLOCK_REALTIME:
+        case LINUX_CLOCK_MONOTONIC:
+        case LINUX_CLOCK_BOOTTIME:
+        case LINUX_CLOCK_PROCESS_CPUTIME_ID:
+            break;
+        default:
+            return SCRC(-EINVAL);
+    }
+
+    if (flags & ~(int64_t)LINUX_TIMER_ABSTIME)
+        return SCRC(-EINVAL);
+
+    int64_t sec = req->tv_sec;
+    int64_t nsec = req->tv_nsec;
+
+    if (sec < 0 || nsec < 0 || nsec >= (int64_t)LINUX_NS_PER_SEC)
+        return SCRC(-EINVAL);
+
+    uint64_t base = (flags & LINUX_TIMER_ABSTIME) ? 0 : arch_get_ns_time();
+    uint64_t span = LINUX_NS_PER_SEC * (uint64_t)sec + (uint64_t)nsec;
+    uint64_t deadline;
+
+    if ((uint64_t)sec > ((~0ULL) - (uint64_t)nsec) / LINUX_NS_PER_SEC ||
+        span > (~0ULL) - base)
+        deadline = (~0ULL);
+    else
+        deadline = base + span;
+
+    scheduler_sleep_until(deadline);
 
     return SCRC(0);
 }
