@@ -46,13 +46,24 @@ pte_t arch_pte_with_phys(pte_t existing, uint64_t phys) {
     return (existing & ~PAGE_PHYS_MASK) | (phys & PAGE_PHYS_MASK);
 }
 
-bool arch_pte_present(pte_t pte) { return pte & PAGE_PRESENT; }
+bool arch_pte_present(pte_t pte) { 
+    return pte & PAGE_PRESENT; 
+}
 
 bool arch_pte_is_leaf(pte_t pte, int level) {
     return level == 0 || (pte & PAGE_HUGE);
 }
 
-uint64_t arch_pte_phys(pte_t pte) { return pte & PAGE_PHYS_MASK; }
+uint64_t arch_pte_phys(pte_t pte) { 
+    return pte & PAGE_PHYS_MASK; 
+}
+
+bool arch_pte_user(pte_t pte) { 
+    return (pte & PAGE_USER) != 0; 
+}
+bool arch_pte_writable(pte_t pte) { 
+    return (pte & PAGE_RW) != 0; 
+}
 
 void arch_tlb_flush_page(uint64_t virt) {
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");

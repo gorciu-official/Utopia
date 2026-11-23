@@ -36,6 +36,8 @@ pte_t    arch_pte_with_phys(pte_t existing, uint64_t phys);
 pte_t    arch_pte_child_leaf(pte_t parent_huge, uint64_t child_phys, int child_level);
 bool     arch_pte_present(pte_t pte);
 bool     arch_pte_is_leaf(pte_t pte, int level);
+bool     arch_pte_user(pte_t pte);
+bool     arch_pte_writable(pte_t pte);
 uint64_t arch_pte_phys(pte_t pte);
 
 void arch_tlb_flush_page(uint64_t virt);

@@ -24,9 +24,12 @@ You may find some other tasks that can be done with the `git grep -ir "TODO"` co
 - [ ] TCP/IP
 - [ ] Improve clock stack
     - [ ] Replace legacy `PIT`
-    - [ ] Find a better clock source for calibrating LAPIC
+    - [ ] Allow for easier access to clock functions by providing an arch-independent architecture
+    - [X] Find a better clock source for calibrating LAPIC
+- [ ] More safety in da kernel syscalls 
+- [ ] Refactor the ELF loader
 - [X] Improve keyboard stack
 - [X] Implement `fork`
 - [X] Implement `execve`
 - [X] Tracking of allocatted frames
-- [ ] Mount `ramfs` to `/tmp`
+- [ ] Make internal kernel ABIs less dependent on Linux constants
