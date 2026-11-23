@@ -8,6 +8,7 @@
 #include <lib/screen.h>
 #include <lib/string.h>
 #include <mm/pmm.h>
+#include <mm/user.h>
 
 #include "../common.h"
 #include "common.h"
@@ -15,6 +16,10 @@
 extern bool keyboard_should_putchar;
 
 #define USER_VA_LIMIT (1ULL << USER_VA_BITS)
+
+#define MAX_SYSCALL_IO_BYTES (1 * 1024 * 1024)
+
+#define LINUX_KERNEL_TERMIOS_SIZE 36
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
 
@@ -88,72 +93,188 @@ static uintptr_t do_write(process_t* process, void* data, uintptr_t len, int fd)
 
 SYSCALL_DEFINE_LINUX(read) {
     (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
     int fd = regs->arg1;
-    char* buf = (char*)regs->arg2;
+    void* ubuf = (void*)regs->arg2;
     size_t count = regs->arg3;
 
-    return SCRC(do_read(process, fd, buf, count, process->fds[fd].offset, true));
+    if (count == 0) return SCRC(0);
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
+        return SCRC(-EBADF);
+    if (count > MAX_SYSCALL_IO_BYTES) return SCRC(-EINVAL);
+    if (!ubuf || !user_range_ok((uint64_t)ubuf, count)) return SCRC(-EFAULT);
+
+    char* kbuf = malloc(count);
+    if (!kbuf) return SCRC(-ENOMEM);
+
+    size_t ret = do_read(process, fd, kbuf, count, process->fds[fd].offset, true);
+    if (ret != (size_t)-1 && (int64_t)ret > 0) {
+        if (copy_to_user(process, ubuf, kbuf, ret) != 0) {
+            free(kbuf);
+            return SCRC(-EFAULT);
+        }
+    }
+
+    free(kbuf);
+    return SCRC(ret);
 }
 
 SYSCALL_DEFINE_LINUX(pread64) {
     (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
     int fd = regs->arg1;
-    char* buf = (char*)regs->arg2;
+    void* ubuf = (void*)regs->arg2;
     size_t count = regs->arg3;
     uintptr_t offset = regs->arg4;
 
-    return SCRC(do_read(process, fd, buf, count, offset, false));
+    if (count == 0) return SCRC(0);
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
+        return SCRC(-EBADF);
+    if (count > MAX_SYSCALL_IO_BYTES) return SCRC(-EINVAL);
+    if (!ubuf || !user_range_ok((uint64_t)ubuf, count)) return SCRC(-EFAULT);
+
+    char* kbuf = malloc(count);
+    if (!kbuf) return SCRC(-ENOMEM);
+
+    size_t ret = do_read(process, fd, kbuf, count, offset, false);
+    if (ret != (size_t)-1 && (int64_t)ret > 0) {
+        if (copy_to_user(process, ubuf, kbuf, ret) != 0) {
+            free(kbuf);
+            return SCRC(-EFAULT);
+        }
+    }
+
+    free(kbuf);
+    return SCRC(ret);
 }
 
 SYSCALL_DEFINE_LINUX(write) {
     (void)thread;
-    return SCRC(do_write(process, (void*)regs->arg2, regs->arg3, regs->arg1));
+    if (!process) return SCRC(-EINVAL);
+
+    int fd = regs->arg1;
+    void* ubuf = (void*)regs->arg2;
+    size_t count = regs->arg3;
+
+    if (count == 0) return SCRC(0);
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
+        return SCRC(-EBADF);
+    if (count > MAX_SYSCALL_IO_BYTES) return SCRC(-EINVAL);
+    if (!ubuf || !user_range_ok((uint64_t)ubuf, count)) return SCRC(-EFAULT);
+
+    char* kbuf = malloc(count);
+    if (!kbuf) return SCRC(-ENOMEM);
+
+    if (copy_from_user(process, kbuf, ubuf, count) != 0) {
+        free(kbuf);
+        return SCRC(-EFAULT);
+    }
+
+    uintptr_t ret = do_write(process, kbuf, count, fd);
+    free(kbuf);
+    return SCRC(ret);
 }
 
 SYSCALL_DEFINE_LINUX(writev) {
     (void)thread;
-    if (!process) return SCRC(-1);
+    if (!process) return SCRC(-EINVAL);
 
     int fd = regs->arg1;
-    iovec_t* iov = (iovec_t*)regs->arg2;
-    int iovcnt = regs->arg3;
+    void* uiov = (void*)regs->arg2;
+    int iovcnt = (int)regs->arg3;
+
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
+        return SCRC(-EBADF);
+    if (iovcnt <= 0 || iovcnt > 1024) return SCRC(-EINVAL);
+    if (!uiov || !user_range_ok((uint64_t)uiov, (size_t)iovcnt * sizeof(iovec_t)))
+        return SCRC(-EFAULT);
+
+    iovec_t* iov = malloc((size_t)iovcnt * sizeof(iovec_t));
+    if (!iov) return SCRC(-ENOMEM);
+
+    if (copy_from_user(process, iov, uiov, (size_t)iovcnt * sizeof(iovec_t)) != 0) {
+        free(iov);
+        return SCRC(-EFAULT);
+    }
 
     size_t total = 0;
 
     for (int i = 0; i < iovcnt; i++) {
-        size_t ret = do_write(process, iov[i].iov_base, iov[i].iov_len, fd);
+        void* ubase = iov[i].iov_base;
+        size_t len  = iov[i].iov_len;
+
+        if (len == 0) continue;
+        if (len > MAX_SYSCALL_IO_BYTES) {
+            free(iov);
+            return SCRC(-EINVAL);
+        }
+        if (!ubase || !user_range_ok((uint64_t)ubase, len)) {
+            free(iov);
+            return SCRC(-EFAULT);
+        }
+
+        char* kbuf = malloc(len);
+        if (!kbuf) {
+            free(iov);
+            return SCRC(-ENOMEM);
+        }
+
+        if (copy_from_user(process, kbuf, ubase, len) != 0) {
+            free(kbuf);
+            free(iov);
+            return SCRC(-EFAULT);
+        }
+
+        size_t ret = do_write(process, kbuf, len, fd);
+        free(kbuf);
+
         if (ret == (uintptr_t)-EBADF) {
-            if (total == 0) return SCRC(-EBADF);
+            if (total == 0) {
+                free(iov);
+                return SCRC(-EBADF);
+            }
             break;
         }
         total += ret;
 
-        if ((size_t)ret < iov[i].iov_len) {
-            break;
-        }
+        if (ret < len) break;
     }
 
+    free(iov);
     return SCRC(total);
 }
 
 SYSCALL_DEFINE_LINUX(ioctl) {
     (void)thread;
+    if (!process) return SCRC(-EINVAL);
 
-    if (regs->arg2 == TCSETS) {
-        struct termios* tos = (struct termios*)regs->arg3;
-        keyboard_should_putchar = !!(tos->c_lflag & TERMIOS_ECHO);
-    } else if (regs->arg2 == TCGETS) {
-        struct termios* tos = (struct termios*)regs->arg3;
-        tos->c_lflag = 0;
-    } else if (regs->arg2 == TIOCGPGRP) {
-        int* pgrp = (int*)regs->arg3;
-        if (!pgrp || !process) return SCRC(-EFAULT);
-        *pgrp = (int)process->pid;
-    } else if (regs->arg2 == TIOCSPGRP) {
-    } else if (regs->arg2 == TIOCGWINSZ) {
-        struct winsize* winsize = (struct winsize*)regs->arg3;
-        winsize->ws_col = framebuffer_get_height() / framebuffer_font_height();
-        winsize->ws_row = framebuffer_get_width() / framebuffer_font_height();
+    unsigned long cmd = regs->arg2;
+    void* arg = (void*)regs->arg3;
+
+    if (cmd == TCSETS) {
+        struct termios tos;
+        memset(&tos, 0, sizeof(tos));
+        if (!arg || copy_from_user(process, &tos, arg, LINUX_KERNEL_TERMIOS_SIZE) != 0)
+            return SCRC(-EFAULT);
+        keyboard_should_putchar = !!(tos.c_lflag & TERMIOS_ECHO);
+    } else if (cmd == TCGETS) {
+        struct termios tos = {0};
+        if (!arg || copy_to_user(process, arg, &tos, LINUX_KERNEL_TERMIOS_SIZE) != 0)
+            return SCRC(-EFAULT);
+    } else if (cmd == TIOCGPGRP) {
+        int pgrp = (int)process->pid;
+        if (!arg || copy_to_user(process, arg, &pgrp, sizeof(pgrp)) != 0)
+            return SCRC(-EFAULT);
+    } else if (cmd == TIOCSPGRP) {
+        /* no-op for now */
+    } else if (cmd == TIOCGWINSZ) {
+        struct winsize winsize = {0};
+        winsize.ws_col = framebuffer_get_height() / framebuffer_font_height();
+        winsize.ws_row = framebuffer_get_width() / framebuffer_font_height();
+        if (!arg || copy_to_user(process, arg, &winsize, sizeof(winsize)) != 0)
+            return SCRC(-EFAULT);
     }
 
     return SCRC(0);
@@ -164,8 +285,12 @@ SYSCALL_DEFINE_LINUX(mkdirat) {
     if (!process) return SCRC(-EINVAL);
 
     int dfd = (int)regs->arg1;
-    const char* path = (const char*)regs->arg2;
-    if (!path || (uint64_t)(uintptr_t)path >= USER_VA_LIMIT) return SCRC(-EFAULT);
+    const char* upath = (const char*)regs->arg2;
+
+    char path[VFS_PATH_MAX];
+    if (!upath) return SCRC(-EFAULT);
+    int plen = strncpy_from_user(process, path, upath, VFS_PATH_MAX);
+    if (plen < 0) return SCRC(plen == -UACCESS_ENAMETOOLONG ? -ENAMETOOLONG : -EFAULT);
 
     char resolved[VFS_PATH_MAX];
     int res = process_resolve_at(process, dfd, path, resolved);
@@ -182,23 +307,26 @@ SYSCALL_DEFINE_LINUX(prlimit64) {
 
     int pid = (int)regs->arg1;
     uint32_t resource = (uint32_t)regs->arg2;
-    uint64_t new_limit = regs->arg3;
-    uint64_t old_limit = regs->arg4;
+    void* unew = (void*)regs->arg3;
+    void* uold = (void*)regs->arg4;
 
     if (pid != 0 && (uint32_t)pid != process->pid) return SCRC(-ESRCH);
     if (resource >= RLIM_NLIMITS) return SCRC(-EINVAL);
-    if (new_limit && new_limit + sizeof(struct rlimit64) > USER_VA_LIMIT) return SCRC(-EFAULT);
-    if (old_limit && old_limit + sizeof(struct rlimit64) > USER_VA_LIMIT) return SCRC(-EFAULT);
 
-    if (old_limit) {
-        struct rlimit64* out = (struct rlimit64*)old_limit;
-        out->rlim_cur = RLIM_INFINITY;
-        out->rlim_max = RLIM_INFINITY;
+    if (uold) {
+        struct rlimit64 out = {
+            .rlim_cur = RLIM_INFINITY,
+            .rlim_max = RLIM_INFINITY,
+        };
         if (resource == RLIMIT_NOFILE) {
-            out->rlim_cur = MAX_FILES_PER_PROCESS;
-            out->rlim_max = MAX_FILES_PER_PROCESS;
+            out.rlim_cur = MAX_FILES_PER_PROCESS;
+            out.rlim_max = MAX_FILES_PER_PROCESS;
         }
+        if (copy_to_user(process, uold, &out, sizeof(out)) != 0)
+            return SCRC(-EFAULT);
     }
+
+    (void)unew;
 
     return SCRC(0);
 }
@@ -241,17 +369,13 @@ SYSCALL_DEFINE_LINUX(sync) {
 #define MS_MGC_VAL 0xC0ED0000UL
 #define MS_MGC_MSK 0xFFFF0000UL
 
-static int copy_user_string(const char* user, char* out, size_t max) {
-    if (!user || (uint64_t)(uintptr_t)user >= USER_VA_LIMIT) return -EFAULT;
+static int copy_user_string(process_t* process, const char* user, char* out, size_t max) {
+    if (!user || max == 0) return -EFAULT;
 
-    for (size_t i = 0; i < max; i++) {
-        if ((uint64_t)(uintptr_t)(user + i) >= USER_VA_LIMIT) return -EFAULT;
-
-        out[i] = user[i];
-        if (!out[i]) return 0;
-    }
-
-    return -ENAMETOOLONG;
+    int len = strncpy_from_user(process, out, user, max);
+    if (len == -UACCESS_ENAMETOOLONG) return -ENAMETOOLONG;
+    if (len < 0) return -EFAULT;
+    return 0;
 }
 
 static int resolve_user_path(process_t* process, const char* raw, char* out) {
@@ -288,7 +412,7 @@ SYSCALL_DEFINE_LINUX(mount) {
     char type[MOUNT_TYPE_MAX];
     char resolved[VFS_PATH_MAX];
 
-    int err = copy_user_string(user_target, target, sizeof(target));
+    int err = copy_user_string(process, user_target, target, sizeof(target));
     if (err) return SCRC(err);
 
     err = resolve_user_path(process, target, resolved);
@@ -297,13 +421,13 @@ SYSCALL_DEFINE_LINUX(mount) {
 
     source[0] = '\0';
     if (user_source) {
-        err = copy_user_string(user_source, source, sizeof(source));
+        err = copy_user_string(process, user_source, source, sizeof(source));
         if (err) return SCRC(err);
     }
 
     type[0] = '\0';
     if (user_type) {
-        err = copy_user_string(user_type, type, sizeof(type));
+        err = copy_user_string(process, user_type, type, sizeof(type));
         if (err) return SCRC(err);
     }
 
@@ -341,7 +465,7 @@ SYSCALL_DEFINE_LINUX(umount2) {
     char target[MOUNT_PATH_MAX];
     char resolved[VFS_PATH_MAX];
 
-    int err = copy_user_string((const char*)regs->arg1, target, sizeof(target));
+    int err = copy_user_string(process, (const char*)regs->arg1, target, sizeof(target));
     if (err) return SCRC(err);
 
     err = resolve_user_path(process, target, resolved);
@@ -359,7 +483,7 @@ SYSCALL_DEFINE_LINUX(chdir) {
     char raw[VFS_PATH_MAX];
     char resolved[VFS_PATH_MAX];
 
-    int err = copy_user_string((const char*)regs->arg1, raw, sizeof(raw));
+    int err = copy_user_string(process, (const char*)regs->arg1, raw, sizeof(raw));
     if (err) return SCRC(err);
 
     err = process_resolve_at(process, VFS_AT_FDCWD, raw, resolved);

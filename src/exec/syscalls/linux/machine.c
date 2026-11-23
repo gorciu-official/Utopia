@@ -1,4 +1,5 @@
 #include <lib/string.h>
+#include <mm/user.h>
 
 #include <exec/scheduler.h>
 
@@ -8,50 +9,57 @@
 static char linux_hostname[65] = "utopia-pc";
 
 SYSCALL_DEFINE_LINUX(uname) {
-    (void)process; (void)thread;
+    (void)thread;
 
-    struct utsname* ptr = (struct utsname*)regs->arg1;
+    void* uptr = (void*)regs->arg1;
+    if (!uptr) return SCRC(-EFAULT);
 
-    strcpy(ptr->sysname, "Utopia");
-    strcpy(ptr->nodename, linux_hostname);
-    strcpy(ptr->release, UTOPIA_VERSION);
-    strcpy(ptr->version, "(no build information)");
-    strcpy(ptr->machine, "x86_64");
-    strcpy(ptr->domainname, "");
+    struct utsname k;
+    memset(&k, 0, sizeof(k));
+    strcpy(k.sysname, "Utopia");
+    strcpy(k.nodename, linux_hostname);
+    strcpy(k.release, UTOPIA_VERSION);
+    strcpy(k.version, "(no build information)");
+    strcpy(k.machine, "x86_64");
+    strcpy(k.domainname, "");
+
+    if (copy_to_user(process, uptr, &k, sizeof(k)) != 0)
+        return SCRC(-EFAULT);
 
     return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(sethostname) {
-    (void)process; (void)thread;
+    (void)thread;
 
-    const char* name = (const char*)regs->arg1;
+    const char* uname = (const char*)regs->arg1;
     size_t len = (size_t)regs->arg2;
 
     if (len > 64)
         return SCRC(-EINVAL);
-    if (len && !name)
+    if (len && !uname)
         return SCRC(-EFAULT);
 
-    if (len)
-        memcpy(linux_hostname, name, len);
+    if (len) {
+        char tmp[65];
+        if (copy_from_user(process, tmp, uname, len) != 0)
+            return SCRC(-EFAULT);
+        memcpy(linux_hostname, tmp, len);
+    }
     linux_hostname[len] = '\0';
 
     return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(clock_gettime) {
-    (void)process; (void)thread;
+    (void)thread;
 
     int64_t clock_id = (int64_t)regs->arg1;
-    struct linux_timespec* ts = (struct linux_timespec*)regs->arg2;
+    void* uts = (void*)regs->arg2;
 
-    if (!ts || (uint64_t)(uintptr_t)ts >= USER_VA_LIMIT ||
-        (uint64_t)(uintptr_t)(ts + 1) >= USER_VA_LIMIT)
-        return SCRC(-EFAULT);
+    if (!uts) return SCRC(-EFAULT);
 
     switch (clock_id) {
-        // peak
         case LINUX_CLOCK_REALTIME:
         case LINUX_CLOCK_REALTIME_COARSE:
         case LINUX_CLOCK_MONOTONIC:
@@ -66,20 +74,27 @@ SYSCALL_DEFINE_LINUX(clock_gettime) {
     }
 
     uint64_t ns = arch_get_ns_time();
-    ts->tv_sec  = (int64_t)(ns / LINUX_NS_PER_SEC);
-    ts->tv_nsec = (int64_t)(ns % LINUX_NS_PER_SEC);
+    struct linux_timespec ts;
+    ts.tv_sec  = (int64_t)(ns / LINUX_NS_PER_SEC);
+    ts.tv_nsec = (int64_t)(ns % LINUX_NS_PER_SEC);
+
+    if (copy_to_user(process, uts, &ts, sizeof(ts)) != 0)
+        return SCRC(-EFAULT);
 
     return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(clock_nanosleep) {
-    (void)process; (void)thread;
+    (void)thread;
 
     int64_t clock_id = (int64_t)regs->arg1;
     int64_t flags = (int64_t)regs->arg2;
-    const struct linux_timespec* req = (const struct linux_timespec*)regs->arg3;
+    void* ureq = (void*)regs->arg3;
 
-    if (!req || (uint64_t)(uintptr_t)(req + 1) >= USER_VA_LIMIT)
+    if (!ureq) return SCRC(-EFAULT);
+
+    struct linux_timespec req;
+    if (copy_from_user(process, &req, ureq, sizeof(req)) != 0)
         return SCRC(-EFAULT);
 
     switch (clock_id) {
@@ -95,8 +110,8 @@ SYSCALL_DEFINE_LINUX(clock_nanosleep) {
     if (flags & ~(int64_t)LINUX_TIMER_ABSTIME)
         return SCRC(-EINVAL);
 
-    int64_t sec = req->tv_sec;
-    int64_t nsec = req->tv_nsec;
+    int64_t sec = req.tv_sec;
+    int64_t nsec = req.tv_nsec;
 
     if (sec < 0 || nsec < 0 || nsec >= (int64_t)LINUX_NS_PER_SEC)
         return SCRC(-EINVAL);
@@ -117,17 +132,18 @@ SYSCALL_DEFINE_LINUX(clock_nanosleep) {
 }
 
 SYSCALL_DEFINE_LINUX(sysinfo) {
-    (void)process; (void)thread;
+    (void)thread;
 
-    struct linux_sysinfo* info = (struct linux_sysinfo*)regs->arg1;
+    void* uinfo = (void*)regs->arg1;
+    if (!uinfo) return SCRC(-EFAULT);
 
-    if (!info || (uint64_t)(uintptr_t)info >= USER_VA_LIMIT ||
-        (uint64_t)(uintptr_t)(info + 1) >= USER_VA_LIMIT)
+    struct linux_sysinfo info;
+    memset(&info, 0, sizeof(info));
+    info.uptime   = (int64_t)(arch_get_ns_time() / LINUX_NS_PER_SEC);
+    info.mem_unit = 1;
+
+    if (copy_to_user(process, uinfo, &info, sizeof(info)) != 0)
         return SCRC(-EFAULT);
-
-    memset(info, 0, sizeof(*info));
-    info->uptime   = (int64_t)(arch_get_ns_time() / LINUX_NS_PER_SEC);
-    info->mem_unit = 1;
 
     return SCRC(0);
 }

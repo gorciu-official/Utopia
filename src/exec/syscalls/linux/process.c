@@ -1,6 +1,7 @@
 #include <types.h>
 #include <config.h>
 #include <mm/pmm.h>
+#include <mm/user.h>
 
 #include <exec/loaders/elf.h>
 
@@ -24,32 +25,54 @@ static void exec_free_strvec(char** vec, int count) {
     free(vec);
 }
 
-static int exec_copy_strvec(char* const* user_vec, char*** out_vec, int* out_count, size_t* budget) {
+static int exec_copy_strvec(process_t* proc, char* const* user_vec,
+                            char*** out_vec, int* out_count, size_t* budget) {
     *out_vec = NULL;
     *out_count = 0;
 
     if (!user_vec) return 0;
-    if ((uint64_t)(uintptr_t)user_vec >= USER_VA_LIMIT) return -EFAULT;
+    if (!user_range_ok((uint64_t)(uintptr_t)user_vec, sizeof(char*))) return -EFAULT;
 
     int count = 0;
-    while (user_vec[count]) {
-        if (++count > EXEC_MAX_ARGS) return -7; // E2BIG
+    while (count <= EXEC_MAX_ARGS) {
+        char* ptr = NULL;
+        if (copy_from_user(proc, &ptr, &user_vec[count], sizeof(ptr)) != 0)
+            return -EFAULT;
+        if (!ptr) break;
+        count++;
     }
+    if (count > EXEC_MAX_ARGS) return -7;
 
     char** vec = (char**)calloc((size_t)count + 1, sizeof(char*));
     if (!vec) return -ENOMEM;
 
     for (int i = 0; i < count; i++) {
-        const char* src = user_vec[i];
-        if ((uint64_t)(uintptr_t)src >= USER_VA_LIMIT) { exec_free_strvec(vec, i); return -EFAULT; }
+        char* src = NULL;
+        if (copy_from_user(proc, &src, &user_vec[i], sizeof(src)) != 0) {
+            exec_free_strvec(vec, i);
+            return -EFAULT;
+        }
+        if (!src || !user_range_ok((uint64_t)(uintptr_t)src, 1)) {
+            exec_free_strvec(vec, i);
+            return -EFAULT;
+        }
 
-        size_t len = strlen(src) + 1;
-        if (len > *budget) { exec_free_strvec(vec, i); return -7; }
+        size_t max = *budget < EXEC_MAX_ARG_BYTES ? *budget : EXEC_MAX_ARG_BYTES;
+        if (max == 0) { exec_free_strvec(vec, i); return -7; }
+        char* kstr = (char*)malloc(max);
+        if (!kstr) { exec_free_strvec(vec, i); return -ENOMEM; }
+        int slen = strncpy_from_user(proc, kstr, src, max);
+        if (slen < 0) {
+            free(kstr);
+            exec_free_strvec(vec, i);
+            return slen == -UACCESS_ENAMETOOLONG ? -7 : -EFAULT;
+        }
+        size_t len = (size_t)slen;
         *budget -= len;
 
-        vec[i] = (char*)malloc(len);
-        if (!vec[i]) { exec_free_strvec(vec, i); return -ENOMEM; }
-        memcpy(vec[i], src, len);
+        char* exact = (char*)malloc(len);
+        if (exact) { memcpy(exact, kstr, len); free(kstr); kstr = exact; }
+        vec[i] = kstr;
     }
 
     *out_vec = vec;
@@ -61,13 +84,16 @@ SYSCALL_DEFINE_LINUX(execve) {
     if (!process || !thread || !regs->frame) return SCRC(-EINVAL);
 
     const char* user_path = (const char*)regs->arg1;
-    if (!user_path || (uint64_t)(uintptr_t)user_path >= USER_VA_LIMIT) return SCRC(-EFAULT);
+    if (!user_path) return SCRC(-EFAULT);
 
-    size_t path_len = strlen(user_path) + 1;
-    if (path_len > EXEC_MAX_PATH) return SCRC(-ENAMETOOLONG);
+    char path_buf[EXEC_MAX_PATH];
+    int plen = strncpy_from_user(process, path_buf, user_path, EXEC_MAX_PATH);
+    if (plen < 0) return SCRC(plen == -UACCESS_ENAMETOOLONG ? -ENAMETOOLONG : -EFAULT);
+    size_t path_len = (size_t)plen;
+
     char* path = (char*)malloc(path_len);
     if (!path) return SCRC(-ENOMEM);
-    memcpy(path, user_path, path_len);
+    memcpy(path, path_buf, path_len);
 
     char** argv = NULL; int argc = 0;
     char** envp = NULL; int envc = 0;
@@ -80,9 +106,9 @@ SYSCALL_DEFINE_LINUX(execve) {
     const char* base = NULL;
 
     size_t budget = EXEC_MAX_ARG_BYTES;
-    err = exec_copy_strvec((char* const*)regs->arg2, &argv, &argc, &budget);
+    err = exec_copy_strvec(process, (char* const*)regs->arg2, &argv, &argc, &budget);
     if (err) goto out;
-    err = exec_copy_strvec((char* const*)regs->arg3, &envp, &envc, &budget);
+    err = exec_copy_strvec(process, (char* const*)regs->arg3, &envp, &envc, &budget);
     if (err) goto out;
 
     if (argc == 0) {
@@ -176,8 +202,11 @@ static syscall_result_t do_clone(syscall_regs_t* regs, process_t* process, threa
     process_t* child = process_clone(process, thread, regs->frame, &opts);
     if (!child) return SCRC(-ENOMEM);
 
-    if ((flags & CLONE_PARENT_SETTID) && ptid && ptid < USER_VA_LIMIT)
-        *(uint32_t*)ptid = child->main_tid;
+    if ((flags & CLONE_PARENT_SETTID) && ptid) {
+        uint32_t tid = child->main_tid;
+        if (copy_to_user(process, (void*)ptid, &tid, sizeof(tid)) != 0) {
+        }
+    }
 
     return SCRC(child->pid);
 }
@@ -201,14 +230,15 @@ SYSCALL_DEFINE_LINUX(clone) {
 SYSCALL_DEFINE_LINUX(clone3) {
     clone3_args_t args = {0};
 
-    if (!regs->arg1 || regs->arg1 >= USER_VA_LIMIT)
+    if (!regs->arg1)
         return SCRC(-EFAULT);
 
     if (regs->arg2 < 64)
         return SCRC(-EINVAL);
 
     size_t copy = regs->arg2 > sizeof(args) ? sizeof(args) : regs->arg2;
-    memcpy(&args, (void*)regs->arg1, copy);
+    if (copy_from_user(process, &args, (void*)regs->arg1, copy) != 0)
+        return SCRC(-EFAULT);
 
     uint64_t flags = args.flags | args.exit_signal;
 
@@ -228,13 +258,11 @@ SYSCALL_DEFINE_LINUX(wait4) {
     if (!process) return SCRC(-EINVAL);
 
     int pid = (int)regs->arg1;
-    uint64_t wstatus = regs->arg2;
+    void* uwstatus = (void*)regs->arg2;
     int options = (int)regs->arg3;
-    uint64_t rusage = regs->arg4;
+    void* urusage = (void*)regs->arg4;
 
     if (options & ~WAIT4_VALID_OPTIONS) return SCRC(-EINVAL);
-    if (wstatus && wstatus + sizeof(int) > USER_VA_LIMIT) return SCRC(-EFAULT);
-    if (rusage && rusage + RUSAGE_STRUCT_SIZE > USER_VA_LIMIT) return SCRC(-EFAULT);
 
     int want = pid > 0 ? pid : -1;
 
@@ -245,8 +273,15 @@ SYSCALL_DEFINE_LINUX(wait4) {
         int r = process_wait_child(process, want, &status);
         if (r < 0) return SCRC(-ECHILD);
         if (r > 0) {
-            if (wstatus) *(int*)wstatus = status;
-            if (rusage) memset((void*)rusage, 0, RUSAGE_STRUCT_SIZE);
+            if (uwstatus) {
+                if (copy_to_user(process, uwstatus, &status, sizeof(status)) != 0)
+                    return SCRC(-EFAULT);
+            }
+            if (urusage) {
+                uint8_t zero[RUSAGE_STRUCT_SIZE] = {0};
+                if (copy_to_user(process, urusage, zero, RUSAGE_STRUCT_SIZE) != 0)
+                    return SCRC(-EFAULT);
+            }
             return SCRC(r);
         }
         if (options & WNOHANG) return SCRC(0);
@@ -261,14 +296,12 @@ SYSCALL_DEFINE_LINUX(waitid) {
 
     int idtype = (int)regs->arg1;
     int id = (int)regs->arg2;
-    uint64_t infop = regs->arg3;
+    void* uinfop = (void*)regs->arg3;
     int options = (int)regs->arg4;
-    uint64_t rusage = regs->arg5;
+    void* urusage = (void*)regs->arg5;
 
     if (options & ~WAITID_VALID_OPTIONS) return SCRC(-EINVAL);
     if (!(options & (WEXITED | WSTOPPED | WCONTINUED))) return SCRC(-EINVAL);
-    if (infop && infop + SIGINFO_SIZE > USER_VA_LIMIT) return SCRC(-EFAULT);
-    if (rusage && rusage + RUSAGE_STRUCT_SIZE > USER_VA_LIMIT) return SCRC(-EFAULT);
 
     int want;
     switch (idtype) {
@@ -296,9 +329,8 @@ SYSCALL_DEFINE_LINUX(waitid) {
         int r = process_wait_child_ex(process, want, &status, &child_pid, reap);
         if (r < 0) return SCRC(-ECHILD);
         if (r > 0 && can_report) {
-            if (infop) {
-                int32_t* info = (int32_t*)infop;
-                memset(info, 0, SIGINFO_SIZE);
+            if (uinfop) {
+                int32_t info[SIGINFO_SIZE / sizeof(int32_t)] = {0};
                 info[0] = SIGCHLD;      // si_signo
                 info[1] = 0;            // si_errno
                 if ((status & 0x7f) == 0) {
@@ -310,12 +342,22 @@ SYSCALL_DEFINE_LINUX(waitid) {
                 }
                 info[4] = (int32_t)child_pid; // si_pid
                 info[5] = 0;                  // si_uid
+                if (copy_to_user(process, uinfop, info, SIGINFO_SIZE) != 0)
+                    return SCRC(-EFAULT);
             }
-            if (rusage) memset((void*)rusage, 0, RUSAGE_STRUCT_SIZE);
+            if (urusage) {
+                uint8_t zero[RUSAGE_STRUCT_SIZE] = {0};
+                if (copy_to_user(process, urusage, zero, RUSAGE_STRUCT_SIZE) != 0)
+                    return SCRC(-EFAULT);
+            }
             return SCRC(0);
         }
         if (options & WNOHANG) {
-            if (infop) memset((void*)infop, 0, SIGINFO_SIZE);
+            if (uinfop) {
+                uint8_t zero[SIGINFO_SIZE] = {0};
+                if (copy_to_user(process, uinfop, zero, SIGINFO_SIZE) != 0)
+                    return SCRC(-EFAULT);
+            }
             return SCRC(0);
         }
 

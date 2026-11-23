@@ -87,3 +87,31 @@ int copy_to_user(process_t* proc, void* udst, const void* ksrc, size_t len) {
     }
     return 0;
 }
+
+int strncpy_from_user(process_t* proc, char* kdst, const char* usrc, size_t max) {
+    if (max == 0 || !kdst) return -UACCESS_EFAULT;
+    if (!proc || !proc->page_table) return -UACCESS_EFAULT;
+
+    uint64_t va = (uint64_t)usrc;
+    size_t done = 0;
+
+    while (done < max) {
+        if (!user_range_ok(va, 1)) return -UACCESS_EFAULT;
+
+        uint8_t* src = uaccess_resolve(proc->page_table, va, false);
+        if (!src) return -UACCESS_EFAULT;
+
+        size_t chunk = uaccess_page_left(va);
+        if (chunk > max - done) chunk = max - done;
+
+        for (size_t i = 0; i < chunk; i++) {
+            kdst[done + i] = (char)src[i];
+            if (src[i] == '\0') return (int)(done + i + 1);
+        }
+        done += chunk;
+        va   += chunk;
+    }
+
+    kdst[max - 1] = '\0';
+    return -UACCESS_ENAMETOOLONG;
+}

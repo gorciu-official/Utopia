@@ -15,6 +15,8 @@
 #include <kernel/panic.h>
 
 #include <mm/vmm.h>
+#include <mm/user.h>
+#include <mm/pmm.h>
 #include <arch/memory.h>
 #include <arch/common.h>
 
@@ -164,18 +166,18 @@ SYSCALL_DEFINE_LINUX(getcwd) {
     (void)thread;
     if (!process) return SCRC(-EINVAL);
 
-    char *buf = (char*)regs->arg1;
+    void* ubuf = (void*)regs->arg1;
     size_t size = regs->arg2;
 
-    if (!buf || (uint64_t)(uintptr_t)buf >= USER_VA_LIMIT)
-        return SCRC(-EFAULT);
+    if (!ubuf || size == 0) return SCRC(-EFAULT);
 
     size_t len = strlen(process->cwd) + 1; 
 
     if (size < len)
         return SCRC(-ERANGE);
 
-    memcpy(buf, process->cwd, len);
+    if (copy_to_user(process, ubuf, process->cwd, len) != 0)
+        return SCRC(-EFAULT);
 
     return SCRC(len);
 }
@@ -185,38 +187,41 @@ SYSCALL_DEFINE_LINUX(fstat) {
     if (!process) return SCRC(-EINVAL);
 
     int fd = regs->arg1;
-    struct stat* statbuf = (struct stat*)regs->arg2;
+    void* ustat = (void*)regs->arg2;
 
-    if (!statbuf) return SCRC(-EFAULT); 
+    if (!ustat) return SCRC(-EFAULT); 
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
         return SCRC(-EBADF); 
     }
 
-    memset(statbuf, 0, sizeof(struct stat));
+    struct stat kstat;
+    memset(&kstat, 0, sizeof(kstat));
 
     if (fd == 0 || fd == 1 || fd == 2) {
-        statbuf->st_mode = 020000 | 0666;
-        statbuf->st_blksize = 1024;
-        return SCRC(0);
-    }
-
-    vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return SCRC(-EBADF);
-    
-    statbuf->st_dev  = 1; 
-    statbuf->st_ino  = (uint64_t)(uintptr_t)vnode;
-    statbuf->st_size = vnode->size;
-    statbuf->st_blksize = 4096;
-    statbuf->st_blocks = (vnode->size + 511) / 512;
-
-    if (vnode->type == VNODE_TYPE_DIR) {
-        statbuf->st_mode = 0040000 | 0755;
+        kstat.st_mode = 020000 | 0666;
+        kstat.st_blksize = 1024;
     } else {
-        statbuf->st_mode = 0100000 | 0644;
+        vnode_t* vnode = process->fds[fd].vnode;
+        if (!vnode) return SCRC(-EBADF);
+        
+        kstat.st_dev  = 1; 
+        kstat.st_ino  = (uint64_t)(uintptr_t)vnode;
+        kstat.st_size = vnode->size;
+        kstat.st_blksize = 4096;
+        kstat.st_blocks = (vnode->size + 511) / 512;
+
+        if (vnode->type == VNODE_TYPE_DIR) {
+            kstat.st_mode = 0040000 | 0755;
+        } else {
+            kstat.st_mode = 0100000 | 0644;
+        }
     }
 
-    dprintk("Syscall", "fstat on fd %d mode=%p size=%p", fd, statbuf->st_mode, statbuf->st_size);
+    if (copy_to_user(process, ustat, &kstat, sizeof(kstat)) != 0)
+        return SCRC(-EFAULT);
+
+    dprintk("Syscall", "fstat on fd %d mode=%p size=%p", fd, kstat.st_mode, kstat.st_size);
 
     return SCRC(0);
 }
@@ -225,10 +230,13 @@ SYSCALL_DEFINE_LINUX(open) {
     (void)thread;
     if (!process) return SCRC(-EINVAL);
 
-    const char* path = (const char*)regs->arg1;
+    const char* upath = (const char*)regs->arg1;
     int flags = regs->arg2;
 
-    if (!path) return SCRC(-EFAULT); 
+    char path[VFS_PATH_MAX];
+    if (!upath) return SCRC(-EFAULT);
+    int plen = strncpy_from_user(process, path, upath, VFS_PATH_MAX);
+    if (plen < 0) return SCRC(plen == -UACCESS_ENAMETOOLONG ? -ENAMETOOLONG : -EFAULT);
 
     int fd = -1;
     for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
