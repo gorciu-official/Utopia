@@ -31,6 +31,15 @@
 #include "../common.h"
 #include "common.h"
 
+static int copy_user_path(process_t* process, const char* upath, char* out) {
+    if (!upath) return -EFAULT;
+
+    int len = strncpy_from_user(process, out, upath, VFS_PATH_MAX);
+    if (len == -UACCESS_ENAMETOOLONG) return -ENAMETOOLONG;
+    if (len < 0) return -EFAULT;
+    return 0;
+}
+
 static void fd_record_path(process_t* process, int fd, const char* resolved) {
     memcpy(process->fds[fd].path, resolved, strlen(resolved) + 1);
 }
@@ -110,9 +119,9 @@ SYSCALL_DEFINE_LINUX(pselect6) {
     if (nfds < 0 || nfds > MAX_FILES_PER_PROCESS)
         return SCRC(-EINVAL);
 
-    uint64_t readfds_ptr = regs->arg2;
-    uint64_t writefds_ptr = regs->arg3;
-    uint64_t exceptfds_ptr = regs->arg4;
+    void* readfds_ptr = (void*)regs->arg2;
+    void* writefds_ptr = (void*)regs->arg3;
+    void* exceptfds_ptr = (void*)regs->arg4;
     uint64_t timeout_ptr = regs->arg5;
     uint64_t sigmask_ptr = regs->arg6;
 
@@ -122,11 +131,11 @@ SYSCALL_DEFINE_LINUX(pselect6) {
     uint64_t readfds = 0;
     uint64_t writefds = 0;
 
-    if (readfds_ptr)
-        readfds = *(uint64_t*)readfds_ptr;
+    if (readfds_ptr && copy_from_user(process, &readfds, readfds_ptr, sizeof(readfds)) != 0)
+        return SCRC(-EFAULT);
 
-    if (writefds_ptr)
-        writefds = *(uint64_t*)writefds_ptr;
+    if (writefds_ptr && copy_from_user(process, &writefds, writefds_ptr, sizeof(writefds)) != 0)
+        return SCRC(-EFAULT);
 
     uint64_t ready_readfds = 0;
     uint64_t ready_writefds = 0;
@@ -150,14 +159,14 @@ SYSCALL_DEFINE_LINUX(pselect6) {
         }
     }
 
-    if (readfds_ptr)
-        *(uint64_t*)readfds_ptr = ready_readfds;
+    if (readfds_ptr && copy_to_user(process, readfds_ptr, &ready_readfds, sizeof(ready_readfds)) != 0)
+        return SCRC(-EFAULT);
 
-    if (writefds_ptr)
-        *(uint64_t*)writefds_ptr = ready_writefds;
+    if (writefds_ptr && copy_to_user(process, writefds_ptr, &ready_writefds, sizeof(ready_writefds)) != 0)
+        return SCRC(-EFAULT);
 
-    if (exceptfds_ptr)
-        *(uint64_t*)exceptfds_ptr = ready_exceptfds;
+    if (exceptfds_ptr && copy_to_user(process, exceptfds_ptr, &ready_exceptfds, sizeof(ready_exceptfds)) != 0)
+        return SCRC(-EFAULT);
 
     return SCRC(ready_count);
 }
@@ -296,10 +305,12 @@ SYSCALL_DEFINE_LINUX(openat) {
     if (!process) return SCRC(-EINVAL); 
 
     int dfd = (int)regs->arg1;  
-    const char* path = (const char*)regs->arg2;
+    const char* upath = (const char*)regs->arg2;
     int flags = (int)regs->arg3;
 
-    if (!path) return SCRC(-EFAULT);
+    char path[VFS_PATH_MAX];
+    int perr = copy_user_path(process, upath, path);
+    if (perr) return SCRC(perr);
 
     int fd = -1;
     for (int i = 3; i < MAX_FILES_PER_PROCESS; i++) {
@@ -337,9 +348,23 @@ SYSCALL_DEFINE_LINUX(openat) {
 
 SYSCALL_DEFINE_LINUX(poll) {
     (void)thread;
+    if (!process) return SCRC(-EINVAL);
 
-    struct pollfd *fds = (struct pollfd*)regs->arg1;
-    unsigned long nfds = regs->arg2;
+    void* ufds = (void*)regs->arg1;
+    uint64_t nfds = regs->arg2;
+
+    if (nfds == 0) return SCRC(0);
+    if (nfds > MAX_FILES_PER_PROCESS) return SCRC(-EINVAL); 
+    if (!ufds) return SCRC(-EFAULT);
+
+    size_t bytes = (size_t)nfds * sizeof(struct pollfd);
+    struct pollfd* fds = malloc(bytes);
+    if (!fds) return SCRC(-ENOMEM);
+
+    if (copy_from_user(process, fds, ufds, bytes) != 0) {
+        free(fds);
+        return SCRC(-EFAULT);
+    }
 
     int ready = 0;
 
@@ -374,14 +399,15 @@ SYSCALL_DEFINE_LINUX(poll) {
             ready++;
     }
 
-    if (ready)
-        return SCRC(ready);
+    int err = copy_to_user(process, ufds, fds, bytes);
+    free(fds);
+    if (err != 0) return SCRC(-EFAULT);
 
-    return SCRC(0);
+    return SCRC(ready);
 }
 
 SYSCALL_DEFINE_LINUX(arch_prctl) {
-    (void)process; (void)thread;
+    (void)thread;
 
     uint64_t code = regs->arg1;
     uint64_t addr = regs->arg2;
@@ -391,22 +417,26 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     switch (code) {
     case ARCH_SET_FS:
+        if (addr && !user_range_ok(addr, 1)) return SCRC(-EPERM);
         write_msr(IA32_FS_BASE, addr);
         return SCRC(0);
 
     case ARCH_GET_FS: {
-        if (!addr) return SCRC(-1);
-        *(uint64_t*)addr = read_msr(IA32_FS_BASE);
+        uint64_t base = read_msr(IA32_FS_BASE);
+        if (!addr || copy_to_user(process, (void*)addr, &base, sizeof(base)) != 0)
+            return SCRC(-EFAULT);
         return SCRC(0);
     }
 
     case ARCH_SET_GS:
+        if (addr && !user_range_ok(addr, 1)) return SCRC(-EPERM);
         write_msr(IA32_GS_BASE, addr);
         return SCRC(0);
 
     case ARCH_GET_GS: {
-        if (!addr) return SCRC(-1);
-        *(uint64_t*)addr = read_msr(IA32_GS_BASE);
+        uint64_t base = read_msr(IA32_GS_BASE);
+        if (!addr || copy_to_user(process, (void*)addr, &base, sizeof(base)) != 0)
+            return SCRC(-EFAULT);
         return SCRC(0);
     }
 
@@ -414,7 +444,7 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
         return SCRC(-ENOSYS);
     }
 #else 
-    (void)code; (void)addr;
+    (void)process; (void)code; (void)addr;
     return SCRC(0);
 #endif
 }
@@ -435,10 +465,12 @@ SYSCALL_DEFINE_LINUX(access) {
     (void)thread;
     if (!process) return SCRC(-EINVAL); 
 
-    const char* pathname = (const char*)regs->arg1;
+    const char* upathname = (const char*)regs->arg1;
     int mode = (int)regs->arg2;
 
-    if (!pathname) return SCRC(-EFAULT); 
+    char pathname[VFS_PATH_MAX];
+    int perr = copy_user_path(process, upathname, pathname);
+    if (perr) return SCRC(perr);
 
     dprintk("Syscall", "Accessing %s", pathname);
 
@@ -477,13 +509,17 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
     if (!process) return SCRC(-EINVAL);
 
     int dfd = (int)regs->arg1;
-    const char* filename = (const char*)regs->arg2;
-    struct stat* statbuf = (struct stat*)regs->arg3;
+    const char* ufilename = (const char*)regs->arg2;
+    void* ustatbuf = (void*)regs->arg3;
     int flag = (int)regs->arg4;
     
     (void)flag;
 
-    if (!filename || !statbuf) return SCRC(-EFAULT); 
+    if (!ustatbuf) return SCRC(-EFAULT); 
+
+    char filename[VFS_PATH_MAX];
+    int perr = copy_user_path(process, ufilename, filename);
+    if (perr) return SCRC(perr);
 
     char resolved[VFS_PATH_MAX];
     int res = process_resolve_at(process, dfd, filename, resolved);
@@ -497,21 +533,27 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
         return SCRC(res);
     }
 
-    memset(statbuf, 0, sizeof(struct stat));
-    statbuf->st_dev  = 1;  
-    statbuf->st_ino  = (uint64_t)(uintptr_t)vnode;
-    statbuf->st_size = vnode->size;
-    statbuf->st_blksize = 4096;
-    statbuf->st_blocks = (vnode->size + 511) / 512;
+    struct stat kstat;
+    memset(&kstat, 0, sizeof(kstat));
+    kstat.st_dev  = 1;  
+    kstat.st_ino  = (uint64_t)(uintptr_t)vnode;
+    kstat.st_size = vnode->size;
+    kstat.st_blksize = 4096;
+    kstat.st_blocks = (vnode->size + 511) / 512;
 
     if (vnode->type == VNODE_TYPE_DIR) {
-        statbuf->st_mode = 0040000 | 0755;
+        kstat.st_mode = 0040000 | 0755;
     } else {
-        statbuf->st_mode = 0100000 | 0644;
+        kstat.st_mode = 0100000 | 0644;
     }
+
+    if (copy_to_user(process, ustatbuf, &kstat, sizeof(kstat)) != 0)
+        return SCRC(-EFAULT);
 
     return SCRC(0);
 }
+
+#define GETDENTS_MAX_BUF (16 * 1024)
 
 SYSCALL_DEFINE_LINUX(getdents64) {
     (void)thread;
@@ -525,11 +567,18 @@ SYSCALL_DEFINE_LINUX(getdents64) {
 
     if (!user_buf) return SCRC(-EFAULT);
     if (count == 0) return SCRC(0);
+    if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used)
+        return SCRC(-EBADF);
 
     vnode_t* dir = process->fds[fd].vnode;
     if (!dir) return SCRC(-EBADF);
     if (dir->type != VNODE_TYPE_DIR) return SCRC(-ENOTDIR);
     if (!dir->ops || !dir->ops->readdir) return SCRC(-ENOTDIR);
+
+    if (count > GETDENTS_MAX_BUF) count = GETDENTS_MAX_BUF;
+
+    uint8_t* kbuf = malloc(count);
+    if (!kbuf) return SCRC(-ENOMEM);
 
     size_t written = 0;
     uint64_t index = process->fds[fd].offset;
@@ -556,7 +605,7 @@ SYSCALL_DEFINE_LINUX(getdents64) {
 
         if (reclen > count - written) break;
 
-        struct linux_dirent64 *d = (struct linux_dirent64 *)((uint8_t *)user_buf + written);
+        struct linux_dirent64 *d = (struct linux_dirent64 *)(kbuf + written);
 
         d->d_ino = entry.ino;
         d->d_off = (int64_t)(index + 1);
@@ -578,33 +627,60 @@ SYSCALL_DEFINE_LINUX(getdents64) {
         index++;
     }
 
+    if (written && copy_to_user(process, user_buf, kbuf, written) != 0) {
+        free(kbuf);
+        return SCRC(-EFAULT);
+    }
+    free(kbuf);
+
     process->fds[fd].offset = index;
 
     return SCRC((int)written); 
 }
 
 SYSCALL_DEFINE_LINUX(set_tid_address) {
-    (void) process;
+    if (!process) return SCRC(-EINVAL);
 
-    if ((int32_t*)regs->arg1 != NULL) {
-        *((int32_t*)regs->arg1) = thread->id;
+    void* utid = (void*)regs->arg1;
+    if (utid) {
+        int32_t tid = (int32_t)thread->id;
+        if (copy_to_user(process, utid, &tid, sizeof(tid)) != 0)
+            return SCRC(-EFAULT);
     }
 
     return SCRC(thread->id);
 }
 
-SYSCALL_DEFINE_LINUX(getrandom) {
-    (void)thread; (void)process;
+#define GETRANDOM_MAX_BYTES (256 * 1024)
 
-    uint8_t* buf = (uint8_t*)regs->arg1;
+SYSCALL_DEFINE_LINUX(getrandom) {
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
+
+    void* ubuf = (void*)regs->arg1;
     size_t count = regs->arg2;
 
-    if (!buf) return SCRC(-EFAULT);
-    
-    for (size_t i = 0; i < count; i++) {
-        buf[i] = (char)(i ^ 0x5A); 
+    if (count == 0) return SCRC(0);
+    if (!ubuf) return SCRC(-EFAULT);
+    if (count > GETRANDOM_MAX_BYTES) count = GETRANDOM_MAX_BYTES;
+
+    uint8_t kbuf[256];
+    size_t done = 0;
+
+    while (done < count) {
+        size_t chunk = count - done;
+        if (chunk > sizeof(kbuf)) chunk = sizeof(kbuf);
+
+        for (size_t i = 0; i < chunk; i++)
+            kbuf[i] = (uint8_t)((done + i) ^ 0x5A);
+
+        if (copy_to_user(process, (uint8_t*)ubuf + done, kbuf, chunk) != 0)
+            return SCRC(done ? (int64_t)done : -EFAULT);
+
+        done += chunk;
     }
-    return SCRC(count); 
+
+    return SCRC(done); 
 }
 
 SYSCALL_DEFINE_LINUX(getpgid) {
@@ -639,26 +715,34 @@ SYSCALL_DEFINE_LINUX(setsid) {
 }
 
 SYSCALL_DEFINE_LINUX(rt_sigprocmask) {
-    (void)process; (void)thread;
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
 
-    uint8_t* oldset = (uint8_t*)regs->arg3;
+    void* oldset = (void*)regs->arg3;
     size_t size = (size_t)regs->arg4;
 
     if (size > 128)
         return SCRC(-EINVAL);
-    if (oldset)
-        memset(oldset, 0, size);
+    if (oldset && size) {
+        uint8_t zero[128] = {0};
+        if (copy_to_user(process, oldset, zero, size) != 0)
+            return SCRC(-EFAULT);
+    }
 
     return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(rt_sigaction) {
-    (void)process; (void)thread;
+    (void)thread;
+    if (!process) return SCRC(-EINVAL);
 
-    uint8_t* oldact = (uint8_t*)regs->arg3;
+    void* oldact = (void*)regs->arg3;
 
-    if (oldact)
-        memset(oldact, 0, 24);
+    if (oldact) {
+        uint8_t zero[24] = {0};
+        if (copy_to_user(process, oldact, zero, sizeof(zero)) != 0)
+            return SCRC(-EFAULT);
+    }
 
     return SCRC(0);
 }

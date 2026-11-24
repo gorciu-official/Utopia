@@ -5,6 +5,7 @@
 #include <arch/common.h>
 #include <arch/memory.h>
 #include <mm/pmm.h>
+#include <mm/user.h>
 #include <lib/string.h>
 #include <lib/screen.h>
 #include <lib/extensions.h>
@@ -18,19 +19,31 @@ SYSCALL_DEFINE_OWN(exit) {
     return SCRC(0);
 }
 
+#define OWN_WRITE_MAX (64 * 1024)
+
 SYSCALL_DEFINE_OWN(write) {
-    (void)process; (void)thread;
+    (void)thread;
 
     uintptr_t fd = regs->arg1;
-    char* data = (char*)regs->arg2; 
-    uintptr_t len = regs->arg3;
+    const void* udata = (const void*)regs->arg2;
+    uint64_t len = regs->arg3;
 
-    if (fd == 1 || fd == 2) {
-        user_print(data, len);
-        return SCRC(len);
+    if (!process || (fd != 1 && fd != 2)) return SCRC(-1);
+    if (len == 0) return SCRC(0);
+    if (len > OWN_WRITE_MAX) len = OWN_WRITE_MAX;
+    if (!udata) return SCRC(-1);
+
+    char* kbuf = (char*)malloc(len);
+    if (!kbuf) return SCRC(-1);
+
+    if (copy_from_user(process, kbuf, udata, len) != 0) {
+        free(kbuf);
+        return SCRC(-1);
     }
 
-    return SCRC(-1);
+    user_print(kbuf, len);
+    free(kbuf);
+    return SCRC(len);
 }
 
 #define SYSCALL_OWN_ERR_INVALID_ARGUMENT   (-2)
@@ -39,7 +52,6 @@ SYSCALL_DEFINE_OWN(write) {
 #define SYSCALL_OWN_ERR_BAD_EXEC           (-8)
 #define SYSCALL_OWN_ERR_NO_MEMORY          (-9)
 
-#define USER_VA_LIMIT       (1ULL << USER_VA_BITS)
 #define EXEC_MAX_ARGS       1024
 #define EXEC_MAX_PATH       4096
 #define EXEC_MAX_ARG_BYTES  (256 * 1024)
@@ -58,42 +70,67 @@ static void syscall_own_free_strvec(char** vec, int count) {
     free(vec);
 }
 
-static int syscall_own_copy_strvec(char* const* user_vec, char*** out_vec, int* out_count, size_t* budget) {
+static int syscall_own_copy_strvec(process_t* process, char* const* user_vec, char*** out_vec,
+                                    int* out_count, size_t* budget) {
     *out_vec = NULL;
     *out_count = 0;
 
     if (!user_vec) return 0;
-    if ((uint64_t)(uintptr_t)user_vec >= USER_VA_LIMIT) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
 
+    uint64_t vec_va = (uint64_t)(uintptr_t)user_vec;
     int count = 0;
-    while (user_vec[count]) {
+    for (;;) {
+        uint64_t entry;
+        if (copy_from_user(process, &entry, (const void*)(uintptr_t)(vec_va + (uint64_t)count * sizeof(entry)),
+                           sizeof(entry)) != 0)
+            return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
+        if (!entry) break;
         if (++count > EXEC_MAX_ARGS) return SYSCALL_OWN_ERR_MESSAGE_TOO_LARGE;
-        if ((uint64_t)(uintptr_t)&user_vec[count] >= USER_VA_LIMIT) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
     }
 
     char** vec = (char**)calloc((size_t)count + 1, sizeof(char*));
     if (!vec) return SYSCALL_OWN_ERR_NO_MEMORY;
 
-    for (int i = 0; i < count; i++) {
-        const char* src = user_vec[i];
-        if ((uint64_t)(uintptr_t)src >= USER_VA_LIMIT) {
-            syscall_own_free_strvec(vec, i);
-            return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
+    if (count == 0) {
+        *out_vec = vec;
+        return 0;
+    }
+
+    if (*budget == 0) {
+        syscall_own_free_strvec(vec, 0);
+        return SYSCALL_OWN_ERR_MESSAGE_TOO_LARGE;
+    }
+
+    char* scratch = (char*)malloc(*budget);
+    if (!scratch) {
+        syscall_own_free_strvec(vec, 0);
+        return SYSCALL_OWN_ERR_NO_MEMORY;
+    }
+
+    int err = 0;
+    int i = 0;
+    for (; i < count; i++) {
+        uint64_t src;
+        if (copy_from_user(process, &src, (const void*)(uintptr_t)(vec_va + (uint64_t)i * sizeof(src)),
+                           sizeof(src)) != 0 || !src) {
+            err = SYSCALL_OWN_ERR_INVALID_ARGUMENT;
+            break;
         }
 
-        size_t len = (size_t)strlen(src) + 1;
-        if (len > *budget) {
-            syscall_own_free_strvec(vec, i);
-            return SYSCALL_OWN_ERR_MESSAGE_TOO_LARGE;
-        }
-        *budget -= len;
+        int len = strncpy_from_user(process, scratch, (const char*)(uintptr_t)src, *budget);
+        if (len == -UACCESS_ENAMETOOLONG) { err = SYSCALL_OWN_ERR_MESSAGE_TOO_LARGE; break; }
+        if (len < 0)                      { err = SYSCALL_OWN_ERR_INVALID_ARGUMENT; break; }
 
-        vec[i] = (char*)malloc(len);
-        if (!vec[i]) {
-            syscall_own_free_strvec(vec, i);
-            return SYSCALL_OWN_ERR_NO_MEMORY;
-        }
-        memcpy(vec[i], src, len);
+        vec[i] = (char*)malloc((size_t)len);
+        if (!vec[i]) { err = SYSCALL_OWN_ERR_NO_MEMORY; break; }
+        memcpy(vec[i], scratch, (size_t)len);
+        *budget -= (size_t)len;
+    }
+
+    free(scratch);
+    if (err) {
+        syscall_own_free_strvec(vec, i); 
+        return err;
     }
 
     *out_vec = vec;
@@ -119,29 +156,26 @@ static void own_exec_release(own_exec_args_t* a) {
     *a = (own_exec_args_t){0};
 }
 
-static int own_exec_load(syscall_regs_t* regs, own_exec_args_t* a) {
+static int own_exec_load(process_t* process, syscall_regs_t* regs, own_exec_args_t* a) {
     *a = (own_exec_args_t){0};
     int err = 0;
 
     const char* user_path = (const char*)regs->arg1;
-    if (!user_path || (uint64_t)(uintptr_t)user_path >= USER_VA_LIMIT)
-        return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
+    if (!user_path) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
 
-    size_t path_len = 0;
-    while (user_path[path_len]) {
-        if (++path_len >= EXEC_MAX_PATH) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
-        if ((uint64_t)(uintptr_t)&user_path[path_len] >= USER_VA_LIMIT) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
-    }
-    path_len++;
+    char path_buf[EXEC_MAX_PATH];
+    int plen = strncpy_from_user(process, path_buf, user_path, sizeof(path_buf));
+    if (plen < 0) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
+    size_t path_len = (size_t)plen; 
 
     a->path = (char*)malloc(path_len);
     if (!a->path) return SYSCALL_OWN_ERR_NO_MEMORY;
-    memcpy(a->path, user_path, path_len);
+    memcpy(a->path, path_buf, path_len);
 
     size_t budget = EXEC_MAX_ARG_BYTES;
-    err = syscall_own_copy_strvec((char* const*)regs->arg3, &a->argv, &a->argc, &budget);
+    err = syscall_own_copy_strvec(process, (char* const*)regs->arg3, &a->argv, &a->argc, &budget);
     if (err) goto fail;
-    err = syscall_own_copy_strvec((char* const*)regs->arg4, &a->envp, &a->envc, &budget);
+    err = syscall_own_copy_strvec(process, (char* const*)regs->arg4, &a->envp, &a->envc, &budget);
     if (err) goto fail;
 
     if (a->argc == 0) {
@@ -191,14 +225,15 @@ static create_elf_process_request_t own_exec_request(const own_exec_args_t* a, u
 }
 
 SYSCALL_DEFINE_OWN(spawn) {
-    (void)thread; (void)process;
+    (void)thread;
+    if (!process) return SCRC(SYSCALL_OWN_ERR_INVALID_ARGUMENT);
 
     uint64_t conv = regs->arg2;
     if (!syscall_own_conv_valid(conv))
         return SCRC(SYSCALL_OWN_ERR_INVALID_ARGUMENT);
 
     own_exec_args_t a;
-    int err = own_exec_load(regs, &a);
+    int err = own_exec_load(process, regs, &a);
     if (err) return SCRC(err);
 
     int response = elf_start(own_exec_request(&a, conv));
@@ -216,7 +251,7 @@ SYSCALL_DEFINE_OWN(become) {
         return SCRC(SYSCALL_OWN_ERR_INVALID_ARGUMENT);
 
     own_exec_args_t a;
-    int err = own_exec_load(regs, &a);
+    int err = own_exec_load(process, regs, &a);
     if (err) return SCRC(err);
 
     create_elf_process_request_t req = own_exec_request(&a, conv);

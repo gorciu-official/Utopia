@@ -210,6 +210,16 @@ int vm_page_list_add(vm_page_list_t* list, void* page) {
     return 0;
 }
 
+bool vm_page_list_remove(vm_page_list_t* list, void* page) {
+    for (size_t i = list->count; i > 0; i--) {
+        if (list->pages[i - 1] != page) continue;
+        list->pages[i - 1] = list->pages[list->count - 1];
+        list->count--;
+        return true;
+    }
+    return false;
+}
+
 void vm_page_list_free(vm_page_list_t* list) {
     for (size_t i = 0; i < list->count; i++)
         free(list->pages[i]);

@@ -112,10 +112,16 @@ struct winsize {
 #define POLLHUP   0x010
 #define POLLNVAL  0x020
 
+#define PROT_READ      0x1
+#define PROT_WRITE     0x2
+#define PROT_EXEC      0x4
+
 #define MAP_SHARED     0x01
 #define MAP_PRIVATE    0x02
+#define MAP_TYPE_MASK  0x0f // SHARED, PRIVATE or SHARED_VALIDATE (3)
 #define MAP_FIXED      0x10
 #define MAP_ANONYMOUS  0x20
+#define MAP_FIXED_NOREPLACE 0x100000
 
 #define F_OK 0
 #define R_OK 4
@@ -125,10 +131,13 @@ struct winsize {
 #define AT_FDCWD -100
 #define AT_SYMLINK_NOFOLLOW 0x100
 
+#define EPERM        1
 #define ENOENT       2
+#define EIO          5
 #define ESRCH        3
 #define EINTR        4
 #define EEXIST       17
+#define ENODEV       19
 #define EROFS        30
 #define ECHILD       10
 #define ENOEXEC      8

@@ -18,6 +18,7 @@ typedef struct {
 } vm_page_list_t;
 
 int  vm_page_list_add(vm_page_list_t* list, void* page);
+bool vm_page_list_remove(vm_page_list_t* list, void* page);
 void vm_page_list_free(vm_page_list_t* list);
 
 int vm_collect_user_pages(uint64_t* l4, uint64_t skip_lo, uint64_t skip_hi, vm_page_list_t* out);
