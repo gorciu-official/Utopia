@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <types.h>
 #include "elf_constants.h"
@@ -80,28 +80,29 @@ typedef enum {
     ELF_ERR_INTERP_TOO_LONG,
     ELF_ERR_INTERP_NOT_FOUND,
     ELF_ERR_INTERP_LOAD_FAILED,
+    ELF_ERR_BAD_LAYOUT,
 } elf_load_status_t;
 
 typedef struct {
     elf_load_status_t status;
 
     uint64_t entry;
-    uint64_t load_bias; 
-    uint64_t lowest_vaddr; 
+    uint64_t load_bias;
+    uint64_t lowest_vaddr;
     uint64_t highest_vaddr;
 
-    uint64_t phdr_vaddr;  
-    uint16_t phnum;    
-    uint16_t phentsize; 
+    uint64_t phdr_vaddr;
+    uint16_t phnum;
+    uint16_t phentsize;
 
-    bool is_pie;    
+    bool is_pie;
     bool has_interp;
     char interp_path[ELF_INTERP_PATH_MAX];
 
     uint64_t symtab_vaddr;
     uint64_t strtab_vaddr;
     uint64_t strtab_size;
-    uint64_t sym_count;   
+    uint64_t sym_count;
 } elf_load_result_t;
 
 typedef struct {
