@@ -6,13 +6,16 @@ So, before building, make sure you have these:
 
 - NASM for x86_64 assembly sources and Clang's integrated assembler for RISC-V
 - a C compiler (Clang)
+- a Rust environment
 - GNU make (or any other program that reads Makefiles with GNU extensions)
 
-If you want to test on an emulated machine make sure you have a good CPU (good cpu = smth better than core 2 quad q9300) and QEMU installed.
+If you want to test on an emulated machine make sure you have a good CPU (good cpu = smth better than core 
+2 quad q9300) and QEMU installed.
 
 ## Building and testing
 
-To build the project, simply use `make`. No meta-build-systems here. Alternatively, you can only build the kernel using `make build_kernel`.
+To build the project, simply use `make`. No meta-build-systems here. Alternatively, you can only build 
+the kernel using `make build_kernel`.
 
 Testing is usually done in one of two ways:
 - **using an emulator**: run `make run` to open the kernel in QEMU
@@ -20,25 +23,42 @@ Testing is usually done in one of two ways:
 
 ### Bootloaders
 
-There are two bootloaders that are supported natively - Limine and GRUB (default is Limine, but you can change that with `BOOTLOADER=grub`). After tweaking the Makefile, you should be able to run the kernel on any bootloader that supports either Limine boot protocol or Multiboot1. 
+There are two bootloaders that are supported natively - Limine and GRUB (default is Limine, but you can 
+change that with `BOOTLOADER=grub`). After tweaking the Makefile, you should be able to run the kernel 
+on any bootloader that supports either Limine boot protocol or Multiboot1. 
 
 ### Architectures
 
-There are currently two supported architectures - `x86_64` and `RISC-V 64`. Default one is `x86_64`, but this can be changed to RISC-V by using `ARCH=riscv64`. 
+There are currently two supported architectures - `x86_64` and `RISC-V 64`. Default one is `x86_64`, but 
+this can be changed to RISC-V by using `ARCH=riscv64`. 
 
-If you want to use QEMU with an Utopia build architecture different from your host system, you will need to disable KVM with `USE_HOST_CPU=false`. This also applies to running Utopia in QEMU on Windows (but Makefile is written for Unix-like systems, so you may have issues regardless).
+If you want to use QEMU with an Utopia build architecture different from your host system, you will need 
+to disable KVM with `USE_HOST_CPU=false`. This also applies to running Utopia in QEMU on Windows (but 
+Makefile is written for Unix-like systems, so you may have issues regardless).
 
 Support levels for certain architecture & boot protocol pairs are listed in `README.md`.
 
+## Customizing kernel configuration
+
+The kernel is quite modular and allows for customization using `make menuconfig`. Therefore a default 
+kernel configuration needs to be made with `make defconfig` before building.
+
 ## Rebuilding bootloader configuration
 
-By default, `make` does it the first time you try to compile the project. But if you for some reason need to rebuild it again (e.g. after removing initramfs or adding a custom font), you will need to execute these commands:
+A bootloader configuration mostly tells the bootloader which modules were packaged and what it should 
+load.
+
+By default, `make` does the generation the first time you try to compile the project. But if you for 
+some reason need to rebuild it again (e.g. after removing initramfs or adding a custom font), you will 
+need to execute these commands:
 
 ```
 chmod +x tools/mk_bootloader_cfg.sh 
 ./tools/mk_bootloader_cfg.sh
 ```
 
-This will build bootloader configuration for **x86_64** (every architecture detects other initramfs). To change architecture, prefix the second command with `ARCH=your_architecture_here`.
+This will build bootloader configuration for **x86_64** (every architecture detects other initramfs). To 
+change architecture, prefix the second command with `ARCH=your_architecture_here`.
 
-Alternatively, you may just delete old configuration files from `src/build/`, specifically `limine.conf` and `grub.cfg`, then rebuild the kernel.
+Alternatively, you may just delete old configuration files from `src/build/`, specifically `limine.conf` and
+`grub.cfg`, then rebuild the kernel.

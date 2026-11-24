@@ -29,6 +29,11 @@ inside this project.
 2. Avoid oversimplifying the solution; if something requires additional steps and it can be 
    done quickly, do them, otherwise ask the user.
 
+3. Keep the code simple and readable, which will improve maintainability over time. This 
+   includes splitting the code into multiple files, keeping functions tiny and other 
+   things like this. The need for comments explaining the code often means bad code, so 
+   please avoid them and instead restructure the code to be more readable.
+
 ## Debugging instructions
 
 1. You have plenty of tools to use to debug the behaviour of the system, like debug mode 
