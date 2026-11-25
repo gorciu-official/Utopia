@@ -2,6 +2,7 @@ name: Feature request
 description: File a feature request.
 title: "request: Please enter your title here"
 labels: ["Enhancement"]
+type: feature
 assignees:
   - gorciu-official
 
