@@ -5,3 +5,12 @@ version = 4
 [[package]]
 name = "rust_for_utopia"
 version = "0.1.0"
+dependencies = [
+ "structured-zstd",
+]
+
+[[package]]
+name = "structured-zstd"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5541de742174ab5d5309a27acc720e231c4194ebb4a83e3671aaeb8736caad06"
