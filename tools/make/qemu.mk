@@ -5,7 +5,9 @@ ifeq ($(ARCH),x86_64)
     QEMU := qemu-system-x86_64
 endif
 
-QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m 1G
+QEMU_RAM ?= 4G
+
+QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m $(QEMU_RAM)
 
 # smp 
 
