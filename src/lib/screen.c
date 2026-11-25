@@ -309,6 +309,22 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
     ultoa(seconds, time_str, 10);
     int len = 0;
     while(time_str[len]) len++;
+
+    if (seconds < 10) {
+        for (int i = len; i >= 0; i--)
+            time_str[i + 2] = time_str[i];
+        
+        time_str[0] = '0';
+        time_str[1] = '0';
+        len += 2;
+    } else if (seconds < 100) {
+        for (int i = len; i >= 0; i--)
+            time_str[i + 1] = time_str[i];
+        
+        time_str[0] = '0';
+        len++;
+    }
+
     time_str[len++] = '.';
     
     char ms_str[16];
@@ -321,7 +337,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
         time_str[len++] = '0';
     }
     
-    for(int i = 0; ms_str[i]; i++) {
+    for (int i = 0; ms_str[i]; i++) {
         time_str[len++] = ms_str[i];
     }
     time_str[len] = '\0';
