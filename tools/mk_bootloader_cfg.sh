@@ -37,7 +37,7 @@ echo 'menuentry "Utopia" {'                                                     
 echo '    multiboot /boot/kernel.bin'                                                      >> $GRUB_CFG
 if [[ -d initramfs-${ARCH} || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
     printf '  %sFound initramfs, adding module initramfs support.%s\n'                     "$COLOR_GRAY" "$COLOR_RESET"
-    echo '    module /initramfs.tar initramfs.tar'                                         >> $GRUB_CFG
+    echo '    module /initramfs.tar initramfs.tar.zst'                                         >> $GRUB_CFG
 fi
 if [[ -f font.psf1 || "$MKBC_CUSTOM_FONT_SUPPORT" = "true" ]]; then
     printf '  %sFound custom font, adding module font loading.%s\n'                        "$COLOR_GRAY" "$COLOR_RESET"
@@ -57,7 +57,7 @@ echo '    protocol: limine'                                                     
 echo '    kernel_path: boot():/kernel.bin'                                                 >> $LIMINE_CFG
 if [[ -d initramfs-${ARCH} || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
     printf '  %sFound initramfs, adding module initramfs support.%s\n'                     "$COLOR_GRAY" "$COLOR_RESET"
-    echo '    module_path: boot():/initramfs.tar'                                          >> $LIMINE_CFG
+    echo '    module_path: boot():/initramfs.tar.zst'                                          >> $LIMINE_CFG
 fi
 if [[ -f font.psf1 || "$MKBC_CUSTOM_FONT_SUPPORT" = "true" ]]; then
     printf '  %sFound custom font, adding module font loading.%s\n'                        "$COLOR_GRAY" "$COLOR_RESET"

@@ -10,3 +10,4 @@ crate-type = ["staticlib"]
 path = "main.rs"
 
 [dependencies]
+structured-zstd = { version = "0.4.4", default-features = false }

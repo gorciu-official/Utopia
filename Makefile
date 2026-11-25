@@ -17,7 +17,7 @@ endif
 
 SRC_DIR        := $(ROOT_DIR)/src
 
-# random tools 
+# random tools
 include tools/make/uconfig.mk
 
 # bootloader configuration
@@ -39,11 +39,11 @@ ISO_FILE       := $(TARGET_DIR)/Utopia.iso
 # linker script
 LINKER_SCRIPT  := $(SRC_DIR)/build/linker-$(ARCH)-$(BOOTLOADER).ld
 
-# toolchain 
-include tools/make/toolchain.mk 
+# toolchain
+include tools/make/toolchain.mk
 
 # sources and object files
-include tools/make/src-obj.mk 
+include tools/make/src-obj.mk
 
 # common build rules
 
@@ -56,7 +56,8 @@ kernel: $(OBJECTS)
 
 bootmodules:
 	@chmod +x tools/mk_bootloader_cfg.sh && ./tools/mk_bootloader_cfg.sh -e
-	@if [ -d initramfs-$(ARCH) ]; then tar --format=ustar -cf $(ISO_DIR)/initramfs.tar -C $(ROOT_DIR)/initramfs-$(ARCH) . ; fi
+	@if [ -d initramfs-$(ARCH) ]; then tar --format=ustar -I 'zstd -3' -cf $(ISO_DIR)/initramfs.tar.zst -C $(ROOT_DIR)/initramfs-$(ARCH) . ; fi
+	# @if [ -d initramfs-$(ARCH) ]; then tar --format=ustar -cf $(ISO_DIR)/initramfs.tar -C $(ROOT_DIR)/initramfs-$(ARCH) . ; fi
 	@if [ -f font.psf1 ]; then cp font.psf1 $(ISO_DIR)/ ; fi
 
 # extension-specific

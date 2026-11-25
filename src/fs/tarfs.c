@@ -24,15 +24,13 @@ typedef struct __attribute__((packed)) {
 } tar_header_t;
 
 static vnode_ops_t tarfs_ops;
-static const uint8_t* tarfs_image = 0;
-static uint64_t tarfs_image_size = 0;
 
-void tarfs_set_image(const void* data, uint64_t size) {
-    // TODO: this is vulnerable to timing, either when an interrupt 
-    // fires / another thread wants something so fix this
-    tarfs_image = (const uint8_t*)data;
-    tarfs_image_size = size;
-}
+typedef struct {
+    const uint8_t* data;
+    uint64_t size;
+} TarfsImage;
+
+TarfsImage tarfs_image = {NULL, 0};
 
 static uint64_t tarfs_oct2u64(const char* s, int len) {
     uint64_t v = 0;
@@ -287,12 +285,12 @@ static void tarfs_add_entry(tarfs_node_t* root, tarfs_node_t* parent, const char
 }
 
 static void tarfs_parse_archive(tarfs_node_t* root) {
-    if (!tarfs_image || tarfs_image_size < 512) return;
+    if (!tarfs_image.data || tarfs_image.size < 512) return;
 
     uint64_t offset = 0;
 
-    while (offset + 512 <= tarfs_image_size) {
-        const tar_header_t* hdr = (const tar_header_t*)(tarfs_image + offset);
+    while (offset + 512 <= tarfs_image.size) {
+        const tar_header_t* hdr = (const tar_header_t*)(tarfs_image.data + offset);
         if (tarfs_block_is_zero((const uint8_t*)hdr)) break;
 
         uint64_t size = tarfs_oct2u64(hdr->size, 12);
@@ -300,7 +298,7 @@ static void tarfs_parse_archive(tarfs_node_t* root) {
         offset += 512;
 
         if (t == '1' || t == '2') size = 0;
-        if (offset + size > tarfs_image_size) break;
+        if (offset + size > tarfs_image.size) break;
 
         if (t == 0 || t == '0' || t == '1' || t == '2' || t == '5') {
             char raw[256];
@@ -313,7 +311,7 @@ static void tarfs_parse_archive(tarfs_node_t* root) {
             if (plen > split) {
                 tarfs_node_t* parent = tarfs_resolve_dir_path(root, p, split > 0 ? split - 1 : 0);
                 if (parent && !tarfs_find_child(parent, p + split, plen - split))
-                    tarfs_add_entry(root, parent, p + split, plen - split, hdr, tarfs_image + offset, size);
+                    tarfs_add_entry(root, parent, p + split, plen - split, hdr, tarfs_image.data + offset, size);
             }
         }
 

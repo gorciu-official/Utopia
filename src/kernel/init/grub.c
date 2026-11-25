@@ -20,7 +20,7 @@ void kinit(multiboot_info_t* mbd) {
     }
 
     if (
-        mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER 
+        mbd->flags & MULTIBOOT_FLAG_FRAMEBUFFER
         && mbd->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB
     ) {
         cbs.framebuffer.addr = (uintptr_t)phys_to_virt(mbd->framebuffer_addr);
@@ -37,7 +37,7 @@ void kinit(multiboot_info_t* mbd) {
         for (unsigned int i = 0; i < count; i++) {
             multiboot_module_t mod = mods[i];
 
-            if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
+            if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar.zst") == 0 || strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
                 cbs.modules.initramfs_addr = phys_to_virt((uintptr_t)mod.mod_start);
                 cbs.modules.initramfs_size = mod.mod_end - mod.mod_start;
             } else if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "font.psf1") == 0) {
@@ -50,4 +50,4 @@ void kinit(multiboot_info_t* mbd) {
     kmain(&cbs);
 }
 
-#endif 
+#endif

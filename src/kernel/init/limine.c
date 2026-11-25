@@ -40,7 +40,7 @@ void kinit() {
     struct limine_framebuffer*          framebuffer     = framebuffer_res ? framebuffer_res->framebuffers[0] : NULL;
 
     if (framebuffer) {
-        // as you may have guessed by the look of these 
+        // as you may have guessed by the look of these
         // declarations, i am a perfectionist
         cbs.framebuffer.addr   = (uintptr_t)framebuffer->address;
         cbs.framebuffer.width  =            framebuffer->width;
@@ -50,7 +50,7 @@ void kinit() {
     }
 
     if (
-        cmdline_request.response && 
+        cmdline_request.response &&
         cmdline_request.response->cmdline &&
         cmdline_request.response->cmdline[0] != '\0'
     ) {
@@ -60,10 +60,10 @@ void kinit() {
     if (module_request.response) {
         uint64_t module_count = module_request.response->module_count;
         struct limine_file** modules = module_request.response->modules;
-    
+
         for (uint64_t i = 0; i < module_count; i++) {
             struct limine_file* mod = modules[i];
-            if (strcmp(mod->path, "/initramfs.tar") == 0) {
+            if (strcmp(mod->path, "/initramfs.tar.zst") == 0 || strcmp(mod->path, "/initramfs.tar") == 0) {
                 cbs.modules.initramfs_addr = mod->address;
                 cbs.modules.initramfs_size = mod->size;
             } else if (strcmp(mod->path, "/font.psf1") == 0) {
