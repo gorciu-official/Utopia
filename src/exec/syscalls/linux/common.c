@@ -796,6 +796,9 @@ extern SYSCALL_DEFINE_LINUX(clock_gettime);
 extern SYSCALL_DEFINE_LINUX(clock_nanosleep);
 extern SYSCALL_DEFINE_LINUX(sysinfo);
 
+#define syscall_linux_fnctl \
+    syscall_linux_stub_unimplemented
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
 static const syscall_fn_t syscall_linux_table[] = {
     [0]   = syscall_linux_read,
@@ -823,6 +826,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [60]  = syscall_linux_exit,
     [61]  = syscall_linux_wait4,
     [63]  = syscall_linux_uname,
+    [72]  = syscall_linux_fnctl,
     [79]  = syscall_linux_getcwd,
     [80]  = syscall_linux_chdir,
     [81]  = syscall_linux_fchdir,
@@ -879,6 +883,7 @@ SYSCALL_ABI_DEFINE(linux, syscall_linux_table, syscall_linux_to_sregs, syscall_s
 static const syscall_fn_t syscall_linux_table[] = {
     [17]  = syscall_linux_getcwd,
     [23]  = syscall_linux_stub_unimplemented,
+    [25]  = syscall_linux_fnctl,
     [29]  = syscall_linux_ioctl,
     [34]  = syscall_linux_mkdirat,
     [39]  = syscall_linux_umount2,
