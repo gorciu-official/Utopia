@@ -1,6 +1,6 @@
 CC             := clang
 LD             := ld.lld
-RUSTC          ?= rustc
+RUSTC          := rustc
 
 ifeq ($(shell command -v $(CC) 2>/dev/null),)
     $(error Utopia requires $(CC) as a C compiler, please install it)

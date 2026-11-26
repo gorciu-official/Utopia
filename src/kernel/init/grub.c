@@ -40,9 +40,6 @@ void kinit(multiboot_info_t* mbd) {
             if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar.zst") == 0 || strcmp(phys_to_virt((uintptr_t)mod.cmdline), "initramfs.tar") == 0) {
                 cbs.modules.initramfs_addr = phys_to_virt((uintptr_t)mod.mod_start);
                 cbs.modules.initramfs_size = mod.mod_end - mod.mod_start;
-            } else if (strcmp(phys_to_virt((uintptr_t)mod.cmdline), "font.psf1") == 0) {
-                cbs.modules.font_addr = phys_to_virt((uintptr_t)mod.mod_start);
-                cbs.modules.font_size = mod.mod_end - mod.mod_start;
             }
         }
     }
