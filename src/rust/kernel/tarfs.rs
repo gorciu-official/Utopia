@@ -1,9 +1,10 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::ffi::c_void;
 use core::slice;
 use structured_zstd::decoding::StreamingDecoder;
 use structured_zstd::io::Read;
+
+use crate::kernel::ffi::{KernelMessageType, printk};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -26,11 +27,10 @@ extern "C" fn tarfs_set_image(data: *const c_void, size: u64) {
     let mut raw = unsafe { slice::from_raw_parts(data.cast::<u8>(), size as usize) };
 
     if !raw.starts_with(&ZSTD_MAGIC.to_le_bytes()) {
-        let leaked = Box::leak(raw.to_vec().into_boxed_slice());
         unsafe {
             tarfs_image = TarfsImage {
-                data: leaked.as_ptr(),
-                size: leaked.len() as u64,
+                data: data.cast::<u8>(),
+                size,
             };
         }
         return;
@@ -38,15 +38,27 @@ extern "C" fn tarfs_set_image(data: *const c_void, size: u64) {
 
     let mut decoder = StreamingDecoder::new(&mut raw);
 
-    let mut decompressed = Vec::new();
-    decoder.read_to_end(&mut decompressed).unwrap(); // peak safety
+    let mut decompressed = Vec::with_capacity(size as usize);
+    match decoder.read_to_end(&mut decompressed) {
+        Ok(_) => {}
+        Err(_e) => unsafe {
+            printk(
+                KernelMessageType::Error,
+                c"TARFS".as_ptr(),
+                c"error when decompressing initramfs!".as_ptr(),
+            )
+        },
+    }
 
-    let leaked = Box::leak(decompressed.into_boxed_slice());
+    let ptr = decompressed.as_ptr();
+    let len = decompressed.len() as u64;
+
+    core::mem::forget(decompressed);
 
     unsafe {
         tarfs_image = TarfsImage {
-            data: leaked.as_ptr(),
-            size: leaked.len() as u64,
+            data: ptr,
+            size: len,
         };
     }
 }
