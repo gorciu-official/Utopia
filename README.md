@@ -51,6 +51,7 @@ Some checked programs and applications are listed here.
 - [bash](https://www.gnu.org/software/bash/)
 - [nsh](https://github.com/na-razie-bez-nicku/nsh) 
 - [JUAMP](https://github.com/gorciu-official/JUAMP)
+- [Python](https://github.com/python/CPython)
 
 **In active porting:**
 
