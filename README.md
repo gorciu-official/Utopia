@@ -46,17 +46,21 @@ The Linux syscall compatibility layer has been found out to be good enough to ru
 
 Some checked programs and applications are listed here.
 
-**Software that I checked and works:**
+**Important software that I checked and works:**
 
+- [Python](https://github.com/python/CPython)
 - [bash](https://www.gnu.org/software/bash/)
+
+**Other working software:**
+
 - [nsh](https://github.com/na-razie-bez-nicku/nsh) 
 - [JUAMP](https://github.com/gorciu-official/JUAMP)
-- [Python](https://github.com/python/CPython)
 
 **In active porting:**
 
 - [systemd](https://systemd.io/) (yes)
 - [gcc](https://www.gnu.org/software/gcc/)
+- [binutils](https://www.gnu.org/software/binutils/)
 - certain parts of [inetutils](https://www.gnu.org/software/inetutils/)
 
 ## Additional notes
