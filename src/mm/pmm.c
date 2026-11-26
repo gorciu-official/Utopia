@@ -450,7 +450,7 @@ void* page_alloc(uint64_t pages) {
 
                 if (padding >= sizeof(heap_block_t) + 16) {
                     heap_block_t* aligned_block = (heap_block_t*)(aligned_addr - sizeof(heap_block_t));
-                    
+
                     aligned_block->size = curr->size - padding;
                     aligned_block->next = curr->next;
                     aligned_block->free = false;

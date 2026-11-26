@@ -27,7 +27,7 @@ void syscall_handler(registers_t* regs) {
     thread_t* current_thread       = scheduler_get_current_thread();
     process_t* current_process     = current_thread->process;
     syscall_abi_t current_abi      = get_process_abi(current_process);
-    
+
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     uint64_t sstatus;
     asm volatile("csrr %0, sstatus" : "=r"(sstatus));
@@ -41,18 +41,18 @@ void syscall_handler(registers_t* regs) {
     uint64_t syscall_num = sregs.syscall_no;
 
     dprintk(
-        "Syscall", "Invoked %d with args arg1=%p arg2=%p arg3=%p", sregs.syscall_no, 
+        "Syscall", "Invoked %d with args arg1=%p arg2=%p arg3=%p", sregs.syscall_no,
         sregs.arg1, sregs.arg2, sregs.arg3
     );
     dprintk(
-        "Syscall", "                     arg4=%p arg5=%p arg6=%p", 
+        "Syscall", "                     arg4=%p arg5=%p arg6=%p",
         sregs.arg4, sregs.arg5, sregs.arg6
     );
 
     uint64_t retval = 0;
 
     if (
-        syscall_num < current_abi.table_size && 
+        syscall_num < current_abi.table_size &&
         (*current_abi.table)[syscall_num]
     ) {
         syscall_result_t res = (*current_abi.table)[syscall_num](&sregs, current_process, current_thread);

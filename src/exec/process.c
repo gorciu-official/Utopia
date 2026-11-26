@@ -15,7 +15,7 @@
 
 static spinlock_t process_lock;
 static process_t* process_list_head = NULL;
-static uint32_t next_pid = 1; 
+static uint32_t next_pid = 1;
 
 void process_init(void) {
     spinlock_init(&process_lock);
@@ -85,7 +85,7 @@ void process_terminate(process_t* proc) {
 
     if (proc->main_thread) {
         proc->main_thread->state = THREAD_STATE_TERMINATED;
-        proc->main_thread->process = NULL; 
+        proc->main_thread->process = NULL;
     }
 
     if (proc->page_table) {

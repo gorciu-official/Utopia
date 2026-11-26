@@ -23,7 +23,7 @@ int ltoa(int64_t value, char* str, int base) {
     int i = 0, neg = 0;
     if (value == 0) { str[i++] = '0'; str[i] = '\0'; return 1; }
     if (value < 0 && base == 10) { neg = 1; value = -value; }
-    
+
     // For bases other than 10, we treat value as unsigned
     if (base != 10) {
         return ultoa((uint64_t)value, str, base);

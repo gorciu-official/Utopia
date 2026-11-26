@@ -44,7 +44,7 @@ pte_t arch_pte_set_exec(pte_t pte, bool executable) {
 
 pte_t arch_pte_child_leaf(pte_t parent, uint64_t child_phys, int child_level) {
     (void)child_level;
-    uint64_t flag_bits = parent & 0x3FF; 
+    uint64_t flag_bits = parent & 0x3FF;
     return rv_phys_to_ppn(child_phys) | flag_bits;
 }
 
@@ -52,23 +52,23 @@ pte_t arch_pte_with_phys(pte_t existing, uint64_t phys) {
     return (existing & ((1ULL << RV_PPN_SHIFT) - 1)) | rv_phys_to_ppn(phys);
 }
 
-bool arch_pte_present(pte_t pte) { 
-    return pte & RV_PTE_V; 
+bool arch_pte_present(pte_t pte) {
+    return pte & RV_PTE_V;
 }
 
 bool arch_pte_is_leaf(pte_t pte, int level) {
     return level == 0 || (pte & (RV_PTE_R | RV_PTE_W | RV_PTE_X));
 }
 
-uint64_t arch_pte_phys(pte_t pte) { 
-    return rv_ppn_to_phys(pte); 
+uint64_t arch_pte_phys(pte_t pte) {
+    return rv_ppn_to_phys(pte);
 }
 
-bool arch_pte_user(pte_t pte) { 
-    return (pte & RV_PTE_U) != 0; 
+bool arch_pte_user(pte_t pte) {
+    return (pte & RV_PTE_U) != 0;
 }
-bool arch_pte_writable(pte_t pte) { 
-    return (pte & RV_PTE_W) != 0; 
+bool arch_pte_writable(pte_t pte) {
+    return (pte & RV_PTE_W) != 0;
 }
 
 void arch_tlb_flush_page(uint64_t virt) {

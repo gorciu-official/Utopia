@@ -8,12 +8,12 @@
 
 #define MAX_CPUS          CPU_ARCH_MAX_CPUS
 
-#define KERNEL_CODE_SEL   0x08  
-#define KERNEL_DATA_SEL   0x10  
-#define USER_CODE32_SEL   0x18 
-#define USER_DATA_SEL     0x20  
-#define USER_CODE_SEL     0x28  
-#define TSS_SEL           0x30 
+#define KERNEL_CODE_SEL   0x08
+#define KERNEL_DATA_SEL   0x10
+#define USER_CODE32_SEL   0x18
+#define USER_DATA_SEL     0x20
+#define USER_CODE_SEL     0x28
+#define TSS_SEL           0x30
 
 static gdt_slot_t gdt_per_cpu[MAX_CPUS][8];
 static gdt_ptr_t  gdt_ptr_per_cpu[MAX_CPUS];
@@ -53,7 +53,7 @@ static void tss_init_per_cpu(int cpu_id) {
     uint64_t top = (uint64_t)&tss_kernel_stacks[cpu_id][16384];
 
     tss_per_cpu[cpu_id].rsp0 = top;
-    tss_per_cpu[cpu_id].iomap_base = sizeof(tss_t); 
+    tss_per_cpu[cpu_id].iomap_base = sizeof(tss_t);
 }
 
 static void gdt_set_entry(gdt_slot_t *gdt_target, int idx, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
@@ -67,9 +67,9 @@ static void gdt_set_entry(gdt_slot_t *gdt_target, int idx, uint32_t base, uint32
 }
 
 static void gdt_set_tss(gdt_slot_t *gdt_target, int idx, uint64_t base, uint32_t limit) {
-    uint8_t access = 0x89; 
+    uint8_t access = 0x89;
     gdt_set_entry(gdt_target, idx, (uint32_t)base, limit, access, 0x00);
-    
+
     uint32_t base_high32 = (uint32_t)(base >> 32);
     gdt_target[idx + 1].raw = (uint64_t)base_high32;
 }
@@ -77,7 +77,7 @@ static void gdt_set_tss(gdt_slot_t *gdt_target, int idx, uint64_t base, uint32_t
 void gdt_init() {
     int cpu_id = current_processor_id();
     if (cpu_id >= MAX_CPUS) {
-        return;    
+        return;
     }
 
     spinlock_acquire(&gdt_spinlock);
@@ -90,10 +90,10 @@ void gdt_init() {
 
     gdt_set_entry(my_gdt, 0, 0, 0, 0, 0);
     gdt_set_entry(my_gdt, 1, 0, 0xFFFFFFFF, 0x9A, 0xA0);
-    gdt_set_entry(my_gdt, 2, 0, 0xFFFFFFFF, 0x92, 0xC0); 
-    gdt_set_entry(my_gdt, 3, 0, 0xFFFFFFFF, 0xFA, 0xA0); 
-    gdt_set_entry(my_gdt, 4, 0, 0xFFFFFFFF, 0xF2, 0xC0); 
-    gdt_set_entry(my_gdt, 5, 0, 0xFFFFFFFF, 0xFA, 0xA0); 
+    gdt_set_entry(my_gdt, 2, 0, 0xFFFFFFFF, 0x92, 0xC0);
+    gdt_set_entry(my_gdt, 3, 0, 0xFFFFFFFF, 0xFA, 0xA0);
+    gdt_set_entry(my_gdt, 4, 0, 0xFFFFFFFF, 0xF2, 0xC0);
+    gdt_set_entry(my_gdt, 5, 0, 0xFFFFFFFF, 0xFA, 0xA0);
     gdt_set_tss(my_gdt, 6, (uint64_t)&tss_per_cpu[cpu_id], sizeof(tss_t) - 1);
     gdt_flush((uint64_t)&gdt_ptr_per_cpu[cpu_id]);
 
@@ -105,6 +105,6 @@ void gdt_init() {
 
     write_msr(IA32_GS_BASE, (uint64_t)&cpu_local_data[cpu_id]);
     write_msr(IA32_KERNEL_GS_BASE, (uint64_t)&cpu_local_data[cpu_id]);
-    
+
     spinlock_release(&gdt_spinlock);
 }

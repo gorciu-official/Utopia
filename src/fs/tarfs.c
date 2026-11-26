@@ -12,8 +12,8 @@ typedef struct tarfs_node {
     struct tarfs_node *parent, *children, *next;
     const uint8_t* data;
     char link_target[256];
-    uint64_t ino; 
-    uint8_t is_symlink; 
+    uint64_t ino;
+    uint8_t is_symlink;
 } tarfs_node_t;
 
 typedef struct __attribute__((packed)) {

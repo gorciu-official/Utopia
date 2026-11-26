@@ -1,4 +1,4 @@
-#include <types.h> 
+#include <types.h>
 #include <config.h>
 #include <constants.h>
 
@@ -35,15 +35,15 @@ void kmain(common_boot_structure_t* cbs) {
     printk(KMT_LOG, "Core", "-----");
 
     printk(KMT_LOG, "Core", "Kernel command line: %s", cbs->cmdline ?: "(none)");
-   
+
     if (cbs->modules.font_addr != NULL) {
         framebuffer_switch_font((psf1_header_t*)cbs->modules.font_addr, cbs->modules.font_size);
     }
-    
+
     // cpu init
     arch_early_init();
 
-    // misc init 
+    // misc init
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
         memory_init_base(cbs->plain_mbd);
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
@@ -63,16 +63,16 @@ void kmain(common_boot_structure_t* cbs) {
     framebuffer_enable_backbuffer();
     arch_general_init();
 
-    // cmdline 
+    // cmdline
     cmdline_t* cmdline = NULL;
     const char* custom_init_path = NULL;
-    int init_abi_type = 0; // 0 means by default native ABI 
+    int init_abi_type = 0; // 0 means by default native ABI
     int res = cmdline_parse(cbs->cmdline, &cmdline);
     if (res != 0 && res != CMDLINE_ERR_NULL_POINTER) {
         printk(KMT_ERROR, "Core", "Error %d while parsing command line!", res);
     } else {
         custom_init_path = cmdline_get(cmdline, "init");
-        
+
         const char* init_abi_type_str = cmdline_get(cmdline, "init-abi");
         if (init_abi_type_str != NULL) {
             if (strcmp(init_abi_type_str, "linux") == 0) {
@@ -91,7 +91,7 @@ void kmain(common_boot_structure_t* cbs) {
     arch_boot_aps();
 #else
     printk(KMT_LOG, "SMP", "SMP support not present in this kernel configuration.");
-#endif 
+#endif
     arch_late_init();
 
     // init filesystem
@@ -102,7 +102,7 @@ void kmain(common_boot_structure_t* cbs) {
     if (cbs->modules.initramfs_addr != NULL) {
         tarfs_set_image(cbs->modules.initramfs_addr, cbs->modules.initramfs_size);
         vfs_mount("tarfs", 0, "/", 0);
-    } else 
+    } else
         vfs_mount("ramfs", 0, "/", 0);
     devtmpfs_register_devices();
     procfs_register_nodes(cbs->cmdline);
@@ -118,7 +118,7 @@ void kmain(common_boot_structure_t* cbs) {
         uint64_t bytes_read = 0;
         init_file->ops->read(init_file, buffer, size, 0, &bytes_read);
         if (bytes_read == size) {
-            // peak systemd debugging 
+            // peak systemd debugging
             static char* init_argv[] = { "/init", NULL };
             static char* init_envp[] = {
                 "SYSTEMD_LOG_LEVEL=debug",
@@ -141,7 +141,7 @@ void kmain(common_boot_structure_t* cbs) {
         panic("No init file found", NULL);
     }
 
-    // suspend console output 
+    // suspend console output
 #ifndef CONFIG_IO_PRINT_EXTRA_DEBUG_MESSAGES
         printk_suspend_console();
 #endif

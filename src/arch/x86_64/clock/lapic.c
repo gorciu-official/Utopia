@@ -43,7 +43,7 @@ static inline uint32_t lapic_read(uint32_t reg) {
 static uint64_t lapic_calibrate(void) {
     bool has_itsc = has_invariant_tsc();
 
-    lapic_write(LAPIC_DIVIDE, 0x3); 
+    lapic_write(LAPIC_DIVIDE, 0x3);
     lapic_write(LAPIC_LVT_TIMER, 0x10000 | TIMER_VECTOR);
     lapic_write(LAPIC_TICR, 0xFFFFFFFF);
 

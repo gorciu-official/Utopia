@@ -74,7 +74,7 @@ void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
 
     if (cursor_y >= fb_height)
         cursor_y = 0;
-    
+
     printk(KMT_LOG, "Framebuffer", "Applied PSF1 font.");
 }
 
@@ -83,7 +83,7 @@ void framebuffer_init(
     uint32_t width, uint32_t height,
     uint32_t pitch, uint8_t  bpp
 ) {
-    if (!addr) 
+    if (!addr)
         return printk(KMT_LOG, "Framebuffer", "No framebuffer information provided by bootloader");
 
     fb_addr     = (uint32_t*)addr;
@@ -381,7 +381,7 @@ void framebuffer_putchar(char c, uint32_t fg, uint32_t bg) {
         return;
     }
 
-    if (!serial_used) 
+    if (!serial_used)
         serial_used = !(bool)arch_init_serial();
 
 #ifdef CONFIG_IO_SCREEN_SERIAL_MIRRRORING

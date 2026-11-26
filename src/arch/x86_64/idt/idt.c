@@ -50,6 +50,6 @@ void idt_init() {
     }
 
     idt_load((uint64_t)&idt_ptr);
-    
+
     asm volatile("sti");
 }

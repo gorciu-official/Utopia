@@ -27,7 +27,7 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     if (!process) return -1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; 
+        return -EBADF;
     }
 
     if (fd == 0) {
@@ -35,14 +35,14 @@ static size_t do_read(process_t* process, int fd, char* buf, size_t count, uintp
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -EBADF; 
+    if (!vnode) return -EBADF;
 
     if (vnode->type == VNODE_TYPE_DIR) {
-        return -21; 
+        return -21;
     }
 
     if (!vnode->ops || !vnode->ops->read) {
-        return -EINVAL; 
+        return -EINVAL;
     }
 
     uint64_t bytes_read = 0;
@@ -62,7 +62,7 @@ static uintptr_t do_write(process_t* process, void* data, uintptr_t len, int fd)
     if (!process) return -1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return -EBADF; 
+        return -EBADF;
     }
 
     if (fd == 1 || fd == 2) {
@@ -71,7 +71,7 @@ static uintptr_t do_write(process_t* process, void* data, uintptr_t len, int fd)
     }
 
     vnode_t* vnode = process->fds[fd].vnode;
-    if (!vnode) return -EBADF; 
+    if (!vnode) return -EBADF;
 
     if (vnode->type == VNODE_TYPE_DIR) {
         return -21; // -EISDIR
@@ -391,7 +391,7 @@ static int resolve_user_path(process_t* process, const char* raw, char* out) {
     }
 
     if (fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used || !process->fds[fd].path[0]) {
-        return -ENOENT; 
+        return -ENOENT;
     }
 
     memcpy(out, process->fds[fd].path, strlen(process->fds[fd].path) + 1);

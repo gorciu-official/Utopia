@@ -19,24 +19,24 @@ bool has_invariant_tsc() {
 uint64_t invariant_tsc_to_ns(uint64_t ticks, uint64_t tsc_hz) {
     // gorciu: this is generally a peak anti-overflow function, it could be done
     // gorciu: far simpler, but we do not have 128-bit cpus yet... so sad so sad...
-    // gorciu: intel please make a 128-bit cpu. long long long long mode 🗣️🔥🔥🔥🔥 
-    // gorciu: (c types reference). oh wait amd is better. amd do it. you will now 
+    // gorciu: intel please make a 128-bit cpu. long long long long mode 🗣️🔥🔥🔥🔥
+    // gorciu: (c types reference). oh wait amd is better. amd do it. you will now
     // gorciu: be better than intel.
     //   AMD joined the chat
-    // amd: but i am already better than intel, has anyone ever pucharsed an Intel 
+    // amd: but i am already better than intel, has anyone ever pucharsed an Intel
     // amd: CPU after 2020?
-    //   Intel joined the chat 
+    //   Intel joined the chat
     // intel: yes! we have our peak intel core ultra or something with revolutionary
     // intel: AI thechnology!
-    // amd: who cares about your AI intel? gamers buy my CPUs, not yours 
+    // amd: who cares about your AI intel? gamers buy my CPUs, not yours
     // intel: i am innovating the world
-    // amd: okay i am gonna innovate with introducing 128-bit CPUs 
+    // amd: okay i am gonna innovate with introducing 128-bit CPUs
     // intel: fuck its gonna be AMD128 like AMD64 and not Intel128...
-    // amd: u just had to focus on what's important, ai is certainly not 
-    //   Sam Altman joined the chat 
-    // altman: ai is the future of humanity. with our newest cybersecurity 
+    // amd: u just had to focus on what's important, ai is certainly not
+    //   Sam Altman joined the chat
+    // altman: ai is the future of humanity. with our newest cybersecurity
     // altman: model GPT 6.4...
-    //   Gorciu, AMD and Intel left the chat at the same moment 
+    //   Gorciu, AMD and Intel left the chat at the same moment
     // altman: why am i alone
     // altman: kurwa przyjdź ktoś, oddam wam ten ram
     uint64_t sec = ticks / tsc_hz;

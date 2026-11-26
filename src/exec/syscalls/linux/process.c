@@ -113,11 +113,11 @@ SYSCALL_DEFINE_LINUX(execve) {
 
     if (argc == 0) {
         argv = (char**)calloc(2, sizeof(char*));
-        if (!argv) { 
-            err = -ENOMEM; 
-            goto out; 
+        if (!argv) {
+            err = -ENOMEM;
+            goto out;
         }
-        argv[0] = path;   
+        argv[0] = path;
         argc = 1;
     }
 
@@ -128,21 +128,21 @@ SYSCALL_DEFINE_LINUX(execve) {
     vfs_lookup(resolved, &node);
     if (!node) { err = -ENOENT; goto out; }
     if (node->type == VNODE_TYPE_DIR) {
-        err = -EACCES; 
+        err = -EACCES;
         goto out;
-    } 
-    if (!node->ops || !node->ops->read) { 
-        err = -ENOEXEC; goto out; 
+    }
+    if (!node->ops || !node->ops->read) {
+        err = -ENOEXEC; goto out;
     }
 
     size = node->size;
-    if (size < 4) { 
-        err = -ENOEXEC; goto out; 
+    if (size < 4) {
+        err = -ENOEXEC; goto out;
     }
 
     image = (uint8_t*)malloc(size);
-    if (!image) { 
-        err = -ENOMEM; goto out; 
+    if (!image) {
+        err = -ENOMEM; goto out;
     }
 
     while (total < size) {
@@ -150,9 +150,9 @@ SYSCALL_DEFINE_LINUX(execve) {
         if (node->ops->read(node, image + total, size - total, total, &got) != 0 || got == 0) break;
         total += got;
     }
-    if (total != size) { 
-        err = -ENOEXEC; 
-        goto out; 
+    if (total != size) {
+        err = -ENOEXEC;
+        goto out;
     }
 
     req = (create_elf_process_request_t){
@@ -161,8 +161,8 @@ SYSCALL_DEFINE_LINUX(execve) {
         .args  = { .envp = envp, .argc = argc, .argv = argv }
     };
 
-    if (elf_prepare(&req, &prepared) != 0) { 
-        err = -ENOEXEC; goto out; 
+    if (elf_prepare(&req, &prepared) != 0) {
+        err = -ENOEXEC; goto out;
     }
 
     base = path;

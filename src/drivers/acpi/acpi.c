@@ -23,7 +23,7 @@ static int acpi_checksum(void* table, size_t length) {
 
     return sum == 0;
 }
- 
+
 static acpi_rsdp_t* scan_region(uintptr_t start, uintptr_t end) {
     for (uintptr_t addr = start; addr < end; addr += 16) {
         acpi_rsdp_t* rsdp = (acpi_rsdp_t*)phys_to_virt(addr);
@@ -57,7 +57,7 @@ acpi_rsdp_t* find_rsdp(void) {
 
     // TODO: there has to be a better way for this tho,
     //       it works in QEMU and in real hardware but
-    //       is quite dirty 
+    //       is quite dirty
     printk(KMT_LOG, "ACPI", "Searching BIOS region");
     return scan_region(0xE0000, 0x100000);
 }

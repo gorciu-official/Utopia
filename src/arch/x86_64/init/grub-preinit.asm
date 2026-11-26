@@ -45,14 +45,14 @@ _start:
 
     ; ptr to multiboot_info_t on stack
     push ebx
-    
+
     ; 64-bit type shi-
     call check_cpuid
     call check_long_mode
     call setup_page_tables
     call enable_paging
 
-    ; loading gdt64 
+    ; loading gdt64
     mov eax, PHYS(gdt64_pointer)
     lgdt [eax]
 
@@ -72,25 +72,25 @@ long_mode_trampoline:
     jmp rax
 
 long_mode_high_entry:
-    ; recovering that stack-saved multiboot slop 
+    ; recovering that stack-saved multiboot slop
     mov eax, dword [PHYS(stack_top) - 4]
 
     test eax, eax
     jz .no_multiboot
-    
+
     ; converting multiboot shit to virtual (yes)
     mov edi, eax
     mov rax, HHDM_BASE
     add rdi, rax
-    
+
     ; after all stack shit operations are done, we are again
-    ; switching stacks bc old one was identity mapping etc we don't 
+    ; switching stacks bc old one was identity mapping etc we don't
     ; want you brother
     mov rsp, stack_top
     and rsp, -16
 
 
-    ; nuke identity mapping 
+    ; nuke identity mapping
     mov rax, PHYS(page_table_l4)
 
     mov qword [rax + 0*8], 0
@@ -98,7 +98,7 @@ long_mode_high_entry:
     mov qword [rax + 2*8], 0
     mov qword [rax + 3*8], 0
 
-    ; Mr. President, we are launching nuclear 
+    ; Mr. President, we are launching nuclear
     ; bombs at identity mapping in your kernel
     mov cr3, rax
 

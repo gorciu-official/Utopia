@@ -9,7 +9,7 @@ QEMU_RAM ?= 4G
 
 QEMU_FLAGS := -cdrom $(ISO_FILE) -serial stdio -m $(QEMU_RAM)
 
-# smp 
+# smp
 
 SMP_ENABLED    ?= true
 USE_HOST_CPU   ?= true
@@ -20,7 +20,7 @@ ifeq ($(SMP_ENABLED),true)
     QEMU_FLAGS += -smp $(SMP_CORES)
 endif
 
-# kvm acceleration 
+# kvm acceleration
 ifeq ($(USE_HOST_CPU),true)
     QEMU_FLAGS += -enable-kvm -cpu host,invtsc=on
 endif
@@ -29,7 +29,7 @@ endif
 ifeq ($(ARCH),riscv64)
     QEMU_FLAGS += -machine virt -device ramfb
     QEMU_FLAGS += -drive if=pflash,format=raw,unit=0,file=target/third-party.riscv64.edk2/RISCV_VIRT_CODE.fd,readonly=on
-    QEMU_FLAGS += -drive if=pflash,format=raw,unit=1,file=target/third-party.riscv64.edk2/RISCV_VIRT_VARS.fd 
+    QEMU_FLAGS += -drive if=pflash,format=raw,unit=1,file=target/third-party.riscv64.edk2/RISCV_VIRT_VARS.fd
 endif
 
 ifeq ($(DISPLAY), false)
@@ -40,11 +40,11 @@ endif
 EXTRA_QEMU_FLAGS ?=
 QEMU_FLAGS += $(EXTRA_QEMU_FLAGS)
 
-# convienence targets for running kernel in qemu 
+# convienence targets for running kernel in qemu
 
 run: all
 	$(QEMU) $(QEMU_FLAGS)
 
 run_dbg: all
-	@chmod +x tools/run_debug_mode.sh 
+	@chmod +x tools/run_debug_mode.sh
 	./tools/run_debug_mode.sh $(QEMU) $(KERNEL_BIN) $(QEMU_FLAGS)

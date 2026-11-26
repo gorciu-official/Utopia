@@ -73,7 +73,7 @@ static int ramfs_readdir(vnode_t* node, uint64_t index, vfs_dirent_t* entry) {
             : (uint64_t)(uintptr_t)dir;
 
         entry->off = 2;
-        entry->type = 4; 
+        entry->type = 4;
         entry->name = "..";
         return 0;
     }
@@ -96,7 +96,7 @@ static int ramfs_readdir(vnode_t* node, uint64_t index, vfs_dirent_t* entry) {
     if (child->vnode.type == VNODE_TYPE_DIR)
         entry->type = 4;
     else
-        entry->type = 8; 
+        entry->type = 8;
 
     entry->name = child->name;
 

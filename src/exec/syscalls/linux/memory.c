@@ -63,8 +63,8 @@ SYSCALL_DEFINE_LINUX(brk) {
 }
 
 #define MM_USER_LIMIT     (1ULL << USER_VA_BITS)
-#define MM_MIN_ADDR       0x10000ULL    
-#define MM_MMAP_LIMIT     (USER_STACK_TOP - USER_STACK_SIZE) 
+#define MM_MIN_ADDR       0x10000ULL
+#define MM_MMAP_LIMIT     (USER_STACK_TOP - USER_STACK_SIZE)
 #define MM_PAGE           0x1000ULL
 #define MM_MAX_PLACEMENT_TRIES 64
 
@@ -125,7 +125,7 @@ static int mm_populate_range(process_t* process, uint64_t va, uint64_t pages,
     return 0;
 
 oom:
-    mm_release_range(process, va, pages); 
+    mm_release_range(process, va, pages);
     return -ENOMEM;
 }
 
@@ -175,7 +175,7 @@ SYSCALL_DEFINE_LINUX(mmap) {
     uint64_t length = regs->arg2;
     uint64_t prot   = regs->arg3;
     uint64_t flags  = regs->arg4;
-    int      fd     = (int)regs->arg5; 
+    int      fd     = (int)regs->arg5;
     uint64_t offset = regs->arg6;
 
     if (length == 0) return SCRC(-EINVAL);
@@ -278,4 +278,4 @@ SYSCALL_DEFINE_LINUX(munmap) {
     return SCRC(0);
 }
 
-#endif 
+#endif

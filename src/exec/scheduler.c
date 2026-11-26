@@ -17,12 +17,12 @@ static wait_queue_t sleep_wq = WAIT_QUEUE_INIT;
 
 static thread_t* current_threads[CPU_ARCH_MAX_CPUS];
 static thread_t* idle_threads[CPU_ARCH_MAX_CPUS];
-static uintptr_t boot_cr3[CPU_ARCH_MAX_CPUS]; 
-static uintptr_t active_cr3[CPU_ARCH_MAX_CPUS]; 
+static uintptr_t boot_cr3[CPU_ARCH_MAX_CPUS];
+static uintptr_t active_cr3[CPU_ARCH_MAX_CPUS];
 
 static thread_t* ready_queue_head = NULL;
 static thread_t* ready_queue_tail = NULL;
-static thread_t* zombie_list = NULL; 
+static thread_t* zombie_list = NULL;
 static thread_t* pending_zombie[CPU_ARCH_MAX_CPUS];
 static thread_t* pending_park[CPU_ARCH_MAX_CPUS];
 static uint32_t  next_thread_id = 0;
@@ -228,8 +228,8 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     regs->ss     = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
     regs->rsp    = (uintptr_t)stack->ptr;
-    regs->rdi    = arg; 
-    regs->rax    = arg;  
+    regs->rdi    = arg;
+    regs->rax    = arg;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     regs->x[1]  = (uintptr_t)thread_exit; /* ra */
     regs->x[2]  = (uintptr_t)stack->ptr;
@@ -263,15 +263,15 @@ thread_t* thread_clone_user(const thread_t* parent, const registers_t* frame, th
     memcpy(regs, frame, sizeof(registers_t));
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
-    regs->rax      = 0;   
+    regs->rax      = 0;
     regs->int_no   = 0;
     regs->err_code = 0;
-    regs->cs       = 0x28 | 3;          
+    regs->cs       = 0x28 | 3;
     regs->ss       = 0x20 | 3;
-    regs->rflags  |= 0x202;   
+    regs->rflags  |= 0x202;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
-    regs->x[10]    = 0;   
-    regs->sepc    += 4;     
+    regs->x[10]    = 0;
+    regs->sepc    += 4;
 #endif
 
     return t;
@@ -314,7 +314,7 @@ registers_t* scheduler_schedule(registers_t* regs) {
         pending_park[cpu_id] = NULL;
         wait_queue_t* wq = t->waiting_on;
         if (!wq || wq->seq != t->wait_seq) {
-            t->waiting_on = NULL; 
+            t->waiting_on = NULL;
             enqueue_locked(t);
         } else {
             t->next  = wq->head;
@@ -386,7 +386,7 @@ void thread_exit(void) {
 
 void thread_exit_status(int status) {
     unsigned long flags = arch_save_interrupts();
-    (void)flags; 
+    (void)flags;
 
     uint32_t cpu_id = current_processor_id();
     thread_t* curr = current_threads[cpu_id];

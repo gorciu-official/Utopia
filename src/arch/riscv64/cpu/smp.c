@@ -18,7 +18,7 @@ uint8_t kernel_stacks[CPU_ARCH_MAX_CPUS][16384] __attribute__((aligned(16)));
 cpu_t cpus[CPU_ARCH_MAX_CPUS];
 
 typedef struct {
-    uint64_t /* offset 0  */ stack_pointer; 
+    uint64_t /* offset 0  */ stack_pointer;
     uint64_t /* offset 8  */ alive_table_entry_pointer;
     uint64_t /* offset 16 */ page_table;
     uint64_t /* offset 24 */ cpu_struct_pointer;
@@ -28,9 +28,9 @@ __attribute__((naked, used, aligned(4)))
 void smp_startup(void) {
     asm volatile (
         "ld sp,  0(a1)\n"
-        "ld t0,  8(a1)\n"   
-        "ld t1, 16(a1)\n"  
-        "ld tp, 24(a1)\n" 
+        "ld t0,  8(a1)\n"
+        "ld t1, 16(a1)\n"
+        "ld tp, 24(a1)\n"
 
         "csrw satp, t1\n"
         "sfence.vma\n"

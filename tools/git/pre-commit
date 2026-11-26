@@ -2,6 +2,11 @@
 
 set -e
 
+# Let's ensure you do not have ugly spaces at the end of files as they
+# are so easy to add accidentally.
+git diff --name-only -z HEAD -- '*.mk' '*.rs' '*.c' '*.asm' |
+  xargs -0 -r sed -i 's/[[:blank:]]*$//'
+
 # At least ensure that it compiles for the host architecture.
 # Given huge differences in cross-toolchain across different configurations,
 # it would probably be better not to check them

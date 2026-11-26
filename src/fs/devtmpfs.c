@@ -14,7 +14,7 @@ filesystem_driver_t devtmpfs_driver = {
     .name = "devtmpfs",
     .mount = devtmpfs_mount,
     .unmount = devtmpfs_unmount
-}; 
+};
 
 static int dev_read_eof(vnode_t* node, void* buffer, uint64_t size, uint64_t offset, uint64_t* bytes_read) {
     (void)node; (void)buffer; (void)size; (void)offset;

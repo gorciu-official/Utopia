@@ -18,7 +18,7 @@ void delay(uint64_t count) {
 extern uint8_t ap_start[];
 extern uint8_t ap_end[];
 
-volatile uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS] = {0}; 
+volatile uint8_t ap_alive_table[CPU_ARCH_MAX_CPUS] = {0};
 extern uint8_t kernel_stacks[CPU_ARCH_MAX_CPUS][16384];
 volatile uint64_t ap_stack_ptr = 0;
 
@@ -56,20 +56,20 @@ void boot_ap(uint8_t target_apic_id) {
     *ap_gdt = (uint64_t)(uintptr_t)ap_gdt_dest;
 
     *ap_main_f = (uint64_t)(uintptr_t)ap_main;
-    
+
     *ap_stack = (uint64_t)(uintptr_t)&kernel_stacks[target_apic_id][16384];
 
     ap_alive_table[target_apic_id] = 0;
 
     volatile uint32_t* lapic_high = (uint32_t*)phys_to_virt(0xFEE00310);
     volatile uint32_t* lapic_low  = (uint32_t*)phys_to_virt(0xFEE00300);
-    
+
     *lapic_high = (target_apic_id << 24);
-    *lapic_low  = 0x00004500; 
+    *lapic_low  = 0x00004500;
     delay(10000);
 
     *lapic_high = (target_apic_id << 24);
-    *lapic_low  = 0x00004670; 
+    *lapic_low  = 0x00004670;
     delay(10000);
 
     *lapic_high = (target_apic_id << 24);

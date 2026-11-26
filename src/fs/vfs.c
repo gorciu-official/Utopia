@@ -81,7 +81,7 @@ static filesystem_driver_t* vfs_resolve_driver(const char* type) {
 }
 
 void vfs_init() {
-    // it quite literally does nothing but maybe it will need to do 
+    // it quite literally does nothing but maybe it will need to do
     // something in the future?
     printk(KMT_LOG, "Filesystem", "VFS initialized successfully.");
 }
@@ -168,7 +168,7 @@ int vfs_resolve_path(const char* base, const char* path, char* out) {
 
 static bool vfs_path_has_prefix(const char* path, const char* prefix, int plen) {
     if (plen == 1) {
-        return true; 
+        return true;
     }
 
     return strncmp(path, prefix, plen) == 0 && (path[plen] == '\0' || path[plen] == '/');
@@ -307,10 +307,10 @@ int vfs_lookup(const char* path, vnode_t** result) {
     while (p && *p) {
         p = vfs_next_token(p, token);
 
-        if (token[0] == 0) 
+        if (token[0] == 0)
             continue;
 
-        if (!current || !current->ops || !current->ops->lookup) 
+        if (!current || !current->ops || !current->ops->lookup)
             return -1;
 
         vnode_t* next = 0;
@@ -318,7 +318,7 @@ int vfs_lookup(const char* path, vnode_t** result) {
         if (current->ops->lookup(current, token, &next) != 0)
             return -1;
 
-        if (!next) 
+        if (!next)
             return -1;
 
         current = next;
@@ -401,7 +401,7 @@ int vfs_remount(const char* target, unsigned long flags) {
 
     int idx = vfs_find_exact_mount(norm);
     if (idx < 0) {
-        return -VFS_EINVAL; 
+        return -VFS_EINVAL;
     }
 
     g_mounts[idx]->flags = (g_mounts[idx]->flags & ~MOUNT_STORED_FLAGS) | (flags & MOUNT_STORED_FLAGS);
@@ -482,12 +482,12 @@ int vfs_umount(const char* target, int flags) {
     }
 
     if (strcmp(norm, "/") == 0) {
-        return -VFS_EBUSY; 
+        return -VFS_EBUSY;
     }
 
     int idx = vfs_find_exact_mount(norm);
     if (idx < 0) {
-        return -VFS_EINVAL; 
+        return -VFS_EINVAL;
     }
 
     int tlen = strlen(norm);
@@ -518,7 +518,7 @@ static int vfs_split_path(const char* path, char* parent_out, char* filename_out
     int len = 0;
     while (path[len]) len++;
     if (len == 0 || path[0] != '/') return -1;
-    
+
     int last_slash = -1;
     for (int i = len - 1; i >= 0; i--) {
         if (path[i] == '/') {
@@ -526,9 +526,9 @@ static int vfs_split_path(const char* path, char* parent_out, char* filename_out
             break;
         }
     }
-    
+
     if (last_slash == -1) return -1;
-    
+
     if (last_slash == 0) {
         strcpy(parent_out, "/");
         strcpy(filename_out, path + 1);
@@ -547,7 +547,7 @@ int vfs_open(const char* path, int flags, vnode_t** result) {
 
     vnode_t* node = NULL;
     int lookup_res = vfs_lookup(path, &node);
-    
+
     if (lookup_res == 0) {
         if ((flags & O_CREAT) && (flags & O_EXCL)) {
             return -17; // -EEXIST
@@ -558,19 +558,19 @@ int vfs_open(const char* path, int flags, vnode_t** result) {
         *result = node;
         return 0;
     }
-    
+
     if (flags & O_CREAT) {
         char parent_path[PATH_MAX];
         char filename[128];
         if (vfs_split_path(path, parent_path, filename) != 0) {
             return -2; // -ENOENT
         }
-        
+
         vnode_t* parent_node = NULL;
         if (vfs_lookup(parent_path, &parent_node) != 0) {
             return -2; // -ENOENT
         }
-        
+
         if (parent_node->type != VNODE_TYPE_DIR) {
             return -20; // -ENOTDIR
         }
@@ -578,16 +578,16 @@ int vfs_open(const char* path, int flags, vnode_t** result) {
         if (!parent_node->ops || !parent_node->ops->create) {
             return -30; // -EROFS
         }
-        
+
         vnode_t* new_node = NULL;
         if (parent_node->ops->create(parent_node, filename, &new_node) != 0) {
             return -5; // -EIO
         }
-        
+
         *result = new_node;
         return 0;
     }
-    
+
     return -2; // -ENOENT
 }
 

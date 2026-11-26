@@ -13,8 +13,8 @@
 #include <exec/scheduler.h>
 #include <lib/spinlock.h>
 
-// keymaps copied from https://github.com/Interpuce/AurorOS/blob/main/src/drivers/keyboard/input.c 
-// some code was adapted from there as well 
+// keymaps copied from https://github.com/Interpuce/AurorOS/blob/main/src/drivers/keyboard/input.c
+// some code was adapted from there as well
 
 static char keymap[128] = {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
@@ -37,7 +37,7 @@ static uint8_t SHIFT_RIGHT_PRESSED = 0;
 
 static uint8_t read_scancode() {
     if (!(arch_inb(0x64) & 0x01)) {
-        return 0; 
+        return 0;
     }
     return arch_inb(0x60);
 }

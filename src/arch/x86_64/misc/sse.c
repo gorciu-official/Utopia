@@ -9,7 +9,7 @@ static inline void enable_avx(void) {
     uint32_t eax, edx;
 
     asm volatile (
-        INTEL_MY_BELOVED 
+        INTEL_MY_BELOVED
         "xor ecx, ecx\n"
         "xgetbv\n"
         FUCK_AT_AND_T
@@ -32,7 +32,7 @@ static inline void enable_avx(void) {
 }
 
 void enable_simd_extensions(void) {
-    uint64_t rax, rbx, rcx, rdx; 
+    uint64_t rax, rbx, rcx, rdx;
 
     // disables FPU emulation
     uint64_t cr0 = read_cr0();
@@ -45,7 +45,7 @@ void enable_simd_extensions(void) {
 
     // enables SSE.
     // the AMD64 architecture specification demands that all x86_64 processors support
-    // at least SSE and SSE2, so we do not need to check for that. osdev wiki claims that 
+    // at least SSE and SSE2, so we do not need to check for that. osdev wiki claims that
     // to support updates to SSE, no further configuration is needed
     uint64_t cr4 = read_cr4();
     cr4 |= (1ULL << 9);
@@ -58,11 +58,11 @@ void enable_simd_extensions(void) {
     bool supports_avx = rcx & (1ULL << 28);
 
     if (supports_xsave && supports_avx) {
-        cr4 |= (1ULL << 18); 
-        
+        cr4 |= (1ULL << 18);
+
         write_cr4(cr4);
 
         enable_avx();
-    } else 
+    } else
         write_cr4(cr4);
 }

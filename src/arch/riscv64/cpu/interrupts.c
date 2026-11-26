@@ -30,11 +30,11 @@ extern void arch_uart_handler();
 
 static int fault_signal(uint64_t cause) {
     switch (cause) {
-    case 2:  return FAULT_SIGILL;  
+    case 2:  return FAULT_SIGILL;
     case 3:  return FAULT_SIGTRAP;
     case 0: case 4: case 6:
-             return FAULT_SIGBUS;       
-    default: return FAULT_SIGSEGV;   
+             return FAULT_SIGBUS;
+    default: return FAULT_SIGSEGV;
     }
 }
 

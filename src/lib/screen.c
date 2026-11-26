@@ -202,7 +202,7 @@ static void print_string_internal_limit(const char* str, uint64_t size) {
 }
 
 static void vprintf(const char* fmt, va_list args) {
-    char buffer[64]; 
+    char buffer[64];
 
     while (*fmt) {
         if (*fmt == '%') {
@@ -251,7 +251,7 @@ static void vprintf(const char* fmt, va_list args) {
             }
         } else if (fmt[0] == '\x1b' && fmt[1] == '[') {
             parse_ansi(&fmt, NULL);
-            continue; 
+            continue;
         } else {
             framebuffer_putchar(*fmt, current_fg, current_bg);
         }
@@ -305,7 +305,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
     uint64_t seconds = ticks / 1000000000;
     uint64_t milliseconds = (ticks % 1000000000) / 1000000;
     char time_str[32];
-    
+
     ultoa(seconds, time_str, 10);
     int len = 0;
     while(time_str[len]) len++;
@@ -313,30 +313,30 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
     if (seconds < 10) {
         for (int i = len; i >= 0; i--)
             time_str[i + 2] = time_str[i];
-        
+
         time_str[0] = '0';
         time_str[1] = '0';
         len += 2;
     } else if (seconds < 100) {
         for (int i = len; i >= 0; i--)
             time_str[i + 1] = time_str[i];
-        
+
         time_str[0] = '0';
         len++;
     }
 
     time_str[len++] = '.';
-    
+
     char ms_str[16];
     ultoa(milliseconds, ms_str, 10);
-    
+
     if (milliseconds < 10) {
-        time_str[len++] = '0';                
+        time_str[len++] = '0';
         time_str[len++] = '0';
     } else if (milliseconds < 100) {
         time_str[len++] = '0';
     }
-    
+
     for (int i = 0; ms_str[i]; i++) {
         time_str[len++] = ms_str[i];
     }
@@ -348,7 +348,7 @@ void printk(const kernel_message_type_t type, const char* module, const char *fm
         type == KMT_DEBUG       ? "\x1b[90mDBG" :
         type == KMT_EXTRA_DEBUG ? "\x1b[90mEBG" :
                                   "\x1b[97mUNK";
-    
+
     printf(
         "\x1b[37m[%s]\x1b[0m %s\x1b[90m:\x1b[0m "
         "\x1b[38;2;39;159;219m%s\x1b[0m: ",

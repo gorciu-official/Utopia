@@ -92,15 +92,15 @@ void panic(const char* reason, registers_t* regs) {
 
         while (true) {
             arch_cli();
-            arch_wfi(); 
+            arch_wfi();
         }
-    } else 
+    } else
         panicked = true;
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     lapic_broadcast_nmi();
 #endif
-    
+
     printk_remove_console_suspension();
     printk(KMT_ERROR, "Core", "\x1b[91mKernel panic\x1b[0m: %s", reason);
     if (regs != NULL) {
@@ -121,7 +121,7 @@ void panic(const char* reason, registers_t* regs) {
         printk(KMT_ERROR, "Core", "  - Stack dump:");
 
         uint64_t* stack = (uint64_t*)regs->rsp;
-        
+
         for (int i = 0; i < 16; i++) {
             printk(KMT_ERROR, "Core", "      * [%p] = %p",
                    stack + i,
@@ -138,15 +138,15 @@ void panic(const char* reason, registers_t* regs) {
     } else {
         printk(KMT_ERROR, "Core", "  - No register dump available, panic not invoked via hardware interrupt.");
     }
-    
-    panicked = true; 
-   
+
+    panicked = true;
+
     printk(KMT_ERROR, "Core", "  - You can try to file a bug report: https://github.com/gorciu-official/Utopia/issues/new");
     printk(KMT_ERROR, "Core", "  - The system enters a halted state, please restart the computer manually.");
 
     while (true) {
         arch_cli();
-        arch_wfi(); 
+        arch_wfi();
     }
 
     __builtin_unreachable();

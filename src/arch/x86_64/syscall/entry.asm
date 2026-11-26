@@ -3,17 +3,17 @@ global syscall_entry
 extern syscall_handler
 
 syscall_entry:
-    swapgs               
-    mov [gs:0x10], rsp     
-    mov rsp, [gs:0x00]   
-    
-    push qword 0x23 
-    push qword [gs:0x10] 
-    push r11 
-    push qword 0x1b  
-    push rcx  
-    push qword 0  
-    push qword 0 
+    swapgs
+    mov [gs:0x10], rsp
+    mov rsp, [gs:0x00]
+
+    push qword 0x23
+    push qword [gs:0x10]
+    push r11
+    push qword 0x1b
+    push rcx
+    push qword 0
+    push qword 0
 
     push r15
     push r14
@@ -31,7 +31,7 @@ syscall_entry:
     push rbx
     push rax
 
-    mov rdi, rsp      
+    mov rdi, rsp
     sub rsp, 8
     call syscall_handler
     add rsp, 8
@@ -52,12 +52,12 @@ syscall_entry:
     pop r14
     pop r15
 
-    add rsp, 16    
-    pop rcx           
-    add rsp, 8        
+    add rsp, 16
+    pop rcx
+    add rsp, 8
     pop r11
-    pop rsp   
+    pop rsp
 
-    swapgs       
-    o64 sysret        
+    swapgs
+    o64 sysret
 

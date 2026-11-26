@@ -15,6 +15,6 @@ else
 BOOTLOADER_VAL := 2
 endif
 
-# bootloader config 
+# bootloader config
 GRUB_CONFIG    := $(SRC_DIR)/build/bootloader-$(ARCH)-grub.cfg
 LIMINE_CONFIG  := $(SRC_DIR)/build/bootloader-$(ARCH)-limine.conf

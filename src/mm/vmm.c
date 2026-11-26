@@ -12,7 +12,7 @@
 #if BOOTLOADER == BOOTLOADER_CODE_GRUB
 extern uint64_t page_table_l4[];
 #elif BOOTLOADER == BOOTLOADER_CODE_LIMINE
-uint64_t* page_table_l4 = NULL; 
+uint64_t* page_table_l4 = NULL;
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_hhdm_request hhdm_request = {
@@ -36,7 +36,7 @@ void vmm_init(void) {
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
     uint64_t satp;
     asm volatile("csrr %0, satp" : "=r"(satp));
-    root_phys = (satp & 0x00000FFFFFFFFFFFULL) << 12; 
+    root_phys = (satp & 0x00000FFFFFFFFFFFULL) << 12;
 #endif
     page_table_l4 = (uint64_t*)phys_to_virt(root_phys);
 #endif

@@ -9,7 +9,7 @@
 bool user_range_ok(uint64_t addr, size_t len) {
     if (len == 0) return true;
     if (addr >= UACCESS_USER_LIMIT) return false;
-    if (len > UACCESS_USER_LIMIT - addr) return false; 
+    if (len > UACCESS_USER_LIMIT - addr) return false;
     return true;
 }
 
@@ -40,11 +40,11 @@ static inline size_t uaccess_page_left(uint64_t va) {
 
 int copy_from_user(process_t* proc, void* kdst, const void* usrc, size_t len) {
     if (len == 0) return 0;
-    if (!proc || !proc->page_table || !kdst) 
+    if (!proc || !proc->page_table || !kdst)
         return -UACCESS_EFAULT;
 
     uint64_t va = (uint64_t)usrc;
-    if (!user_range_ok(va, len)) 
+    if (!user_range_ok(va, len))
         return -UACCESS_EFAULT;
 
     uint8_t* dst = (uint8_t*)kdst;
@@ -65,11 +65,11 @@ int copy_from_user(process_t* proc, void* kdst, const void* usrc, size_t len) {
 
 int copy_to_user(process_t* proc, void* udst, const void* ksrc, size_t len) {
     if (len == 0) return 0;
-    if (!proc || !proc->page_table || !ksrc) 
+    if (!proc || !proc->page_table || !ksrc)
         return -UACCESS_EFAULT;
 
     uint64_t va = (uint64_t)udst;
-    if (!user_range_ok(va, len)) 
+    if (!user_range_ok(va, len))
         return -UACCESS_EFAULT;
 
     const uint8_t* src = (const uint8_t*)ksrc;

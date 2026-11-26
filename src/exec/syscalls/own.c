@@ -129,7 +129,7 @@ static int syscall_own_copy_strvec(process_t* process, char* const* user_vec, ch
 
     free(scratch);
     if (err) {
-        syscall_own_free_strvec(vec, i); 
+        syscall_own_free_strvec(vec, i);
         return err;
     }
 
@@ -166,7 +166,7 @@ static int own_exec_load(process_t* process, syscall_regs_t* regs, own_exec_args
     char path_buf[EXEC_MAX_PATH];
     int plen = strncpy_from_user(process, path_buf, user_path, sizeof(path_buf));
     if (plen < 0) return SYSCALL_OWN_ERR_INVALID_ARGUMENT;
-    size_t path_len = (size_t)plen; 
+    size_t path_len = (size_t)plen;
 
     a->path = (char*)malloc(path_len);
     if (!a->path) return SYSCALL_OWN_ERR_NO_MEMORY;
@@ -297,7 +297,7 @@ static syscall_regs_t syscall_own_to_sregs(registers_t* regs) {
     return (syscall_regs_t) {
         .syscall_no = regs->x[10], // a0
 
-        .arg1 = regs->x[11], /* a1 */ .arg2 = regs->x[12], /* a2 */ .arg3 = regs->x[13], /* a3 */ 
+        .arg1 = regs->x[11], /* a1 */ .arg2 = regs->x[12], /* a2 */ .arg3 = regs->x[13], /* a3 */
         .arg4 = regs->x[14], /* a4 */ .arg5 = regs->x[15], /* a5 */ .arg6 = regs->x[17], /* a7 */
     };
 }

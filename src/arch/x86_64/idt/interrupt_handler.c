@@ -11,7 +11,7 @@ extern registers_t* lapic_timer_handler(registers_t* regs);
 extern void arch_com1_handler();
 
 registers_t* isr_handler(registers_t* regs) {
-    // -- panic killer 
+    // -- panic killer
     if (regs->int_no == 2) {
         for (;;) {
             arch_cli();
@@ -22,15 +22,15 @@ registers_t* isr_handler(registers_t* regs) {
     // -- cpu exceptions
     if (regs->int_no < 32) {
         if (
-            (regs->int_no == 14 && regs->err_code & (1 << 2)) 
+            (regs->int_no == 14 && regs->err_code & (1 << 2))
         ) {
             locked_printf(
                 "Segmentation fault at %p (%s %p; %s)\n", regs->rip,
-                (regs->err_code & (1 << 1)) ? "writing to" : "reading", 
-                read_pf_addr(), 
+                (regs->err_code & (1 << 1)) ? "writing to" : "reading",
+                read_pf_addr(),
                 (regs->err_code & (1 << 0)) ? "protection violation" : "non-present"
             );
-            thread_exit_status(11); 
+            thread_exit_status(11);
             return scheduler_schedule(regs);
         } else if (
             (regs->int_no == 13 && (regs->cs & 3) == 3)
@@ -39,14 +39,14 @@ registers_t* isr_handler(registers_t* regs) {
                 "Segmentation fault at %p (user-mode #GP)",
                 regs->rip
             );
-            thread_exit_status(11); 
+            thread_exit_status(11);
             return scheduler_schedule(regs);
         } else {
             panic("Unexpected CPU exception", regs);
         }
-    }  
+    }
 
-    // --- end of interrupt 
+    // --- end of interrupt
     if (regs->int_no >= 32 && regs->int_no <= 47) {
         if (regs->int_no >= 40) {
             arch_outb(0xA0, 0x20);  // slave EOI (we now have modern slavery frfr)
@@ -54,8 +54,8 @@ registers_t* isr_handler(registers_t* regs) {
         arch_outb(0x20, 0x20);      // master EOI
     }
 
-    // -- hardware interrupts 
-    if (regs->int_no == 32) { 
+    // -- hardware interrupts
+    if (regs->int_no == 32) {
         regs = scheduler_schedule(regs);
     } else if (regs->int_no == 33) {
 #ifdef CONFIG_IO_PS2_KEYBOARD_SUPPORT

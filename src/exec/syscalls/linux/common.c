@@ -180,7 +180,7 @@ SYSCALL_DEFINE_LINUX(getcwd) {
 
     if (!ubuf || size == 0) return SCRC(-EFAULT);
 
-    size_t len = strlen(process->cwd) + 1; 
+    size_t len = strlen(process->cwd) + 1;
 
     if (size < len)
         return SCRC(-ERANGE);
@@ -198,10 +198,10 @@ SYSCALL_DEFINE_LINUX(fstat) {
     int fd = regs->arg1;
     void* ustat = (void*)regs->arg2;
 
-    if (!ustat) return SCRC(-EFAULT); 
+    if (!ustat) return SCRC(-EFAULT);
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return SCRC(-EBADF); 
+        return SCRC(-EBADF);
     }
 
     struct stat kstat;
@@ -213,8 +213,8 @@ SYSCALL_DEFINE_LINUX(fstat) {
     } else {
         vnode_t* vnode = process->fds[fd].vnode;
         if (!vnode) return SCRC(-EBADF);
-        
-        kstat.st_dev  = 1; 
+
+        kstat.st_dev  = 1;
         kstat.st_ino  = (uint64_t)(uintptr_t)vnode;
         kstat.st_size = vnode->size;
         kstat.st_blksize = 4096;
@@ -256,7 +256,7 @@ SYSCALL_DEFINE_LINUX(open) {
     }
 
     if (fd == -1) {
-        return SCRC(-EMFILE); 
+        return SCRC(-EMFILE);
     }
 
     char resolved[VFS_PATH_MAX];
@@ -283,12 +283,12 @@ SYSCALL_DEFINE_LINUX(open) {
 
 SYSCALL_DEFINE_LINUX(close) {
     (void)thread;
-    if (!process) return SCRC(-EINVAL); 
+    if (!process) return SCRC(-EINVAL);
 
     int fd = regs->arg1;
 
     if (fd < 0 || fd >= MAX_FILES_PER_PROCESS || !process->fds[fd].used) {
-        return SCRC(-EBADF); 
+        return SCRC(-EBADF);
     }
 
     process->fds[fd].vnode = NULL;
@@ -302,9 +302,9 @@ SYSCALL_DEFINE_LINUX(close) {
 
 SYSCALL_DEFINE_LINUX(openat) {
     (void)thread;
-    if (!process) return SCRC(-EINVAL); 
+    if (!process) return SCRC(-EINVAL);
 
-    int dfd = (int)regs->arg1;  
+    int dfd = (int)regs->arg1;
     const char* upath = (const char*)regs->arg2;
     int flags = (int)regs->arg3;
 
@@ -354,7 +354,7 @@ SYSCALL_DEFINE_LINUX(poll) {
     uint64_t nfds = regs->arg2;
 
     if (nfds == 0) return SCRC(0);
-    if (nfds > MAX_FILES_PER_PROCESS) return SCRC(-EINVAL); 
+    if (nfds > MAX_FILES_PER_PROCESS) return SCRC(-EINVAL);
     if (!ufds) return SCRC(-EFAULT);
 
     size_t bytes = (size_t)nfds * sizeof(struct pollfd);
@@ -443,7 +443,7 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
     default:
         return SCRC(-ENOSYS);
     }
-#else 
+#else
     (void)process; (void)code; (void)addr;
     return SCRC(0);
 #endif
@@ -452,7 +452,7 @@ SYSCALL_DEFINE_LINUX(arch_prctl) {
 SYSCALL_DEFINE_LINUX(exit) {
     (void)process; (void)thread;
     thread_exit_status((int)((regs->arg1 & 0xff) << 8));
-    return SCRC(0); 
+    return SCRC(0);
 }
 
 SYSCALL_DEFINE_LINUX(stub_unimplemented) {
@@ -463,7 +463,7 @@ SYSCALL_DEFINE_LINUX(stub_unimplemented) {
 
 SYSCALL_DEFINE_LINUX(access) {
     (void)thread;
-    if (!process) return SCRC(-EINVAL); 
+    if (!process) return SCRC(-EINVAL);
 
     const char* upathname = (const char*)regs->arg1;
     int mode = (int)regs->arg2;
@@ -512,10 +512,10 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
     const char* ufilename = (const char*)regs->arg2;
     void* ustatbuf = (void*)regs->arg3;
     int flag = (int)regs->arg4;
-    
+
     (void)flag;
 
-    if (!ustatbuf) return SCRC(-EFAULT); 
+    if (!ustatbuf) return SCRC(-EFAULT);
 
     char filename[VFS_PATH_MAX];
     int perr = copy_user_path(process, ufilename, filename);
@@ -535,7 +535,7 @@ SYSCALL_DEFINE_LINUX(newfstatat) {
 
     struct stat kstat;
     memset(&kstat, 0, sizeof(kstat));
-    kstat.st_dev  = 1;  
+    kstat.st_dev  = 1;
     kstat.st_ino  = (uint64_t)(uintptr_t)vnode;
     kstat.st_size = vnode->size;
     kstat.st_blksize = 4096;
@@ -591,7 +591,7 @@ SYSCALL_DEFINE_LINUX(getdents64) {
         if (res == -ENOENT)
             break;
 
-        if (res < 0) 
+        if (res < 0)
             break;
 
         size_t name_len = strlen(entry.name);
@@ -635,7 +635,7 @@ SYSCALL_DEFINE_LINUX(getdents64) {
 
     process->fds[fd].offset = index;
 
-    return SCRC((int)written); 
+    return SCRC((int)written);
 }
 
 SYSCALL_DEFINE_LINUX(set_tid_address) {
@@ -680,7 +680,7 @@ SYSCALL_DEFINE_LINUX(getrandom) {
         done += chunk;
     }
 
-    return SCRC(done); 
+    return SCRC(done);
 }
 
 SYSCALL_DEFINE_LINUX(getpgid) {
@@ -809,7 +809,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [7]   = syscall_linux_poll,
     [8]   = syscall_linux_lseek,
     [9]   = syscall_linux_mmap,
-    [10]  = syscall_linux_mprotect, 
+    [10]  = syscall_linux_mprotect,
     [11]  = syscall_linux_munmap,
     [12]  = syscall_linux_brk,
     [13]  = syscall_linux_stub_unimplemented,
@@ -934,7 +934,7 @@ static const syscall_fn_t syscall_linux_table[] = {
     [435] = syscall_linux_clone3,
     [436] = syscall_linux_close_range
 };
- 
+
 static syscall_regs_t syscall_linux_to_sregs(registers_t* regs) {
     return (syscall_regs_t) {
         .syscall_no = regs->x[17], // a7

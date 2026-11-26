@@ -46,7 +46,7 @@ static bool kbd_pop(char* c) {
 bool keyboard_should_putchar = true;
 
 void keyboard_handle_keypress(keyboard_pressed_key_t key) {
-    if unlikely (key.kind != KEYBOARD_PRESSED_KEY_KIND_CHAR) 
+    if unlikely (key.kind != KEYBOARD_PRESSED_KEY_KIND_CHAR)
         BUG("Unknown keypress type, expected %d, got %d", KEYBOARD_PRESSED_KEY_KIND_CHAR, key.kind);
 
     if unlikely (key.character == 0)
@@ -70,7 +70,7 @@ int keyboard_read(char* buffer, uint64_t size) {
     if (size == 0) return 0;
 
     for (;;) {
-        uint64_t seq = wait_queue_snapshot(&kbd_wq); 
+        uint64_t seq = wait_queue_snapshot(&kbd_wq);
 
         char c;
         while (n < size && kbd_pop(&c)) {
