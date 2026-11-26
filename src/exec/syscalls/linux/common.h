@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <types.h>
 #include <config.h>
@@ -74,7 +74,7 @@ struct stat {
 #endif
 
 struct termios {
-    uint32_t c_iflag;   
+    uint32_t c_iflag;
     uint32_t c_oflag;
     uint32_t c_cflag;
     uint32_t c_lflag;
@@ -246,7 +246,7 @@ struct rlimit64 {
 
 struct timespec {
     long tv_sec;
-    long tv_nsec; 
+    long tv_nsec;
 };
 
 typedef struct clone3_args {

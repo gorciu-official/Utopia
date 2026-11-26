@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <types.h>
 #include <constants.h>
@@ -6,7 +6,7 @@
 typedef enum {
     VMF_WRITE  = 1 << 0,
     VMF_USER   = 1 << 1,
-    VMF_EXEC   = 1 << 2,  
+    VMF_EXEC   = 1 << 2,
     VMF_GLOBAL = 1 << 3,
 } vm_flags_t;
 

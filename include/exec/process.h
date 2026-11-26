@@ -24,22 +24,22 @@ typedef struct process {
     uint32_t pid;
     uint32_t ppid;
     char name[32];
-    uint64_t* page_table; 
+    uint64_t* page_table;
     uint64_t brk_start;
     uint64_t brk_current;
     uint64_t mmap_start;
     uint64_t mmap_current;
-    struct thread* main_thread; 
-    struct process* next;   
+    struct thread* main_thread;
+    struct process* next;
     file_desc_t fds[MAX_FILES_PER_PROCESS];
-    char cwd[PROCESS_CWD_MAX]; 
+    char cwd[PROCESS_CWD_MAX];
     int syscall_conv;
     vm_page_list_t owned_pages;
 
-    bool         zombie; 
-    int          exit_status;  
+    bool         zombie;
+    int          exit_status;
     uint32_t     main_tid;
-    wait_queue_t child_wq;  
+    wait_queue_t child_wq;
     wait_queue_t signal_wq;
 } process_t;
 
@@ -59,10 +59,10 @@ struct registers;
 struct elf_prepared;
 
 typedef struct {
-    uint64_t child_stack;  
-    bool     set_tls;   
+    uint64_t child_stack;
+    bool     set_tls;
     uint64_t tls;
-    uint64_t child_tid_addr; 
+    uint64_t child_tid_addr;
 } process_clone_opts_t;
 
 process_t* process_clone(process_t* parent, thread_t* parent_thread, const struct registers* frame, const process_clone_opts_t* opts);

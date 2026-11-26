@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <types.h>
 #include <constants.h>
@@ -19,7 +19,7 @@ extern void printk_remove_console_suspension();
 extern void locked_printf(const char* fmt, ...);
 
 #ifdef CONFIG_IO_PRINT_EXTRA_DEBUG_MESSAGES
-#define dprintk(...) printk(KMT_EXTRA_DEBUG, __VA_ARGS__) 
+#define dprintk(...) printk(KMT_EXTRA_DEBUG, __VA_ARGS__)
 #else
 #define dprintk(...) \
     do {} while (0)

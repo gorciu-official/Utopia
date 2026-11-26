@@ -90,7 +90,7 @@ typedef struct filesystem_mount {
     void *fs_private;
     filesystem_driver_t *fs;
 
-    char *target;          
+    char *target;
     unsigned long flags;
 } filesystem_mount_t;
 
@@ -114,7 +114,7 @@ int procfs_parse_fd_path(const char *path, uint32_t pid);
 void devtmpfs_register_devices(void);
 void procfs_register_nodes(const char *cmdline);
 
-// -- fs drivers 
+// -- fs drivers
 extern filesystem_driver_t ramfs_driver;
 extern filesystem_driver_t tarfs_driver;
 extern filesystem_driver_t devtmpfs_driver;

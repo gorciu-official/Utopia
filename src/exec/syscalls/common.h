@@ -17,7 +17,7 @@ typedef enum {
 } syscall_result_type_t;
 
 typedef struct {
-    syscall_result_type_t type;   
+    syscall_result_type_t type;
     uintptr_t code;
 } syscall_result_t;
 
@@ -27,7 +27,7 @@ typedef struct {
     // syscall table
     const syscall_fn_t (*table)[];
     uint64_t table_size;
-    
+
     // misc
     int64_t not_found_error;
 
@@ -39,7 +39,7 @@ typedef struct {
 #define USER_HEAP_MAX 0x0000800000000000ULL
 
 #define SYSCALL_DEFINE(platform, syscall_name) \
-    syscall_result_t syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread) 
+    syscall_result_t syscall_##platform##_##syscall_name(syscall_regs_t* regs, process_t* process, thread_t* thread)
 
 #ifdef CONFIG_SYSCALL_ABI_LINUX
 #define SYSCALL_DEFINE_LINUX(syscall_name) \
@@ -50,7 +50,7 @@ typedef struct {
     SYSCALL_DEFINE(own, syscall_name)
 
 #define SYSCALL_ABI_DECLARE(abi_name) \
-    syscall_abi_t syscall_abi_##abi_name 
+    syscall_abi_t syscall_abi_##abi_name
 
 #define SYSCALL_ABI_DEFINE(abi_name, syscall_table, to_sregs_fun, set_return_value, not_found_err) \
     SYSCALL_ABI_DECLARE(abi_name) = \

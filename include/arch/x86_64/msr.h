@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <types.h>
 
@@ -31,7 +31,7 @@ static inline void write_msr(uint32_t msr, uint64_t value) {
 #define ARCH_GET_FS 0x1003
 #define ARCH_GET_GS 0x1004
 
-#define IA32_FS_BASE 0xC0000100 
+#define IA32_FS_BASE 0xC0000100
 #define IA32_GS_BASE 0xC0000101
 #define IA32_KERNEL_GS_BASE 0xC0000102
 #define IA32_EFER    0xC0000080

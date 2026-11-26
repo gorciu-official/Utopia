@@ -22,11 +22,11 @@ typedef struct {
 
 typedef struct elf_prepared {
     uint64_t*        l4;
-    uint64_t         entry;  
+    uint64_t         entry;
     uint64_t         sp;
     uint64_t         brk_start;
-    thread_stack_t*  stack; 
-    vm_page_list_t   pages;  
+    thread_stack_t*  stack;
+    vm_page_list_t   pages;
 } elf_prepared_t;
 
 int  elf_prepare(const create_elf_process_request_t* req, elf_prepared_t* out);

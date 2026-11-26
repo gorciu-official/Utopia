@@ -15,12 +15,12 @@
  */
 
 // CHANGE:::
-// pragma once better, also changed from da include guards 
+// pragma once better, also changed from da include guards
 // at the end of the file
 #pragma once
 
 // CHANGE:::
-// limine please do not include c standard library headers that 
+// limine please do not include c standard library headers that
 // break my type definitions thank you
 // #include <stdint.h>
 #include <types.h>

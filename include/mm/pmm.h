@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <types.h>
 
@@ -20,7 +20,7 @@ uint64_t* pt_pool_alloc(void);
 
 #if BOOTLOADER == BOOTLOADER_CODE_LIMINE
 extern uint64_t* page_table_l4;
-#else 
+#else
 extern uint64_t page_table_l4[];
 #endif
 

@@ -14,7 +14,7 @@ typedef enum {
 #define THREAD_KERNEL_STACK_SIZE (16 * 1024)
 
 typedef struct {
-    void*  ptr; 
+    void*  ptr;
     void*  base;
     size_t size;
     bool   user_mapped;
@@ -57,10 +57,10 @@ typedef struct thread {
 
 typedef struct {
     uint64_t at_entry;
-    uint64_t at_phdr; 
+    uint64_t at_phdr;
     uint16_t at_phent;
     uint16_t at_phnum;
-    uint64_t at_base; 
+    uint64_t at_base;
     bool     has_interp;
 } elf_auxv_info_t;
 
@@ -70,7 +70,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
 thread_t* thread_clone_user(const thread_t* parent, const registers_t* frame, thread_stack_t* user_stack, uint64_t fs_base);
 registers_t* scheduler_schedule(registers_t* regs);
 void thread_exit(void);
-void thread_exit_status(int status); 
+void thread_exit_status(int status);
 thread_t* scheduler_get_current_thread(void);
 void scheduler_enqueue(thread_t* t);
 void scheduler_reap(void);

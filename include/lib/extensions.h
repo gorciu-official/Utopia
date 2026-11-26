@@ -12,7 +12,7 @@
 #define likely(expr) likely_common(expr, true)
 #define unlikely(expr) likely_common(expr, false)
 
-// this is a planned keyword for C29, but we will implement it 
+// this is a planned keyword for C29, but we will implement it
 // quicker because it's good
 #define countof(array) (sizeof(array) / sizeof(array[0]))
 

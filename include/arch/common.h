@@ -15,17 +15,17 @@ extern void arch_boot_aps(void);
 
 #if ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
 typedef struct {
-    uint64_t id;  
-    uint64_t kernel_stack_top;   
+    uint64_t id;
+    uint64_t kernel_stack_top;
     uint64_t scratch_sp;
-    uint64_t default_stack_top;  
+    uint64_t default_stack_top;
 } cpu_t;
 #endif
 
 static inline uint32_t current_processor_id(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     uint32_t eax, ebx, ecx, edx;
-    __asm__ volatile ("cpuid" 
+    __asm__ volatile ("cpuid"
         : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
         : "0" (1));
     return (ebx >> 24);
