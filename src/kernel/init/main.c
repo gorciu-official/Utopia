@@ -107,9 +107,6 @@ void kmain(common_boot_structure_t* cbs) {
     devtmpfs_register_devices();
     procfs_register_nodes(cbs->cmdline);
 
-    // run base tasks
-    printk(KMT_LOG, "Core", "Starting init process");
-
     vnode_t* font_file = NULL;
     if (vfs_lookup("/font.psf1", &font_file) == 0) {
         uint64_t size = font_file->size;
@@ -122,6 +119,9 @@ void kmain(common_boot_structure_t* cbs) {
             free(buffer);
         }
     }
+
+    // run base tasks
+    printk(KMT_LOG, "Core", "Starting init process");
 
     vnode_t* init_file = 0;
     vfs_lookup(custom_init_path ?: "/init", &init_file);

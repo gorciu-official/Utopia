@@ -4,7 +4,7 @@ set -e
 
 # Let's ensure you do not have ugly spaces at the end of files as they
 # are so easy to add accidentally.
-git diff --name-only -z HEAD -- '*.mk' '*.rs' '*.h' '*.c' '*.asm' |
+git diff --name-only --diff-filter=d -z HEAD -- '*.mk' '*.rs' '*.h' '*.c' '*.asm' |
   xargs -0 -r sed -i 's/[[:blank:]]*$//'
 
 # At least ensure that it compiles for the host architecture.

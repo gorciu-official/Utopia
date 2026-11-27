@@ -5,7 +5,7 @@
 #include <lib/string.h>
 #include <arch/common.h>
 
-#include "font-8x8.h"
+#include "font.h"
 
 #define PSF1_MAGIC0 0x36
 #define PSF1_MAGIC1 0x04
@@ -15,7 +15,7 @@
 
 #define FONT_WIDTH 8
 
-static psf1_header_t* current_font = NULL;
+static psf1_header_t* current_font = (psf1_header_t*)framebuffer_builtin_font;
 
 static uint32_t* fb_addr = NULL;
 static uint32_t* backbuffer = NULL;
@@ -30,27 +30,10 @@ static uint32_t cursor_x = 0;
 static uint32_t cursor_y = 0;
 
 uint32_t framebuffer_font_height(void) {
-    if (current_font != NULL)
-        return current_font->charsize;
-
-    return 8;
+    return current_font->charsize;
 }
 
 void framebuffer_switch_font(psf1_header_t* font, uintptr_t size) {
-    if (font == NULL) {
-        current_font = NULL;
-
-        if (cursor_y >= fb_height)
-            cursor_y = 0;
-
-        if (cursor_x >= fb_width)
-            cursor_x = 0;
-
-        printk(KMT_LOG, "Framebuffer", "Applied default font.");
-
-        return;
-    }
-
     if (size < sizeof(psf1_header_t))
         return;
 
@@ -305,24 +288,18 @@ void framebuffer_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t
     uint8_t* glyph;
     bool lsb_first;
 
-    if (current_font != NULL) {
-        uint32_t glyph_count =
-            (current_font->mode & PSF1_MODE512) ? 512 : 256;
+    uint32_t glyph_count =
+        (current_font->mode & PSF1_MODE512) ? 512 : 256;
 
-        if (ch >= glyph_count)
-            ch = '?';
+    if (ch >= glyph_count)
+        ch = '?';
 
-        uint8_t* glyph_data =
-            (uint8_t*)current_font + sizeof(psf1_header_t);
+    uint8_t* glyph_data =
+        (uint8_t*)current_font + sizeof(psf1_header_t);
 
-        glyph = glyph_data + (uintptr_t)ch * current_font->charsize;
+    glyph = glyph_data + (uintptr_t)ch * current_font->charsize;
 
-        lsb_first = false;
-    } else {
-        glyph = (uint8_t*)font8x8_basic[ch];
-
-        lsb_first = true;
-    }
+    lsb_first = false;
 
     for (uint32_t row = 0; row < font_height; row++) {
         uint8_t bits = glyph[row];
