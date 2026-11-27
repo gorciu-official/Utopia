@@ -110,6 +110,19 @@ void kmain(common_boot_structure_t* cbs) {
     // run base tasks
     printk(KMT_LOG, "Core", "Starting init process");
 
+    vnode_t* font_file = NULL;
+    if (vfs_lookup("/font.psf1", &font_file) == 0) {
+        uint64_t size = font_file->size;
+        void* buffer = malloc(size);
+        uint64_t bytes_read = 0;
+        font_file->ops->read(font_file, buffer, size, 0, &bytes_read);
+        if (bytes_read == size) {
+            framebuffer_switch_font((psf1_header_t*)buffer, size);
+        } else {
+            free(buffer);
+        }
+    }
+
     vnode_t* init_file = 0;
     vfs_lookup(custom_init_path ?: "/init", &init_file);
     if likely (init_file) {

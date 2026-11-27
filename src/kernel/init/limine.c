@@ -66,9 +66,6 @@ void kinit() {
             if (strcmp(mod->path, "/initramfs.tar.zst") == 0 || strcmp(mod->path, "/initramfs.tar") == 0) {
                 cbs.modules.initramfs_addr = mod->address;
                 cbs.modules.initramfs_size = mod->size;
-            } else if (strcmp(mod->path, "/font.psf1") == 0) {
-                cbs.modules.font_addr = mod->address;
-                cbs.modules.font_size = mod->size;
             }
         }
     }

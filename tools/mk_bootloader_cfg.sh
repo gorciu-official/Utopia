@@ -1,4 +1,4 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash
 
 ARCH="${ARCH:-x86_64}"
 
@@ -20,7 +20,7 @@ COLOR_YELLOW=$'\x1b[33m'
 COLOR_GRAY=$'\x1b[90m'
 COLOR_RESET=$'\x1b[0m'
 
-if [[ "$1" = "-e" && -f $GRUB_CFG && -f $LIMINE_CFG ]]; then 
+if [[ "$1" = "-e" && -f $GRUB_CFG && -f $LIMINE_CFG ]]; then
     printf "%sThere is nothing to do%s\n" "$COLOR_GRAY" "$COLOR_RESET"
     exit 0
 fi
@@ -33,15 +33,11 @@ printf ' Starting %s[GRUB bootloader configuration generation]%s\n' "$COLOR_YELL
 
 echo 'set default=0'                                                                        > $GRUB_CFG
 echo 'set timeout=5'                                                                       >> $GRUB_CFG
-echo 'menuentry "Utopia" {'                                                                >> $GRUB_CFG 
+echo 'menuentry "Utopia" {'                                                                >> $GRUB_CFG
 echo '    multiboot /boot/kernel.bin'                                                      >> $GRUB_CFG
 if [[ -d initramfs-${ARCH} || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
     printf '  %sFound initramfs, adding module initramfs support.%s\n'                     "$COLOR_GRAY" "$COLOR_RESET"
     echo '    module /initramfs.tar initramfs.tar.zst'                                         >> $GRUB_CFG
-fi
-if [[ -f font.psf1 || "$MKBC_CUSTOM_FONT_SUPPORT" = "true" ]]; then
-    printf '  %sFound custom font, adding module font loading.%s\n'                        "$COLOR_GRAY" "$COLOR_RESET"
-    echo '    module /font.psf1 font.psf1'                                                 >> $GRUB_CFG
 fi
 echo '    boot'                                                                            >> $GRUB_CFG
 echo '}'                                                                                   >> $GRUB_CFG
@@ -50,7 +46,7 @@ printf ' Finished %s[GRUB bootloader configuration generation]%s\n' "$COLOR_YELL
 
 printf ' Starting %s[Limine bootloader configuration generation]%s\n' "$COLOR_YELLOW" "$COLOR_RESET"
 
-echo 'timeout: 3'                                                                           > $LIMINE_CFG 
+echo 'timeout: 5'                                                                           > $LIMINE_CFG
 echo 'serial: yes'                                                                         >> $LIMINE_CFG
 echo '/Utopia'                                                                             >> $LIMINE_CFG
 echo '    protocol: limine'                                                                >> $LIMINE_CFG
@@ -58,10 +54,6 @@ echo '    kernel_path: boot():/kernel.bin'                                      
 if [[ -d initramfs-${ARCH} || "$MKBC_INITRAMFS_SUPPORT" = "true" ]]; then
     printf '  %sFound initramfs, adding module initramfs support.%s\n'                     "$COLOR_GRAY" "$COLOR_RESET"
     echo '    module_path: boot():/initramfs.tar.zst'                                          >> $LIMINE_CFG
-fi
-if [[ -f font.psf1 || "$MKBC_CUSTOM_FONT_SUPPORT" = "true" ]]; then
-    printf '  %sFound custom font, adding module font loading.%s\n'                        "$COLOR_GRAY" "$COLOR_RESET"
-    echo '    module_path: boot():/font.psf1'                                              >> $LIMINE_CFG
 fi
 
 printf ' Finished %s[Limine bootloader configuration generation]%s\n' "$COLOR_YELLOW" "$COLOR_RESET"
