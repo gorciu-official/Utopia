@@ -15,6 +15,7 @@
 static acpi_madt_t* madt = NULL;
 static acpi_rsdp_t* rsdp = NULL;
 static acpi_hpet_t* hpet = NULL;
+__attribute__((used))
 static acpi_fadt_t* fadt = NULL;
 static acpi_sdt_header_t* dsdt = NULL;
 
@@ -128,6 +129,7 @@ static uint64_t acpi_fadt_dsdt_address(acpi_fadt_t* fadt) {
     return fadt->dsdt;
 }
 
+__attribute__((used))
 static acpi_sdt_header_t* acpi_find_dsdt(acpi_fadt_t* fadt) {
     uint64_t address = acpi_fadt_dsdt_address(fadt);
 
@@ -156,6 +158,7 @@ void* acpi_get_aml(size_t* length) {
 }
 
 void acpi_init_aml(void) {
+#ifdef CONFIG_ACPI_AML
     fadt = acpi_find_fadt();
     if (!fadt) {
         printk(KMT_LOG, "ACPI", "No FADT found");
@@ -170,8 +173,11 @@ void acpi_init_aml(void) {
 
     size_t length = 0;
     void* aml = acpi_get_aml(&length);
-    printk(KMT_LOG, "ACPI", "AML at %p, %d bytes; starting interpretter", aml, (int)length);
+    printk(KMT_LOG, "ACPI", "Starting AML interpretter", aml, (int)length);
     acpi_aml_start_interpreter(aml, length);
+#else
+    printk(KMT_LOG, "ACPI", "No kernel support for parsing AML, skipping.");
+#endif
 }
 
 int acpi_get_cpus(uint8_t* apic_ids, int max_cpus) {
