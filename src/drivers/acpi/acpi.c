@@ -8,11 +8,15 @@
 
 #define ACPI_MADT_SIGNATURE 0x43495041
 #define ACPI_HPET_SIGNATURE 0x54455048
+#define ACPI_FADT_SIGNATURE 0x50434146
+#define ACPI_DSDT_SIGNATURE "DSDT"
 #define ACPI_RSDP_SIGNATURE "RSD PTR "
 
 static acpi_madt_t* madt = NULL;
 static acpi_rsdp_t* rsdp = NULL;
 static acpi_hpet_t* hpet = NULL;
+static acpi_fadt_t* fadt = NULL;
+static acpi_sdt_header_t* dsdt = NULL;
 
 static int acpi_checksum(void* table, size_t length) {
     uint8_t sum = 0;
@@ -115,6 +119,60 @@ void* acpi_find_table(uint32_t signature) {
 
 ACPI_DEFINE_FIND_TABLE_FUNCTION(madt, ACPI_MADT_SIGNATURE, acpi_madt_t);
 ACPI_DEFINE_FIND_TABLE_FUNCTION(hpet, ACPI_HPET_SIGNATURE, acpi_hpet_t);
+ACPI_DEFINE_FIND_TABLE_FUNCTION(fadt, ACPI_FADT_SIGNATURE, acpi_fadt_t);
+
+static uint64_t acpi_fadt_dsdt_address(acpi_fadt_t* fadt) {
+    if (fadt->header.length >= sizeof(acpi_fadt_t) && fadt->x_dsdt)
+        return fadt->x_dsdt;
+
+    return fadt->dsdt;
+}
+
+static acpi_sdt_header_t* acpi_find_dsdt(acpi_fadt_t* fadt) {
+    uint64_t address = acpi_fadt_dsdt_address(fadt);
+
+    if (!address)
+        return NULL;
+
+    acpi_sdt_header_t* hdr = (acpi_sdt_header_t*)phys_to_virt(address);
+
+    if (memcmp(hdr->signature, ACPI_DSDT_SIGNATURE, 4))
+        return NULL;
+
+    if (!acpi_checksum(hdr, hdr->length))
+        return NULL;
+
+    return hdr;
+}
+
+void* acpi_get_aml(size_t* length) {
+    if (!dsdt)
+        return NULL;
+
+    if (length)
+        *length = dsdt->length - sizeof(acpi_sdt_header_t);
+
+    return (uint8_t*)dsdt + sizeof(acpi_sdt_header_t);
+}
+
+void acpi_init_aml(void) {
+    fadt = acpi_find_fadt();
+    if (!fadt) {
+        printk(KMT_LOG, "ACPI", "No FADT found");
+        return;
+    }
+
+    dsdt = acpi_find_dsdt(fadt);
+    if (!dsdt) {
+        printk(KMT_LOG, "ACPI", "No valid DSDT found");
+        return;
+    }
+
+    size_t length = 0;
+    void* aml = acpi_get_aml(&length);
+    printk(KMT_LOG, "ACPI", "AML at %p, %d bytes; starting interpretter", aml, (int)length);
+    acpi_aml_start_interpreter(aml, length);
+}
 
 int acpi_get_cpus(uint8_t* apic_ids, int max_cpus) {
     if (!madt)
