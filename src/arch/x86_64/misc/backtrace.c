@@ -79,8 +79,8 @@ void arch_print_backtrace(registers_t* regs) {
         if (value == 0) {
             truncated++;
             continue;
-        } 
-        
+        }
+
         print_ommitted(&truncated);
 
         printk(
