@@ -33,7 +33,7 @@ void arch_ap_init() {
 }
 
 void arch_late_init() {
-
+    acpi_init_aml();
 }
 
 void arch_general_init() {

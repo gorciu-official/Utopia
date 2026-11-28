@@ -15,17 +15,29 @@ opt CONFIG_SYSCALL_ABI_LINUX(bool) {
     within: CONFIG_SYSCALLS
 }
 
-// ----- devices
+// ----- drivers
 
-opt CONFIG_DEVICES(null) -> menu {
-    display: "Devices"
+opt CONFIG_DRIVERS(null) -> menu {
+    display: "Drivers"
+}
+
+opt CONFIG_PCI(bool) {
+    display: "PCI scanning support (on supported architectures)"
+    default: true
+    within: CONFIG_DRIVERS
+}
+
+opt CONFIG_ACPI_AML(bool) {
+    display: "ACPI AML interpretter support (on supported architectures)"
+    default: true 
+    within: CONFIG_DRIVERS
 }
 
 // ----- io
 
 opt CONFIG_IO(null) -> menu {
     display: "I/O devices"
-    within: CONFIG_DEVICES
+    within: CONFIG_DRIVERS
 }
 
 opt CONFIG_IO_PRINT_EXTRA_DEBUG_MESSAGES(bool) {
@@ -44,14 +56,6 @@ opt CONFIG_IO_PS2_KEYBOARD_SUPPORT(bool) {
     display: "Enable PS/2 keyboard support (on supported architectures)"
     default: true
     within: CONFIG_IO
-}
-
-// ----- pci
-
-opt CONFIG_PCI(bool) {
-    display: "Scan PCI devices"
-    default: true
-    within: CONFIG_DEVICES
 }
 
 // ----- smp

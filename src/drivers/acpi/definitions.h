@@ -65,3 +65,13 @@ typedef struct {
         };
     } event_timer_block_id;
 } __attribute__((packed)) acpi_hpet_t;
+
+typedef struct {
+    acpi_sdt_header_t header;
+    uint32_t firmware_ctrl;
+    uint32_t dsdt;
+    uint8_t skipped_fields[96];
+    uint64_t x_dsdt;
+} __attribute__((packed)) acpi_fadt_t;
+
+extern void acpi_aml_start_interpreter(char* base, int length);

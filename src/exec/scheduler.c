@@ -190,6 +190,26 @@ void scheduler_enqueue(thread_t* t) {
     sched_unlock(flags);
 }
 
+#if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
+static void thread_build_ring0_iret_tail(registers_t* regs, thread_stack_t* stack) {
+    uintptr_t top = (uintptr_t)stack->ptr & ~(uintptr_t)0xF;
+    uint64_t* iret_tail = (uint64_t*)(top - 16);
+    uint64_t* return_slot = (uint64_t*)(top - 56);
+
+    *return_slot = (uint64_t)thread_exit;
+    iret_tail[0] = (uint64_t)return_slot;
+    iret_tail[1] = 0x10;
+    regs->rsp = (uint64_t)iret_tail;
+}
+
+static void thread_set_initial_stack(registers_t* regs, thread_stack_t* stack, int ring) {
+    if (ring == 0)
+        thread_build_ring0_iret_tail(regs, stack);
+    else
+        regs->rsp = (uintptr_t)stack->ptr;
+}
+#endif
+
 thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t arg, int ring,
                         thread_stack_t* stack) {
     scheduler_reap();
@@ -227,7 +247,7 @@ thread_t* thread_create(const char* name, void (*entry_point)(void*), uint64_t a
     regs->cs     = ring == 0 ? 0x08 : (0x28 | 3);
     regs->ss     = ring == 0 ? 0x10 : (0x20 | 3);
     regs->rflags = 0x202;
-    regs->rsp    = (uintptr_t)stack->ptr;
+    thread_set_initial_stack(regs, stack, ring);
     regs->rdi    = arg;
     regs->rax    = arg;
 #elif ARCHITECTURE == ARCHITECTURE_CODE_RISCV64
