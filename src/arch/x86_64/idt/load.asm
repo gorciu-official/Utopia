@@ -3,6 +3,7 @@ bits 64
 global isr_stub_table
 global irq_stub_table
 global idt_load
+global isr_spurious
 extern isr_handler
 
 %macro ISR_NOERR 1
@@ -49,7 +50,7 @@ ISR_ERR   17
 ISR_NOERR 18
 ISR_NOERR 19
 ISR_NOERR 20
-ISR_NOERR 21
+ISR_ERR   21
 ISR_NOERR 22
 ISR_NOERR 23
 ISR_NOERR 24
@@ -57,7 +58,7 @@ ISR_NOERR 25
 ISR_NOERR 26
 ISR_NOERR 27
 ISR_NOERR 28
-ISR_NOERR 29
+ISR_ERR   29
 ISR_ERR   30
 ISR_NOERR 31
 ISR_NOERR 0x40
@@ -111,7 +112,6 @@ isr_common:
 
     mov rdi, rsp
     mov rbx, rdi
-    sub rsp, 8
     call isr_handler
     cmp rax, rbx
     mov rsp, rax
@@ -141,6 +141,10 @@ isr_common:
 .no_swapgs_exit:
     POP_GPRS
     add rsp, 16
+    iretq
+
+; Spurious LAPIC interrupt: no EOI, no register state touched.
+isr_spurious:
     iretq
 
 section .data

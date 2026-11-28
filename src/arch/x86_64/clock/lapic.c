@@ -75,7 +75,8 @@ registers_t* lapic_timer_handler(registers_t* regs) {
 
 void lapic_init(void) {
     uint32_t svr = lapic_read(LAPIC_SVR);
-    lapic_write(LAPIC_SVR, svr | (1 << 8));
+    // enable APIC + explicit spurious vector 0xFF (has a gate in the IDT)
+    lapic_write(LAPIC_SVR, (svr & ~0xFFu) | 0xFF | (1 << 8));
 
     lapic_ticks_per_second = lapic_calibrate();
 

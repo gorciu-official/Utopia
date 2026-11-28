@@ -120,6 +120,8 @@ void kmain(common_boot_structure_t* cbs) {
         }
     }
 
+    *(volatile int*)(NULL) = 1;
+
     // run base tasks
     printk(KMT_LOG, "Core", "Starting init process");
 

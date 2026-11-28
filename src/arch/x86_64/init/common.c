@@ -25,8 +25,8 @@ void arch_boot_aps() {
 
 void arch_ap_init() {
     enable_simd_extensions();
-    idt_init();
     gdt_init();
+    idt_init();
     timer_init(100);
     enable_umip();
     init_syscall();

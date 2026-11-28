@@ -29,6 +29,8 @@ typedef struct {
 static cpu_local_t cpu_local_data[MAX_CPUS];
 uint8_t kernel_stacks[MAX_CPUS][16384] __attribute__((aligned(16)));
 uint8_t tss_kernel_stacks[MAX_CPUS][16384] __attribute__((aligned(16)));
+// IST1 = #DF, IST2 = NMI (see idt.c); lets us survive a blown kernel stack
+static uint8_t ist_stacks[MAX_CPUS][2][8192] __attribute__((aligned(16)));
 
 extern void gdt_flush(uint64_t);
 
@@ -53,6 +55,8 @@ static void tss_init_per_cpu(int cpu_id) {
     uint64_t top = (uint64_t)&tss_kernel_stacks[cpu_id][16384];
 
     tss_per_cpu[cpu_id].rsp0 = top;
+    tss_per_cpu[cpu_id].ist1 = (uint64_t)&ist_stacks[cpu_id][0][8192];
+    tss_per_cpu[cpu_id].ist2 = (uint64_t)&ist_stacks[cpu_id][1][8192];
     tss_per_cpu[cpu_id].iomap_base = sizeof(tss_t);
 }
 

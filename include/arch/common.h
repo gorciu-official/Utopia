@@ -42,6 +42,8 @@ static inline uint32_t current_processor_id(void) {
 #include <arch/riscv64/registers.h>
 #endif
 
+extern void arch_print_backtrace(registers_t* regs);
+
 static inline uintptr_t read_pf_addr(void) {
 #if ARCHITECTURE == ARCHITECTURE_CODE_x86_64
     uintptr_t value;

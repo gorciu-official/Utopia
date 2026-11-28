@@ -10,6 +10,12 @@
 extern registers_t* lapic_timer_handler(registers_t* regs);
 extern void arch_com1_handler();
 
+static uint16_t pic_read_isr(void) {
+    arch_outb(0x20, 0x0B);
+    arch_outb(0xA0, 0x0B);
+    return (uint16_t)(arch_inb(0xA0) << 8) | arch_inb(0x20);
+}
+
 registers_t* isr_handler(registers_t* regs) {
     // -- panic killer
     if (regs->int_no == 2) {
@@ -47,6 +53,14 @@ registers_t* isr_handler(registers_t* regs) {
     }
 
     // --- end of interrupt
+    if (regs->int_no == 39 && !(pic_read_isr() & (1 << 7))) {
+        return regs; // spurious IRQ7: no EOI
+    }
+    if (regs->int_no == 47 && !(pic_read_isr() & (1 << 15))) {
+        arch_outb(0x20, 0x20); // spurious IRQ15: EOI master only
+        return regs;
+    }
+
     if (regs->int_no >= 32 && regs->int_no <= 47) {
         if (regs->int_no >= 40) {
             arch_outb(0xA0, 0x20);  // slave EOI (we now have modern slavery frfr)
